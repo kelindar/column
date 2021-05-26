@@ -1,0 +1,852 @@
+[
+    {
+        "serial": "1b7289be-7482-4d54-be7b-889bd148605a",
+        "name": "Booker Gilmore",
+        "active": true,
+        "class": "rogue",
+        "race": "elf",
+        "age": 39,
+        "hp": 58,
+        "mp": 36,
+        "balance": 1106.83,
+        "gender": "male",
+        "guild": "Gracker",
+        "location": {
+            "x": 1486,
+            "y": 887
+        }
+    },
+    {
+        "serial": "8c6617bd-e6ef-4562-be73-032689c30069",
+        "name": "Gwen Scott",
+        "active": true,
+        "class": "mage",
+        "race": "dwarf",
+        "age": 30,
+        "hp": 45,
+        "mp": 59,
+        "balance": 2273.93,
+        "gender": "female",
+        "guild": "Eplode",
+        "location": {
+            "x": 383,
+            "y": 1218
+        }
+    },
+    {
+        "serial": "cf05231d-e72f-49df-b639-3a058e520886",
+        "name": "Jeri Morin",
+        "active": true,
+        "class": "mage",
+        "race": "elf",
+        "age": 38,
+        "hp": 27,
+        "mp": 116,
+        "balance": 1477.83,
+        "gender": "female",
+        "guild": "Vitricomp",
+        "location": {
+            "x": 2486,
+            "y": 1628
+        }
+    },
+    {
+        "serial": "a9aed9f7-656d-4208-a68d-b5b09bdfc797",
+        "name": "Mcfadden Mullen",
+        "active": true,
+        "class": "mage",
+        "race": "human",
+        "age": 28,
+        "hp": 11,
+        "mp": 81,
+        "balance": 3480.65,
+        "gender": "male",
+        "guild": "Elentrix",
+        "location": {
+            "x": 426,
+            "y": 461
+        }
+    },
+    {
+        "serial": "d98cbf62-4133-43b9-bf58-9e25957dc078",
+        "name": "Wilda Donovan",
+        "active": true,
+        "class": "mage",
+        "race": "orc",
+        "age": 34,
+        "hp": 77,
+        "mp": 125,
+        "balance": 1843.83,
+        "gender": "female",
+        "guild": "Candecor",
+        "location": {
+            "x": 1200,
+            "y": 788
+        }
+    },
+    {
+        "serial": "a8b4debe-e37e-42fa-8aa8-300e5d4f1ea9",
+        "name": "Cornelia Osborn",
+        "active": true,
+        "class": "rogue",
+        "race": "orc",
+        "age": 39,
+        "hp": 16,
+        "mp": 122,
+        "balance": 1896.92,
+        "gender": "female",
+        "guild": "Telepark",
+        "location": {
+            "x": 2348,
+            "y": 1350
+        }
+    },
+    {
+        "serial": "e0e62b26-08c2-4c29-8a9c-8a8e5995ea1e",
+        "name": "Mitchell West",
+        "active": true,
+        "class": "rogue",
+        "race": "human",
+        "age": 37,
+        "hp": 46,
+        "mp": 126,
+        "balance": 2858.23,
+        "gender": "male",
+        "guild": "Acium",
+        "location": {
+            "x": 2758,
+            "y": 2365
+        }
+    },
+    {
+        "serial": "4865f250-fb92-406e-b25d-49d39475d018",
+        "name": "Jolene Davenport",
+        "active": true,
+        "class": "fighter",
+        "race": "elf",
+        "age": 23,
+        "hp": 96,
+        "mp": 186,
+        "balance": 2276.05,
+        "gender": "female",
+        "guild": "Voratak",
+        "location": {
+            "x": 123,
+            "y": 1505
+        }
+    },
+    {
+        "serial": "de022a11-9592-44d3-b9c0-e429aede7b55",
+        "name": "Avery Snider",
+        "active": true,
+        "class": "mage",
+        "race": "dwarf",
+        "age": 20,
+        "hp": 3,
+        "mp": 139,
+        "balance": 1239.52,
+        "gender": "male",
+        "guild": "Mitroc",
+        "location": {
+            "x": 2007,
+            "y": 15
+        }
+    },
+    {
+        "serial": "458e2650-fde9-4039-a40e-a487068dcaac",
+        "name": "Richard Glover",
+        "active": true,
+        "class": "rogue",
+        "race": "elf",
+        "age": 21,
+        "hp": 11,
+        "mp": 162,
+        "balance": 2559.42,
+        "gender": "male",
+        "guild": "Eventex",
+        "location": {
+            "x": 326,
+            "y": 1643
+        }
+    },
+    {
+        "serial": "2bd591f4-1c77-4bbe-a82e-4354d88232d8",
+        "name": "Parks Harvey",
+        "active": false,
+        "class": "rogue",
+        "race": "elf",
+        "age": 34,
+        "hp": 55,
+        "mp": 48,
+        "balance": 1814.64,
+        "gender": "male",
+        "guild": "Comtent",
+        "location": {
+            "x": 2041,
+            "y": 866
+        }
+    },
+    {
+        "serial": "b8291d7a-84f1-49c6-893b-d73c7531875a",
+        "name": "Huber Marshall",
+        "active": false,
+        "class": "rogue",
+        "race": "dwarf",
+        "age": 24,
+        "hp": 12,
+        "mp": 171,
+        "balance": 3121.52,
+        "gender": "male",
+        "guild": "Everest",
+        "location": {
+            "x": 2057,
+            "y": 1830
+        }
+    },
+    {
+        "serial": "1f6f063c-36d3-48ee-ad9a-ba82d4b842c8",
+        "name": "Strong Drake",
+        "active": false,
+        "class": "rogue",
+        "race": "elf",
+        "age": 24,
+        "hp": 10,
+        "mp": 183,
+        "balance": 1935.74,
+        "gender": "male",
+        "guild": "Isologia",
+        "location": {
+            "x": 1876,
+            "y": 956
+        }
+    },
+    {
+        "serial": "35a395b4-6ed9-4ccd-afb6-509550cf678a",
+        "name": "Vazquez Mcgowan",
+        "active": false,
+        "class": "mage",
+        "race": "elf",
+        "age": 20,
+        "hp": 89,
+        "mp": 88,
+        "balance": 3013.4,
+        "gender": "male",
+        "guild": "Ronbert",
+        "location": {
+            "x": 95,
+            "y": 1257
+        }
+    },
+    {
+        "serial": "a504c3dd-f52d-4a41-b342-63831e67954b",
+        "name": "Pollard Hunter",
+        "active": false,
+        "class": "rogue",
+        "race": "human",
+        "age": 36,
+        "hp": 24,
+        "mp": 149,
+        "balance": 1908.1,
+        "gender": "male",
+        "guild": "Omnigog",
+        "location": {
+            "x": 594,
+            "y": 813
+        }
+    },
+    {
+        "serial": "f468dbd8-a1eb-444d-8ddf-9e2d95dd15ac",
+        "name": "Dianna Dejesus",
+        "active": true,
+        "class": "fighter",
+        "race": "dwarf",
+        "age": 40,
+        "hp": 84,
+        "mp": 75,
+        "balance": 2480.36,
+        "gender": "female",
+        "guild": "Nimon",
+        "location": {
+            "x": 2005,
+            "y": 1437
+        }
+    },
+    {
+        "serial": "38b6ffaf-f50e-48fd-b216-068395621a2d",
+        "name": "Fletcher Foley",
+        "active": true,
+        "class": "rogue",
+        "race": "human",
+        "age": 29,
+        "hp": 68,
+        "mp": 173,
+        "balance": 2302.22,
+        "gender": "male",
+        "guild": "Pushcart",
+        "location": {
+            "x": 789,
+            "y": 449
+        }
+    },
+    {
+        "serial": "2c0d16ac-69db-4c50-b43d-a841b890e8fa",
+        "name": "Aguilar Deleon",
+        "active": false,
+        "class": "rogue",
+        "race": "human",
+        "age": 21,
+        "hp": 72,
+        "mp": 154,
+        "balance": 3434.14,
+        "gender": "male",
+        "guild": "Mixers",
+        "location": {
+            "x": 483,
+            "y": 138
+        }
+    },
+    {
+        "serial": "4fc332a2-8ba1-44f7-8e2e-d2dcd909f6d7",
+        "name": "Paulette Robinson",
+        "active": false,
+        "class": "mage",
+        "race": "dwarf",
+        "age": 39,
+        "hp": 36,
+        "mp": 189,
+        "balance": 3044.34,
+        "gender": "female",
+        "guild": "Kegular",
+        "location": {
+            "x": 1496,
+            "y": 2101
+        }
+    },
+    {
+        "serial": "a42e86c2-c545-4e2d-9952-09201513eb0b",
+        "name": "Cheri Bradley",
+        "active": false,
+        "class": "rogue",
+        "race": "dwarf",
+        "age": 23,
+        "hp": 71,
+        "mp": 140,
+        "balance": 3857.66,
+        "gender": "female",
+        "guild": "Extrawear",
+        "location": {
+            "x": 1205,
+            "y": 614
+        }
+    },
+    {
+        "serial": "5c38ed44-9aeb-4fca-b06b-7afa3506f549",
+        "name": "Olga Peters",
+        "active": false,
+        "class": "mage",
+        "race": "orc",
+        "age": 25,
+        "hp": 50,
+        "mp": 36,
+        "balance": 2106.94,
+        "gender": "female",
+        "guild": "Centuria",
+        "location": {
+            "x": 31,
+            "y": 714
+        }
+    },
+    {
+        "serial": "138f6ee3-67bd-4eb2-8427-78030b48ef9f",
+        "name": "Gill Kim",
+        "active": false,
+        "class": "mage",
+        "race": "orc",
+        "age": 26,
+        "hp": 54,
+        "mp": 16,
+        "balance": 1787.04,
+        "gender": "male",
+        "guild": "Zerology",
+        "location": {
+            "x": 2132,
+            "y": 2022
+        }
+    },
+    {
+        "serial": "1ef6aeda-c007-43f0-a523-5f83e8f88cf9",
+        "name": "Tanisha Navarro",
+        "active": true,
+        "class": "mage",
+        "race": "elf",
+        "age": 25,
+        "hp": 99,
+        "mp": 144,
+        "balance": 2351.56,
+        "gender": "female",
+        "guild": "Xplor",
+        "location": {
+            "x": 566,
+            "y": 2668
+        }
+    },
+    {
+        "serial": "0ffe22a7-cc56-465a-bab0-dd00ae91ad7b",
+        "name": "Floyd Suarez",
+        "active": false,
+        "class": "mage",
+        "race": "human",
+        "age": 34,
+        "hp": 78,
+        "mp": 0,
+        "balance": 1153.45,
+        "gender": "male",
+        "guild": "Fibrodyne",
+        "location": {
+            "x": 1629,
+            "y": 2878
+        }
+    },
+    {
+        "serial": "a32a4982-2fa8-471a-93f5-84d6182c707a",
+        "name": "Mcneil Forbes",
+        "active": true,
+        "class": "rogue",
+        "race": "human",
+        "age": 32,
+        "hp": 49,
+        "mp": 186,
+        "balance": 3656.49,
+        "gender": "male",
+        "guild": "Flotonic",
+        "location": {
+            "x": 516,
+            "y": 523
+        }
+    },
+    {
+        "serial": "b76eaf04-b60d-43f3-b753-268da5f346a6",
+        "name": "Meyers Wolfe",
+        "active": true,
+        "class": "rogue",
+        "race": "human",
+        "age": 28,
+        "hp": 53,
+        "mp": 32,
+        "balance": 2282.22,
+        "gender": "male",
+        "guild": "Extragen",
+        "location": {
+            "x": 2462,
+            "y": 16
+        }
+    },
+    {
+        "serial": "40e734cf-5c02-4f1e-977b-c56f5aa8ef46",
+        "name": "Holly Tucker",
+        "active": true,
+        "class": "fighter",
+        "race": "dwarf",
+        "age": 27,
+        "hp": 16,
+        "mp": 24,
+        "balance": 3976.18,
+        "gender": "female",
+        "guild": "Combot",
+        "location": {
+            "x": 931,
+            "y": 1739
+        }
+    },
+    {
+        "serial": "7e7c610c-e748-4143-bb18-bb81c067ff09",
+        "name": "Sears Velasquez",
+        "active": false,
+        "class": "fighter",
+        "race": "dwarf",
+        "age": 39,
+        "hp": 84,
+        "mp": 13,
+        "balance": 1404.8,
+        "gender": "male",
+        "guild": "Dancity",
+        "location": {
+            "x": 1477,
+            "y": 1151
+        }
+    },
+    {
+        "serial": "851a5f84-b00f-4ee8-8c5b-0c652886b25b",
+        "name": "Green York",
+        "active": true,
+        "class": "mage",
+        "race": "orc",
+        "age": 24,
+        "hp": 67,
+        "mp": 149,
+        "balance": 2243.26,
+        "gender": "male",
+        "guild": "Kangle",
+        "location": {
+            "x": 871,
+            "y": 2751
+        }
+    },
+    {
+        "serial": "b2da1594-6752-4010-a6d9-ce7ac5fdad95",
+        "name": "Lynda Vargas",
+        "active": false,
+        "class": "fighter",
+        "race": "dwarf",
+        "age": 23,
+        "hp": 26,
+        "mp": 59,
+        "balance": 3408.15,
+        "gender": "female",
+        "guild": "Entropix",
+        "location": {
+            "x": 2702,
+            "y": 1791
+        }
+    },
+    {
+        "serial": "5f526888-884b-4e23-9ecd-347f66199bec",
+        "name": "Christian Barry",
+        "active": true,
+        "class": "mage",
+        "race": "elf",
+        "age": 23,
+        "hp": 73,
+        "mp": 65,
+        "balance": 3368.88,
+        "gender": "male",
+        "guild": "Vidto",
+        "location": {
+            "x": 42,
+            "y": 563
+        }
+    },
+    {
+        "serial": "465fde3c-f4c3-442a-ba57-498fa811ad11",
+        "name": "Sophia Haney",
+        "active": false,
+        "class": "mage",
+        "race": "dwarf",
+        "age": 21,
+        "hp": 96,
+        "mp": 198,
+        "balance": 3896.01,
+        "gender": "female",
+        "guild": "Exiand",
+        "location": {
+            "x": 1733,
+            "y": 1588
+        }
+    },
+    {
+        "serial": "e143f639-517f-4711-94be-736da52c129a",
+        "name": "Jo Travis",
+        "active": true,
+        "class": "rogue",
+        "race": "human",
+        "age": 37,
+        "hp": 58,
+        "mp": 47,
+        "balance": 3634.17,
+        "gender": "female",
+        "guild": "Zillacom",
+        "location": {
+            "x": 243,
+            "y": 1443
+        }
+    },
+    {
+        "serial": "2f423bc2-88e4-4b4b-b4e7-c635a8a4cd71",
+        "name": "Natalie Graham",
+        "active": false,
+        "class": "mage",
+        "race": "human",
+        "age": 35,
+        "hp": 81,
+        "mp": 103,
+        "balance": 3892.83,
+        "gender": "female",
+        "guild": "Cofine",
+        "location": {
+            "x": 2199,
+            "y": 810
+        }
+    },
+    {
+        "serial": "07503baf-370c-46f7-a0ac-4d42085ec9f4",
+        "name": "Geraldine Nunez",
+        "active": true,
+        "class": "mage",
+        "race": "human",
+        "age": 40,
+        "hp": 25,
+        "mp": 21,
+        "balance": 1762.91,
+        "gender": "female",
+        "guild": "Extragene",
+        "location": {
+            "x": 2450,
+            "y": 500
+        }
+    },
+    {
+        "serial": "c7acacde-1d71-4f95-9b3a-a86f11fd1442",
+        "name": "Kimberley Campbell",
+        "active": false,
+        "class": "rogue",
+        "race": "human",
+        "age": 23,
+        "hp": 60,
+        "mp": 146,
+        "balance": 2053.1,
+        "gender": "female",
+        "guild": "Shepard",
+        "location": {
+            "x": 1260,
+            "y": 505
+        }
+    },
+    {
+        "serial": "c2d338b9-12bf-4489-839b-de76f47806b8",
+        "name": "Jerry Daugherty",
+        "active": false,
+        "class": "fighter",
+        "race": "orc",
+        "age": 27,
+        "hp": 66,
+        "mp": 127,
+        "balance": 3017.59,
+        "gender": "female",
+        "guild": "Confrenzy",
+        "location": {
+            "x": 1042,
+            "y": 1277
+        }
+    },
+    {
+        "serial": "77a3f2e5-4517-4599-bdbd-a0a74e4d2de7",
+        "name": "Kay Whitehead",
+        "active": true,
+        "class": "mage",
+        "race": "dwarf",
+        "age": 23,
+        "hp": 10,
+        "mp": 156,
+        "balance": 3339.07,
+        "gender": "female",
+        "guild": "Xsports",
+        "location": {
+            "x": 1203,
+            "y": 507
+        }
+    },
+    {
+        "serial": "4801d5f8-c8ee-47d2-83ea-7d3cc7147888",
+        "name": "Oneal Castaneda",
+        "active": true,
+        "class": "mage",
+        "race": "human",
+        "age": 27,
+        "hp": 53,
+        "mp": 35,
+        "balance": 3087.99,
+        "gender": "male",
+        "guild": "Sonique",
+        "location": {
+            "x": 2038,
+            "y": 526
+        }
+    },
+    {
+        "serial": "cea7b009-3d88-456c-93ef-35cdf4018809",
+        "name": "Betsy Norris",
+        "active": true,
+        "class": "rogue",
+        "race": "dwarf",
+        "age": 37,
+        "hp": 59,
+        "mp": 51,
+        "balance": 3563.81,
+        "gender": "female",
+        "guild": "Ecosys",
+        "location": {
+            "x": 2643,
+            "y": 2203
+        }
+    },
+    {
+        "serial": "44229b65-6ec2-470c-b628-e2db02b44409",
+        "name": "Adkins Cash",
+        "active": false,
+        "class": "rogue",
+        "race": "orc",
+        "age": 34,
+        "hp": 31,
+        "mp": 26,
+        "balance": 2097.07,
+        "gender": "male",
+        "guild": "Netropic",
+        "location": {
+            "x": 2598,
+            "y": 535
+        }
+    },
+    {
+        "serial": "8f7bc93d-2311-4fc3-b0dc-2a5465dafcd3",
+        "name": "Latisha Goodwin",
+        "active": true,
+        "class": "rogue",
+        "race": "dwarf",
+        "age": 37,
+        "hp": 52,
+        "mp": 99,
+        "balance": 1449.8,
+        "gender": "female",
+        "guild": "Grupoli",
+        "location": {
+            "x": 2810,
+            "y": 546
+        }
+    },
+    {
+        "serial": "60897718-a9a4-4f1c-8db0-095973f977b8",
+        "name": "Ingrid Andrews",
+        "active": false,
+        "class": "fighter",
+        "race": "dwarf",
+        "age": 40,
+        "hp": 27,
+        "mp": 74,
+        "balance": 3954.59,
+        "gender": "female",
+        "guild": "Enomen",
+        "location": {
+            "x": 1472,
+            "y": 1497
+        }
+    },
+    {
+        "serial": "968aefc6-3315-426e-a286-45ccaa1291fd",
+        "name": "Lora Holman",
+        "active": true,
+        "class": "mage",
+        "race": "orc",
+        "age": 25,
+        "hp": 62,
+        "mp": 161,
+        "balance": 1034.49,
+        "gender": "female",
+        "guild": "Toyletry",
+        "location": {
+            "x": 2277,
+            "y": 421
+        }
+    },
+    {
+        "serial": "0782bf65-c156-439f-b0a3-a783e7591874",
+        "name": "Landry Pickett",
+        "active": false,
+        "class": "mage",
+        "race": "dwarf",
+        "age": 39,
+        "hp": 92,
+        "mp": 190,
+        "balance": 3069.48,
+        "gender": "male",
+        "guild": "Zytrek",
+        "location": {
+            "x": 857,
+            "y": 964
+        }
+    },
+    {
+        "serial": "c32ed13d-b173-4487-a6e9-0d55e4d4cd89",
+        "name": "Olivia Blackwell",
+        "active": false,
+        "class": "mage",
+        "race": "dwarf",
+        "age": 29,
+        "hp": 45,
+        "mp": 48,
+        "balance": 2983.64,
+        "gender": "female",
+        "guild": "Magnemo",
+        "location": {
+            "x": 566,
+            "y": 120
+        }
+    },
+    {
+        "serial": "2add449a-51f2-4ddd-98b8-500392a57c1d",
+        "name": "Bridgett Day",
+        "active": false,
+        "class": "fighter",
+        "race": "elf",
+        "age": 22,
+        "hp": 97,
+        "mp": 87,
+        "balance": 1508.17,
+        "gender": "female",
+        "guild": "Realmo",
+        "location": {
+            "x": 2960,
+            "y": 1025
+        }
+    },
+    {
+        "serial": "fa3d21a8-b928-452d-a7d0-edd0daafc99f",
+        "name": "Rhoda Browning",
+        "active": true,
+        "class": "fighter",
+        "race": "human",
+        "age": 20,
+        "hp": 57,
+        "mp": 82,
+        "balance": 2859.26,
+        "gender": "female",
+        "guild": "Sarasonic",
+        "location": {
+            "x": 834,
+            "y": 685
+        }
+    },
+    {
+        "serial": "4498866f-5a84-4269-9138-62786b69eeb9",
+        "name": "Prince Floyd",
+        "active": false,
+        "class": "fighter",
+        "race": "elf",
+        "age": 39,
+        "hp": 5,
+        "mp": 141,
+        "balance": 1860.5,
+        "gender": "male",
+        "guild": "Kozgene",
+        "location": {
+            "x": 139,
+            "y": 2665
+        }
+    },
+    {
+        "serial": "c77cebf0-7143-4dbd-9737-23b2374df8fc",
+        "name": "Gardner Britt",
+        "active": true,
+        "class": "mage",
+        "race": "orc",
+        "age": 36,
+        "hp": 99,
+        "mp": 146,
+        "balance": 2491.14,
+        "gender": "male",
+        "guild": "Xylar",
+        "location": {
+            "x": 1205,
+            "y": 1200
+        }
+    }
+]
