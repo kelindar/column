@@ -76,6 +76,7 @@ func (p *Property) Range(f func(uint32, interface{}) bool) {
 
 // freelist represents a bitmap-backed free list
 type freelist struct {
+	next uint32         // The next index in the free list when appending
 	fill roaring.Bitmap // The index of filled entries
 	free roaring.Bitmap // The index of free (reclaimable) entries
 }
@@ -117,4 +118,14 @@ func (l *freelist) Remove(id uint32) (int, bool) {
 	}
 
 	return 0, false
+}
+
+// Count returns the number of elements in the freelist.
+func (l *freelist) Count() int {
+	return int(l.fill.GetCardinality())
+}
+
+// IsEmpty returns true if the free list is empty (full of elements)
+func (l *freelist) IsEmpty() bool {
+	return l.free.IsEmpty()
 }

@@ -48,6 +48,21 @@ func BenchmarkCollection(b *testing.B) {
 			}, "race")
 		}
 	})
+
+	b.Run("map-iterate", func(b *testing.B) {
+		col := loadFixture("players.json")
+		count := 0
+		b.ReportAllocs()
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			for _, v := range col {
+				if v["race"] == "human" {
+					count++
+				}
+			}
+		}
+	})
+
 }
 
 func TestCollection(t *testing.T) {
@@ -78,7 +93,8 @@ func TestCollection(t *testing.T) {
 	{ // Add a new one, should replace
 		idx := col.Add(obj)
 		obj, ok := col.Fetch(idx)
-		assert.Equal(t, uint32(0), idx)
+		assert.Equal(t, 1, int(idx)) // next available sequence
+		assert.Equal(t, 1, len(col.props["name"].data))
 		assert.True(t, ok)
 		assert.Equal(t, "Roman", obj["name"])
 	}
@@ -86,19 +102,24 @@ func TestCollection(t *testing.T) {
 
 // loadPlayers loads a list of players from the fixture
 func loadPlayers() *Collection {
-	b, err := os.ReadFile("fixtures/players.json")
-	if err != nil {
-		panic(err)
-	}
-
-	var players []Object
-	if err := json.Unmarshal(b, &players); err != nil {
-		panic(err)
-	}
-
+	players := loadFixture("players.json")
 	out := New()
 	for _, p := range players {
 		out.Add(p)
 	}
 	return out
+}
+
+// loadFixture loads a fixture by its name
+func loadFixture(name string) []Object {
+	b, err := os.ReadFile("fixtures/" + name)
+	if err != nil {
+		panic(err)
+	}
+
+	var data []Object
+	if err := json.Unmarshal(b, &data); err != nil {
+		panic(err)
+	}
+	return data
 }

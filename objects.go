@@ -11,10 +11,9 @@ type Object map[string]interface{}
 
 // Collection represents a collection of objects in a columnar format
 type Collection struct {
-	csize uint32               // The count of max size
-	cfree int32                // The count of free items
 	lock  sync.RWMutex         // The collection lock
-	free  roaring.Bitmap       // The index of free (reclaimable) entries
+	next  uint32               // The next index sequence
+	free  freelist             // The fill/free-list
 	props map[string]*Property // The map of properties
 }
 
@@ -28,7 +27,7 @@ func New() *Collection {
 func (c *Collection) Count() int {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
-	return int(c.csize) - int(c.cfree)
+	return c.free.Count()
 }
 
 // Fetch retrieves an object by its handle
@@ -41,19 +40,19 @@ func (c *Collection) Fetch(index uint32) (Object, bool) {
 }
 
 // FetchTo retrieves an object by its handle into a existing object
-func (c *Collection) FetchTo(index uint32, dest *Object) bool {
+func (c *Collection) FetchTo(id uint32, dest *Object) bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	// If the index is out of bounds or points to a free spot
-	if index >= uint32(c.csize) || c.free.Contains(index) || dest == nil {
+	// Check if the element is present
+	if _, ok := c.free.Get(id); !ok {
 		return false
 	}
 
 	// Reassemble the object from its properties
 	obj := *dest
 	for name, prop := range c.props {
-		if v, ok := prop.Get(index); ok {
+		if v, ok := prop.Get(id); ok {
 			obj[name] = v
 		}
 	}
@@ -62,27 +61,35 @@ func (c *Collection) FetchTo(index uint32, dest *Object) bool {
 
 // Add adds an object to a collection and returns the allocated index
 func (c *Collection) Add(obj Object) uint32 {
-	handle := c.next()
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	// Increment the sequence
+	id := c.next
+	c.next++
+	c.free.Add(id)
+
+	// Add to all of the properties
 	for k, v := range obj {
 		if _, ok := c.props[k]; !ok {
 			c.props[k] = NewProperty()
 		}
-		c.props[k].Set(handle, v)
+		c.props[k].Set(id, v)
 	}
 
-	return handle
+	return id
 }
 
 // Remove removes the object
-func (c *Collection) Remove(index uint32) {
+func (c *Collection) Remove(id uint32) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	// Simply add the index to the free list, no need to actually
-	// delete the underlying data.
-	if index < uint32(c.csize) || !c.free.Contains(index) {
-		c.cfree++
-		c.free.Add(uint32(index))
+	// Remove from its own free list and from every property
+	if _, ok := c.free.Remove(id); ok {
+		for _, p := range c.props {
+			p.Remove(id)
+		}
 	}
 }
 
@@ -95,30 +102,11 @@ func (c *Collection) Where(predicate func(v interface{}) bool, property string) 
 // query creates a new query
 func (c *Collection) query() *Query {
 	fill := roaring.NewBitmap()
-	fill.AddRange(uint64(0), uint64(c.csize))
-	fill.Xor(&c.free)
-
+	fill.Or(&c.free.fill)
 	return &Query{
 		owner: c,
 		index: fill,
 	}
-}
-
-// next allocates a next available handle
-func (c *Collection) next() uint32 {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if c.free.IsEmpty() {
-		idx := uint32(c.csize)
-		c.csize++
-		return idx
-	}
-
-	// Find the next available slot and remove it
-	c.cfree--
-	idx := c.free.Iterator().Next()
-	c.free.Remove(idx)
-	return uint32(idx)
 }
 
 // rangeProperty iterates over the property key/value pairs. If the callback returns
