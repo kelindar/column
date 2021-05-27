@@ -13,6 +13,15 @@ var bitmaps = &sync.Pool{
 	},
 }
 
+func aquireBitmap() *roaring.Bitmap {
+	return bitmaps.Get().(*roaring.Bitmap)
+}
+
+func releaseBitmap(b *roaring.Bitmap) {
+	b.Clear()
+	bitmaps.Put(b)
+}
+
 // Query represents a query for a collection
 type Query struct {
 	owner *Collection
@@ -21,37 +30,26 @@ type Query struct {
 
 // Count returns the number of objects matching the query
 func (q Query) Count() int {
-	return int(q.index.GetCardinality())
-}
-
-// WithMany does a logical AND between the current query and the specified
-// properties, combining them together.
-func (q Query) WithMany(props []string) Query {
-	for _, extra := range props {
-		if p, ok := q.owner.props[extra]; ok {
-			q.index.And(p.Index())
-		}
+	if q.index == nil {
+		panic("query has completed")
 	}
-	return q
+
+	count := int(q.index.GetCardinality())
+	releaseBitmap(q.index)
+	q.index = nil
+	return count
 }
 
 // Where applies a filter predicate over values for a specific properties. It filters
 // down the items in the query.
 func (q Query) Where(property string, predicate func(v interface{}) bool) Query {
-	filter := bitmaps.Get().(*roaring.Bitmap)
-	filter.Clear()
-	defer bitmaps.Put(filter)
-	//defer filter.Clear()
+	q.owner.lock.RLock()
+	defer q.owner.lock.RUnlock()
 
 	// Range over the values of the property and apply a filter
-	q.owner.rangeProperty(func(id uint32, v interface{}) {
-		if predicate(v) {
-			filter.Add(id)
-		}
-	}, property)
-
-	// Update the current index
-	q.index.And(filter)
+	if p, ok := q.owner.props[property]; ok {
+		p.Filter(q.index, predicate)
+	}
 	return q
 }
 

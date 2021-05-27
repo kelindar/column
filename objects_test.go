@@ -8,10 +8,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// BenchmarkCollection/add-8         	 3638017	       325.6 ns/op	     264 B/op	       0 allocs/op
-// BenchmarkCollection/fetch-to-8    	 2554174	       458.4 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/where-8         	 1514036	       791.1 ns/op	     328 B/op	      10 allocs/op
-// BenchmarkCollection/map-iterate-8 	 1929422	       638.6 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/add-8         	 1276966	       940.6 ns/op	     403 B/op	      10 allocs/op
+// BenchmarkCollection/fetch-to-8    	 3123409	       358.6 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/query-8       	 4215949	       282.2 ns/op	     248 B/op	       6 allocs/op
+// BenchmarkCollection/where-8       	  921134	      1322 ns/op	     264 B/op	       9 allocs/op
+// BenchmarkCollection/map-iterate-8 	 1394164	       844.8 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkCollection(b *testing.B) {
 
 	players := loadPlayers()
@@ -44,32 +45,39 @@ func BenchmarkCollection(b *testing.B) {
 		}
 	})
 
-	b.Run("where", func(b *testing.B) {
-
+	b.Run("query", func(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-
-			players.Where("race", func(v interface{}) bool {
-				return v == "human"
-			}).Count()
-
+			players.query()
 		}
 	})
 
-	/*b.Run("map-iterate", func(b *testing.B) {
+	b.Run("where", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			players.Where("race", func(v interface{}) bool {
+				return v == "human"
+			}).Where("class", func(v interface{}) bool {
+				return v == "mage"
+			}).Count()
+		}
+	})
+
+	b.Run("map-iterate", func(b *testing.B) {
 		col := loadFixture("players.json")
 		count := 0
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
 			for _, v := range col {
-				if v["race"] == "human" {
+				if v["race"] == "human" && v["class"] == "mage" {
 					count++
 				}
 			}
 		}
-	})*/
+	})
 }
 
 func TestCollection(t *testing.T) {
