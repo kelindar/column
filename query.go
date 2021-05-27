@@ -36,7 +36,7 @@ func (q *Query) Select(props ...string) *Query {
 func (q *Query) WithMany(props []string) *Query {
 	for _, extra := range props {
 		if p, ok := q.owner.props[extra]; ok {
-			q.index.And(&p.fill)
+			q.index.And(p.Index())
 		}
 	}
 	return q
