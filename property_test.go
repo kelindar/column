@@ -9,7 +9,7 @@ import (
 // BenchmarkProperty/set-8         	14673010	        68.81 ns/op	     137 B/op	       0 allocs/op
 // BenchmarkProperty/get-8         	153183829	         7.869 ns/op	       0 B/op	       0 allocs/op
 // BenchmarkProperty/replace-8     	 5477583	       223.7 ns/op	      64 B/op	       4 allocs/op
-func BenchmarkProperty(b *testing.B) {
+/*func BenchmarkProperty(b *testing.B) {
 	b.Run("set", func(b *testing.B) {
 		p := NewProperty()
 		b.ReportAllocs()
@@ -38,7 +38,7 @@ func BenchmarkProperty(b *testing.B) {
 			p.Remove(5)
 		}
 	})
-}
+}*/
 
 func TestProperty(t *testing.T) {
 	p := NewProperty()

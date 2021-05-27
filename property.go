@@ -62,13 +62,10 @@ func (p *Property) Remove(id uint32) {
 	}
 }
 
-// Range iterates over the property values. If the callback returns
-// false, the iteration is halted.
-func (p *Property) Range(f func(uint32, interface{}) bool) {
+// Range iterates over the property values.
+func (p *Property) Range(f func(uint32, interface{})) {
 	for _, v := range p.data {
-		if !f(v.key, v.val) {
-			return
-		}
+		f(v.key, v.val)
 	}
 }
 
@@ -96,7 +93,8 @@ func (l *freelist) Get(id uint32) (int, bool) {
 // element should be stored and whether the value needs to be replace or not.
 func (l *freelist) Add(id uint32) (int, bool) {
 	if l.free.IsEmpty() {
-		idx := l.fill.GetCardinality()
+		idx := l.next
+		l.next++
 		l.fill.Add(id)
 		return int(idx), false
 	}

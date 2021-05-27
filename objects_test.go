@@ -8,10 +8,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// BenchmarkCollection/add-8         	 3165742	       344.1 ns/op	     430 B/op	       0 allocs/op
+// BenchmarkCollection/add-8         	 3638017	       325.6 ns/op	     264 B/op	       0 allocs/op
 // BenchmarkCollection/fetch-to-8    	 2554174	       458.4 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/where-8       	 1402629	       858.4 ns/op	     336 B/op	      13 allocs/op
+// BenchmarkCollection/where-8         	 1514036	       791.1 ns/op	     328 B/op	      10 allocs/op
+// BenchmarkCollection/map-iterate-8 	 1929422	       638.6 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkCollection(b *testing.B) {
+
 	players := loadPlayers()
 	obj := Object{
 		"name":   "Roman",
@@ -27,6 +29,9 @@ func BenchmarkCollection(b *testing.B) {
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
 			col.Add(obj)
+			if col.Count() >= 1000 {
+				col = New()
+			}
 		}
 	})
 
@@ -40,16 +45,19 @@ func BenchmarkCollection(b *testing.B) {
 	})
 
 	b.Run("where", func(b *testing.B) {
+
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			players.Where(func(v interface{}) bool {
-				return v.(string) == "human"
-			}, "race")
+
+			players.Where("race", func(v interface{}) bool {
+				return v == "human"
+			}).Count()
+
 		}
 	})
 
-	b.Run("map-iterate", func(b *testing.B) {
+	/*b.Run("map-iterate", func(b *testing.B) {
 		col := loadFixture("players.json")
 		count := 0
 		b.ReportAllocs()
@@ -61,8 +69,7 @@ func BenchmarkCollection(b *testing.B) {
 				}
 			}
 		}
-	})
-
+	})*/
 }
 
 func TestCollection(t *testing.T) {

@@ -17,6 +17,7 @@ type Collection struct {
 	props map[string]*Property // The map of properties
 }
 
+// New creates a new columnar collection.
 func New() *Collection {
 	return &Collection{
 		props: make(map[string]*Property, 8),
@@ -95,15 +96,16 @@ func (c *Collection) Remove(id uint32) {
 
 // Where applies a filter predicate over values for a specific properties. It filters
 // down the items in the query.
-func (c *Collection) Where(predicate func(v interface{}) bool, property string) *Query {
-	return c.query().Where(predicate, property)
+func (c *Collection) Where(property string, predicate func(v interface{}) bool) Query {
+	return c.query().Where(property, predicate)
 }
 
 // query creates a new query
-func (c *Collection) query() *Query {
+func (c *Collection) query() Query {
 	fill := roaring.NewBitmap()
 	fill.Or(&c.free.fill)
-	return &Query{
+
+	return Query{
 		owner: c,
 		index: fill,
 	}
@@ -111,7 +113,7 @@ func (c *Collection) query() *Query {
 
 // rangeProperty iterates over the property key/value pairs. If the callback returns
 // false, the iteration is halted.
-func (c *Collection) rangeProperty(f func(uint32, interface{}) bool, name string) {
+func (c *Collection) rangeProperty(f func(uint32, interface{}), name string) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	if p, ok := c.props[name]; ok {

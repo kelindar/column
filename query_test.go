@@ -14,18 +14,18 @@ func TestQuery(t *testing.T) {
 
 	// How many human?
 	assert.Equal(t, 14, players.
-		Where(func(v interface{}) bool {
-			return v.(string) == "human"
-		}, "race").
+		Where("race", func(v interface{}) bool {
+			return v == "human"
+		}).
 		Count())
 
 	// How many human + mage?
 	assert.Equal(t, 5, players.
-		Where(func(v interface{}) bool {
-			return v.(string) == "human"
-		}, "race").
-		Where(func(v interface{}) bool {
-			return v.(string) == "mage"
-		}, "class").
+		Where("race", func(v interface{}) bool {
+			return v == "human"
+		}).
+		Where("class", func(v interface{}) bool {
+			return v == "mage"
+		}).
 		Count())
 }
