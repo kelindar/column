@@ -1,42 +1,35 @@
 package columnar
 
 import (
+	"sync"
+
 	"github.com/kelindar/bitmap"
 )
 
 // Bitmaps represents a pool of bitmaps
-/*var bitmaps = &sync.Pool{
+var bitmaps = &sync.Pool{
 	New: func() interface{} {
-		return roaring.NewBitmap()
+		return &bitmap.Bitmap{}
 	},
 }
 
-func aquireBitmap() *roaring.Bitmap {
-	return bitmaps.Get().(*roaring.Bitmap)
+func aquireBitmap() *bitmap.Bitmap {
+	return bitmaps.Get().(*bitmap.Bitmap)
 }
 
-func releaseBitmap(b *roaring.Bitmap) {
+func releaseBitmap(b *bitmap.Bitmap) {
 	bitmaps.Put(b)
-}*/
+}
 
 // Query represents a query for a collection
 type Query struct {
 	owner *Collection
-	index bitmap.Bitmap
+	index *bitmap.Bitmap
 }
 
-// Count returns the number of objects matching the query
-func (q *Query) Count() int {
-	return int(q.index.Count())
-}
-
-// And applies a filter predicate over values for a specific properties. It filters
+// Value applies a filter predicate over values for a specific properties. It filters
 // down the items in the query.
-func (q *Query) And(property string, predicate func(v interface{}) bool) *Query {
-	q.owner.lock.RLock()
-	defer q.owner.lock.RUnlock()
-
-	// Range over the values of the property and apply a filter
+func (q Query) Value(property string, predicate func(v interface{}) bool) Query {
 	if p, ok := q.owner.props[property]; ok {
 		q.index.Filter(func(x uint32) bool {
 			if v, ok := p.Get(x); ok {
@@ -45,14 +38,42 @@ func (q *Query) And(property string, predicate func(v interface{}) bool) *Query 
 			return false
 		})
 	}
-
 	return q
 }
 
-// AndValue filters down the result set where the value of a property matches the
-// specified value. This in turn, calls normal filter.
-func (q *Query) AndValue(property string, value interface{}) *Query {
-	return q.And(property, func(v interface{}) bool {
-		return v == value
+// String ...
+func (q Query) String(property string, value string) Query {
+	if p, ok := q.owner.props[property]; ok {
+		q.index.Filter(func(x uint32) bool {
+			if v, ok := p.Get(x); ok {
+				return v == value
+			}
+			return false
+		})
+	}
+	return q
+}
+
+// count returns the number of objects matching the query
+func (q *Query) count() int {
+	return int(q.index.Count())
+}
+
+// iterate iterates over the objects with the given properties, but does not perform any
+// locking.
+func (q Query) iterate(fn func(Object) bool, props []string) {
+	obj := make(Object, len(props))
+
+	// Range over the entries in the index, since we're selecting row by row
+	q.index.Range(func(x uint32) bool {
+		for _, name := range props {
+			if prop, ok := q.owner.props[name]; ok {
+				if v, ok := prop.Get(x); ok {
+					obj[name] = v
+					fn(obj)
+				}
+			}
+		}
+		return true
 	})
 }

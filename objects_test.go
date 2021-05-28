@@ -10,8 +10,8 @@ import (
 
 // BenchmarkCollection/add-8         	 5681844	       212.8 ns/op	      82 B/op	       0 allocs/op
 // BenchmarkCollection/fetch-to-8    	99759745	        12.28 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/where-8       	 2371153	       506.1 ns/op	      40 B/op	       2 allocs/op
-// BenchmarkCollection/map-iterate-8 	 1473567	       813.6 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/count-8       	 2009253	       594.3 ns/op	      16 B/op	       1 allocs/op
+// BenchmarkCollection/find-8        	 1411477	       855.0 ns/op	     352 B/op	       3 allocs/op
 func BenchmarkCollection(b *testing.B) {
 	players := loadPlayers()
 	obj := Object{
@@ -28,7 +28,7 @@ func BenchmarkCollection(b *testing.B) {
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
 			col.Add(obj)
-			if col.Count() >= 1000 {
+			if col.Count(nil) >= 1000 {
 				col = New()
 			}
 		}
@@ -43,33 +43,26 @@ func BenchmarkCollection(b *testing.B) {
 		}
 	})
 
-	b.Run("where", func(b *testing.B) {
+	b.Run("count", func(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			players.
-				Where("age", func(v interface{}) bool {
-					return v.(float64) >= 30
-				}).
-				AndValue("race", "human").
-				AndValue("class", "mage").
-				Count()
+			players.Count(oldHumanMages)
 		}
 	})
 
-	b.Run("map-iterate", func(b *testing.B) {
-		col := loadFixture("players.json")
+	b.Run("find", func(b *testing.B) {
 		count := 0
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			for _, v := range col {
-				if v["age"].(float64) >= 30 && v["race"] == "human" && v["class"] == "mage" {
-					count++
-				}
-			}
+			players.Find(oldHumanMages, func(o Object) bool {
+				count++
+				return true
+			}, "name")
 		}
 	})
+
 }
 
 func TestCollection(t *testing.T) {

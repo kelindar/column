@@ -15,6 +15,7 @@ type Collection struct {
 	size  uint32               // The current size
 	fill  bitmap.Bitmap        // The fill-list
 	props map[string]*Property // The map of properties
+
 }
 
 // New creates a new columnar collection.
@@ -23,13 +24,6 @@ func New() *Collection {
 		props: make(map[string]*Property, 8),
 		fill:  make(bitmap.Bitmap, 0, 4),
 	}
-}
-
-// Count returns the total count of elements in the collection
-func (c *Collection) Count() int {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-	return c.fill.Count()
 }
 
 // Fetch retrieves an object by its handle
@@ -98,16 +92,40 @@ func (c *Collection) Remove(idx uint32) {
 	}
 }
 
-// Where applies a filter predicate over values for a specific properties. It filters
-// down the items in the query.
-func (c *Collection) Where(property string, predicate func(v interface{}) bool) *Query {
-	return c.query().And(property, predicate)
+// Count counts the number of elements which match the specified filter function. If
+// there is no specified filter function, it returns the total count of elements in
+// the collection.
+func (c *Collection) Count(where func(where *Query)) int {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	// If there's no filter specified, simply count everything
+	if where == nil {
+		return c.fill.Count()
+	}
+
+	q := c.query(where)
+	defer releaseBitmap(q.index)
+	return q.count()
 }
 
-// query creates a new query
-func (c *Collection) query() *Query {
-	return &Query{
+// Find ...
+func (c *Collection) Find(where func(where *Query), fn func(Object) bool, props ...string) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	q := c.query(where)
+	defer releaseBitmap(q.index)
+	q.iterate(fn, props)
+}
+
+func (c *Collection) query(where func(*Query)) Query {
+	r := aquireBitmap()
+	c.fill.Clone(r)
+	q := Query{
 		owner: c,
-		index: c.fill.Clone(nil),
+		index: r,
 	}
+	where(&q)
+	return q
 }
