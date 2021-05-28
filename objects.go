@@ -95,7 +95,7 @@ func (c *Collection) Remove(idx uint32) {
 // Count counts the number of elements which match the specified filter function. If
 // there is no specified filter function, it returns the total count of elements in
 // the collection.
-func (c *Collection) Count(where func(where *Query)) int {
+func (c *Collection) Count(where func(where Query)) int {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -110,7 +110,7 @@ func (c *Collection) Count(where func(where *Query)) int {
 }
 
 // Find ...
-func (c *Collection) Find(where func(where *Query), fn func(Object) bool, props ...string) {
+func (c *Collection) Find(where func(where Query), fn func(Object) bool, props ...string) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -119,13 +119,13 @@ func (c *Collection) Find(where func(where *Query), fn func(Object) bool, props 
 	q.iterate(fn, props)
 }
 
-func (c *Collection) query(where func(*Query)) Query {
+func (c *Collection) query(where func(Query)) Query {
 	r := aquireBitmap()
 	c.fill.Clone(r)
 	q := Query{
 		owner: c,
 		index: r,
 	}
-	where(&q)
+	where(q)
 	return q
 }

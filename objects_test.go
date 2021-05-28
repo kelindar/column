@@ -10,8 +10,8 @@ import (
 
 // BenchmarkCollection/add-8         	 5681844	       212.8 ns/op	      82 B/op	       0 allocs/op
 // BenchmarkCollection/fetch-to-8    	99759745	        12.28 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/count-8       	 2009253	       594.3 ns/op	      16 B/op	       1 allocs/op
-// BenchmarkCollection/find-8        	 1411477	       855.0 ns/op	     352 B/op	       3 allocs/op
+// BenchmarkCollection/count-8       	 2165461	       550.9 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/find-8        	 1458799	       824.3 ns/op	     336 B/op	       2 allocs/op
 func BenchmarkCollection(b *testing.B) {
 	players := loadPlayers()
 	obj := Object{

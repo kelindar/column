@@ -7,7 +7,7 @@ import (
 )
 
 // oldHumanMages returns a query
-func oldHumanMages(where *Query) {
+func oldHumanMages(where Query) {
 	where.
 		String("race", "human").
 		String("class", "mage").
@@ -34,7 +34,7 @@ func TestCount(t *testing.T) {
 	assert.Equal(t, 50, players.Count(nil))
 
 	// How many humans
-	assert.Equal(t, 14, players.Count(func(where *Query) {
+	assert.Equal(t, 14, players.Count(func(where Query) {
 		where.Value("race", func(v interface{}) bool {
 			return v == "human"
 		})
