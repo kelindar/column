@@ -6,10 +6,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// BenchmarkProperty/set-8         	14673010	        68.81 ns/op	     137 B/op	       0 allocs/op
-// BenchmarkProperty/get-8         	153183829	         7.869 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkProperty/replace-8     	 5477583	       223.7 ns/op	      64 B/op	       4 allocs/op
-/*func BenchmarkProperty(b *testing.B) {
+// BenchmarkProperty/set-8         	344183034	         3.498 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkProperty/get-8         	1000000000	         1.123 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkProperty/replace-8     	291245523	         4.157 ns/op	       0 B/op	       0 allocs/op
+func BenchmarkProperty(b *testing.B) {
 	b.Run("set", func(b *testing.B) {
 		p := NewProperty()
 		b.ReportAllocs()
@@ -38,14 +38,14 @@ import (
 			p.Remove(5)
 		}
 	})
-}*/
+}
 
 func TestProperty(t *testing.T) {
 	p := NewProperty()
 
 	{ // Set the value at index
 		p.Set(9, 99.5)
-		assert.Equal(t, 1, len(p.data))
+		assert.Equal(t, 10, len(p.data))
 	}
 
 	{ // Get the value
@@ -64,7 +64,7 @@ func TestProperty(t *testing.T) {
 	{ // Set a couple of values, should only take 2 slots
 		p.Set(5, "hi")
 		p.Set(1000, "roman")
-		assert.Equal(t, 2, len(p.data))
+		assert.Equal(t, 1001, len(p.data))
 
 		v1, ok := p.Get(5)
 		assert.True(t, ok)

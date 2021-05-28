@@ -3,7 +3,7 @@ package columnar
 import (
 	"sync"
 
-	"github.com/RoaringBitmap/roaring"
+	"github.com/kelindar/bitmap"
 )
 
 // Object represents a single object
@@ -13,7 +13,7 @@ type Object map[string]interface{}
 type Collection struct {
 	lock  sync.RWMutex         // The collection lock
 	size  uint32               // The current size
-	free  roaring.Bitmap       // The free-list
+	fill  bitmap.Bitmap        // The fill-list
 	props map[string]*Property // The map of properties
 }
 
@@ -21,6 +21,7 @@ type Collection struct {
 func New() *Collection {
 	return &Collection{
 		props: make(map[string]*Property, 8),
+		fill:  make(bitmap.Bitmap, 0, 4),
 	}
 }
 
@@ -28,7 +29,7 @@ func New() *Collection {
 func (c *Collection) Count() int {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
-	return int(c.size) - int(c.free.GetCardinality())
+	return c.fill.Count()
 }
 
 // Fetch retrieves an object by its handle
@@ -46,7 +47,7 @@ func (c *Collection) FetchTo(idx uint32, dest *Object) bool {
 	defer c.lock.RUnlock()
 
 	// If it's empty or over the sequence, not found
-	if idx >= c.size || c.free.Contains(idx) {
+	if idx >= c.size || !c.fill.Contains(idx) {
 		return false
 	}
 
@@ -66,14 +67,13 @@ func (c *Collection) Add(obj Object) uint32 {
 	defer c.lock.Unlock()
 
 	// Find the index for the add
-	var idx uint32
-	if !c.free.IsEmpty() {
-		idx = c.free.Minimum()
-		c.free.Remove(idx)
-	} else {
+	idx, ok := c.fill.FirstZero()
+	if !ok {
 		idx = c.size
 		c.size++
 	}
+
+	c.fill.Set(idx)
 
 	// Add to all of the properties
 	for k, v := range obj {
@@ -91,28 +91,23 @@ func (c *Collection) Remove(idx uint32) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	// Add to a free list and remove from properties
-	if ok := c.free.CheckedAdd(idx); ok {
-		for _, p := range c.props {
-			p.Remove(idx)
-		}
+	// Remove from the index and from each property
+	c.fill.Remove(idx)
+	for _, p := range c.props {
+		p.Remove(idx)
 	}
 }
 
 // Where applies a filter predicate over values for a specific properties. It filters
 // down the items in the query.
-func (c *Collection) Where(property string, predicate func(v interface{}) bool) Query {
-	return c.query().Where(property, predicate)
+func (c *Collection) Where(property string, predicate func(v interface{}) bool) *Query {
+	return c.query().And(property, predicate)
 }
 
 // query creates a new query
-func (c *Collection) query() Query {
-	index := aquireBitmap()
-	index.Flip(0, uint64(c.size))
-	index.AndNot(&c.free)
-
-	return Query{
+func (c *Collection) query() *Query {
+	return &Query{
 		owner: c,
-		index: index,
+		index: c.fill.Clone(nil),
 	}
 }

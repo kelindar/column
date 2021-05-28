@@ -8,13 +8,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// BenchmarkCollection/add-8         	 1276966	       940.6 ns/op	     403 B/op	      10 allocs/op
-// BenchmarkCollection/fetch-to-8    	 3123409	       358.6 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/query-8       	 4215949	       282.2 ns/op	     248 B/op	       6 allocs/op
-// BenchmarkCollection/where-8       	  921134	      1322 ns/op	     264 B/op	       9 allocs/op
-// BenchmarkCollection/map-iterate-8 	 1394164	       844.8 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/add-8         	 5681844	       212.8 ns/op	      82 B/op	       0 allocs/op
+// BenchmarkCollection/fetch-to-8    	99759745	        12.28 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/where-8       	 2371153	       506.1 ns/op	      40 B/op	       2 allocs/op
+// BenchmarkCollection/map-iterate-8 	 1473567	       813.6 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkCollection(b *testing.B) {
-
 	players := loadPlayers()
 	obj := Object{
 		"name":   "Roman",
@@ -45,23 +43,17 @@ func BenchmarkCollection(b *testing.B) {
 		}
 	})
 
-	b.Run("query", func(b *testing.B) {
-		b.ReportAllocs()
-		b.ResetTimer()
-		for n := 0; n < b.N; n++ {
-			players.query()
-		}
-	})
-
 	b.Run("where", func(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			players.Where("race", func(v interface{}) bool {
-				return v == "human"
-			}).Where("class", func(v interface{}) bool {
-				return v == "mage"
-			}).Count()
+			players.
+				Where("age", func(v interface{}) bool {
+					return v.(float64) >= 30
+				}).
+				AndValue("race", "human").
+				AndValue("class", "mage").
+				Count()
 		}
 	})
 
@@ -72,7 +64,7 @@ func BenchmarkCollection(b *testing.B) {
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
 			for _, v := range col {
-				if v["race"] == "human" && v["class"] == "mage" {
+				if v["age"].(float64) >= 30 && v["race"] == "human" && v["class"] == "mage" {
 					count++
 				}
 			}
@@ -108,7 +100,6 @@ func TestCollection(t *testing.T) {
 	{ // Add a new one, should replace
 		idx := col.Add(obj)
 		obj, ok := col.Fetch(idx)
-		assert.Equal(t, 1, int(idx)) // next available sequence
 		assert.Equal(t, 1, len(col.props["name"].data))
 		assert.True(t, ok)
 		assert.Equal(t, "Roman", obj["name"])
@@ -136,5 +127,10 @@ func loadFixture(name string) []Object {
 	if err := json.Unmarshal(b, &data); err != nil {
 		panic(err)
 	}
+
+	/*out := make([]Object, 0, 10000*len(data))
+	for i := 0; i < 10000; i++ {
+		out = append(out, data...)
+	}*/
 	return data
 }

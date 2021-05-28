@@ -12,20 +12,20 @@ func TestQuery(t *testing.T) {
 	// Count all players
 	assert.Equal(t, 50, players.Count())
 
-	// How many human?
+	// How many humans
 	assert.Equal(t, 14, players.
 		Where("race", func(v interface{}) bool {
 			return v == "human"
 		}).
 		Count())
 
-	// How many human + mage?
-	assert.Equal(t, 5, players.
-		Where("race", func(v interface{}) bool {
-			return v == "human"
+	// How many human mages over age of 30?
+	assert.Equal(t, 3, players.
+		Where("age", func(v interface{}) bool {
+			return v.(float64) >= 30
 		}).
-		Where("class", func(v interface{}) bool {
-			return v == "mage"
-		}).
+		AndValue("race", "human").
+		AndValue("class", "mage").
 		Count())
+
 }
