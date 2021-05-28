@@ -11,11 +11,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// BenchmarkCollection/add-8         	 5681844	       212.8 ns/op	      82 B/op	       0 allocs/op
-// BenchmarkCollection/fetch-to-8    	99759745	        12.28 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/count-8       	 2165461	       550.9 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/find-8        	 1458799	       824.3 ns/op	     336 B/op	       2 allocs/op
-// BenchmarkCollection/count-indexed-8         	21418396	        51.47 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/add-8         	 5004789	       234.1 ns/op	      82 B/op	       0 allocs/op
+// BenchmarkCollection/fetch-to-8    	92310531	        12.28 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/count-8       	 1653796	       725.2 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/count-indexed-8         	23074526	        51.51 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/find-8                  	 1207858	       996.8 ns/op	     336 B/op	       2 allocs/op
+// BenchmarkCollection/find-indexed-8          	 3986691	       303.9 ns/op	     336 B/op	       2 allocs/op
 func BenchmarkCollection(b *testing.B) {
 	players := loadPlayers()
 	obj := Object{
@@ -69,6 +70,18 @@ func BenchmarkCollection(b *testing.B) {
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
 			players.Find(oldHumanMages, func(o Object) bool {
+				count++
+				return true
+			}, "name")
+		}
+	})
+
+	b.Run("find-indexed", func(b *testing.B) {
+		count := 0
+		b.ReportAllocs()
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			players.Find(oldHumanMagesIndexed, func(o Object) bool {
 				count++
 				return true
 			}, "name")

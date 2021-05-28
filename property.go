@@ -8,7 +8,6 @@ import (
 )
 
 type Mutator interface {
-	Indexer
 	Set(idx uint32, value interface{})
 	Get(idx uint32) (interface{}, bool)
 	Del(idx uint32)
@@ -29,11 +28,6 @@ func newProperty() *property {
 		free: make(bitmap.Bitmap, 0, 4),
 		data: make([]interface{}, 0, 64),
 	}
-}
-
-// Index returns the associated index bitmap.
-func (p *property) Index() bitmap.Bitmap {
-	return p.free // TODO: should be "fill-list"
 }
 
 // Set sets a value at a specified index
