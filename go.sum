@@ -1,8 +1,8 @@
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/kelindar/bitmap v1.0.1 h1:iDK4AhskgzmuXeN2vhwz8nbnBdm79oGD5qUXvCEtuOM=
-github.com/kelindar/bitmap v1.0.1/go.mod h1:kBPLLK5aDHeJL6jbTe2/n8S1laj8rpifohR6UOWR+jY=
+github.com/kelindar/bitmap v1.0.2 h1:Uf7/FE6Q2wDEPoOVvOw3oLkOCi1Rpo3sPchQf3tMME8=
+github.com/kelindar/bitmap v1.0.2/go.mod h1:kBPLLK5aDHeJL6jbTe2/n8S1laj8rpifohR6UOWR+jY=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
