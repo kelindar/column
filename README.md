@@ -17,8 +17,7 @@ around them. Under the hood, this uses roaring bitmaps extensively to provide fa
 // oldHumanMages returns a query which performs a full scan on 3 different columns and compares
 // them given the specified predicates. This is not indexed.
 func oldHumanMages(filter columnar.Query) {
-	filter.
-		WithString("race", "human").
+	filter.WithString("race", "human").
 		WithString("class", "mage").
 		WithFilter("age", func(v interface{}) bool {
 			return v.(float64) >= 30
