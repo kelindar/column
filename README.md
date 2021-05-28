@@ -34,7 +34,7 @@ func oldHumanMagesIndexed(filter columnar.Query) {
 
 func main(){
 
-    // Create a new columnar collection
+	// Create a new columnar collection
 	players := columnar.New()
 
 	// index on humans
@@ -58,18 +58,17 @@ func main(){
 	}
 
 	// How many human mages over age of 30? First is unindexed (scan) while the
-    // second query is indexed based on the predefined indices built above.
+	// second query is indexed based on the predefined indices built above.
 	count := players.Count(oldHumanMages)
-    count := players.Count(oldHumanMagesIndexed)
+	count := players.Count(oldHumanMagesIndexed)
 
-    // Same condition as above, but we also select the actual names of those 
-    // players and iterate through them
-    players.Find(oldHumanMagesIndexed, func(o Object) bool {
+	// Same condition as above, but we also select the actual names of those 
+	// players and iterate through them
+	players.Find(oldHumanMagesIndexed, func(o Object) bool {
 		fmt.Println(o["name"]) // outputs the name
 		return true
 	}, "name")
 }
-
 ```
 
 ## Benchmarks
