@@ -1,3 +1,6 @@
+// Copyright (c) Roman Atachiants and contributors. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for details.
+
 package columnar
 
 import (
@@ -27,9 +30,25 @@ type Query struct {
 	index *bitmap.Bitmap
 }
 
-// Value applies a filter predicate over values for a specific properties. It filters
+// With applies a logical AND operation to the current query and the specified index.
+func (q Query) With(index string) Query {
+	if idx, ok := q.owner.index[index]; ok {
+		q.index.And(idx.Index())
+	}
+	return q
+}
+
+// Without applies a logical AND NOT operation to the current query and the specified index.
+func (q Query) Without(index string) Query {
+	if idx, ok := q.owner.index[index]; ok {
+		q.index.AndNot(idx.Index())
+	}
+	return q
+}
+
+// WithFilter applies a filter predicate over values for a specific properties. It filters
 // down the items in the query.
-func (q Query) Value(property string, predicate func(v interface{}) bool) Query {
+func (q Query) WithFilter(property string, predicate func(v interface{}) bool) Query {
 	if p, ok := q.owner.props[property]; ok {
 		q.index.Filter(func(x uint32) bool {
 			if v, ok := p.Get(x); ok {
@@ -41,9 +60,12 @@ func (q Query) Value(property string, predicate func(v interface{}) bool) Query 
 	return q
 }
 
-// String ...
-func (q Query) String(property string, value string) Query {
-	if p, ok := q.owner.props[property]; ok {
+// WithString ...
+func (q Query) WithString(property string, value string) Query {
+	return q.WithFilter(property, func(v interface{}) bool {
+		return v == value
+	})
+	/*if p, ok := q.owner.props[property]; ok {
 		q.index.Filter(func(x uint32) bool {
 			if v, ok := p.Get(x); ok {
 				return v == value
@@ -51,7 +73,7 @@ func (q Query) String(property string, value string) Query {
 			return false
 		})
 	}
-	return q
+	return q*/
 }
 
 // count returns the number of objects matching the query

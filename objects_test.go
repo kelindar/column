@@ -1,3 +1,6 @@
+// Copyright (c) Roman Atachiants and contributors. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for details.
+
 package columnar
 
 import (
@@ -12,6 +15,7 @@ import (
 // BenchmarkCollection/fetch-to-8    	99759745	        12.28 ns/op	       0 B/op	       0 allocs/op
 // BenchmarkCollection/count-8       	 2165461	       550.9 ns/op	       0 B/op	       0 allocs/op
 // BenchmarkCollection/find-8        	 1458799	       824.3 ns/op	     336 B/op	       2 allocs/op
+// BenchmarkCollection/count-indexed-8         	21418396	        51.47 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkCollection(b *testing.B) {
 	players := loadPlayers()
 	obj := Object{
@@ -48,6 +52,14 @@ func BenchmarkCollection(b *testing.B) {
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
 			players.Count(oldHumanMages)
+		}
+	})
+
+	b.Run("count-indexed", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			players.Count(oldHumanMagesIndexed)
 		}
 	})
 
@@ -93,7 +105,6 @@ func TestCollection(t *testing.T) {
 	{ // Add a new one, should replace
 		idx := col.Add(obj)
 		obj, ok := col.Fetch(idx)
-		assert.Equal(t, 1, len(col.props["name"].data))
 		assert.True(t, ok)
 		assert.Equal(t, "Roman", obj["name"])
 	}
@@ -101,9 +112,25 @@ func TestCollection(t *testing.T) {
 
 // loadPlayers loads a list of players from the fixture
 func loadPlayers() *Collection {
-	players := loadFixture("players.json")
 	out := New()
-	for _, p := range players {
+
+	// index on humans
+	out.Index("human", "race", func(v interface{}) bool {
+		return v == "human"
+	})
+
+	// index for mages
+	out.Index("mage", "class", func(v interface{}) bool {
+		return v == "mage"
+	})
+
+	// index for old
+	out.Index("old", "age", func(v interface{}) bool {
+		return v.(float64) >= 30
+	})
+
+	// Load the items into the collection
+	for _, p := range loadFixture("players.json") {
 		out.Add(p)
 	}
 	return out
@@ -121,8 +148,8 @@ func loadFixture(name string) []Object {
 		panic(err)
 	}
 
-	/*out := make([]Object, 0, 10000*len(data))
-	for i := 0; i < 10000; i++ {
+	/*out := make([]Object, 0, 1000*len(data))
+	for i := 0; i < 1000; i++ {
 		out = append(out, data...)
 	}*/
 	return data

@@ -1,3 +1,6 @@
+// Copyright (c) Roman Atachiants and contributors. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for details.
+
 package columnar
 
 import (
@@ -11,17 +14,19 @@ type Object map[string]interface{}
 
 // Collection represents a collection of objects in a columnar format
 type Collection struct {
-	lock  sync.RWMutex         // The collection lock
-	size  uint32               // The current size
-	fill  bitmap.Bitmap        // The fill-list
-	props map[string]*Property // The map of properties
+	lock  sync.RWMutex       // The collection lock
+	size  uint32             // The current size
+	fill  bitmap.Bitmap      // The fill-list
+	props map[string]Mutator // The map of properties
+	index map[string]*index  // The set of indexes
 
 }
 
 // New creates a new columnar collection.
 func New() *Collection {
 	return &Collection{
-		props: make(map[string]*Property, 8),
+		props: make(map[string]Mutator, 8),
+		index: make(map[string]*index, 8),
 		fill:  make(bitmap.Bitmap, 0, 4),
 	}
 }
@@ -72,9 +77,18 @@ func (c *Collection) Add(obj Object) uint32 {
 	// Add to all of the properties
 	for k, v := range obj {
 		if _, ok := c.props[k]; !ok {
-			c.props[k] = NewProperty()
+			c.props[k] = newProperty()
 		}
+
+		// Set the value for this property
 		c.props[k].Set(idx, v)
+
+		// If there's an index for this property, keep it up-to-date
+		for _, i := range c.index {
+			if i.Target() == k {
+				i.Set(idx, v)
+			}
+		}
 	}
 
 	return idx
@@ -85,10 +99,28 @@ func (c *Collection) Remove(idx uint32) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	// Remove from the index and from each property
+	// Remove from global index
 	c.fill.Remove(idx)
+
+	// Remove the data for this element
 	for _, p := range c.props {
-		p.Remove(idx)
+		p.Del(idx)
+	}
+
+	// Update the index for this element
+	for _, i := range c.index {
+		i.Del(idx)
+	}
+}
+
+// Index creates an index on a specified property
+func (c *Collection) Index(name, property string, fn IndexFunc) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if fn != nil {
+		c.index[name] = newIndex(property, fn)
+	} else { // Remove the index
+		delete(c.index, name)
 	}
 }
 

@@ -1,3 +1,6 @@
+// Copyright (c) Roman Atachiants and contributors. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for details.
+
 package columnar
 
 import (
@@ -7,13 +10,18 @@ import (
 )
 
 // oldHumanMages returns a query
-func oldHumanMages(where Query) {
-	where.
-		String("race", "human").
-		String("class", "mage").
-		Value("age", func(v interface{}) bool {
+func oldHumanMages(filter Query) {
+	filter.
+		WithString("race", "human").
+		WithString("class", "mage").
+		WithFilter("age", func(v interface{}) bool {
 			return v.(float64) >= 30
 		})
+}
+
+// oldHumanMages returns an indexed query
+func oldHumanMagesIndexed(filter Query) {
+	filter.With("human").With("mage").With("old")
 }
 
 func TestFind(t *testing.T) {
@@ -34,12 +42,19 @@ func TestCount(t *testing.T) {
 	assert.Equal(t, 50, players.Count(nil))
 
 	// How many humans
-	assert.Equal(t, 14, players.Count(func(where Query) {
-		where.Value("race", func(v interface{}) bool {
+	assert.Equal(t, 14, players.Count(func(filter Query) {
+		filter.WithFilter("race", func(v interface{}) bool {
 			return v == "human"
 		})
 	}))
 
 	// How many human mages over age of 30?
 	assert.Equal(t, 3, players.Count(oldHumanMages))
+}
+
+func TestIndexed(t *testing.T) {
+	players := loadPlayers()
+
+	// How many human mages over age of 30?
+	assert.Equal(t, 3, players.Count(oldHumanMagesIndexed))
 }

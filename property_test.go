@@ -1,3 +1,6 @@
+// Copyright (c) Roman Atachiants and contributors. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for details.
+
 package columnar
 
 import (
@@ -11,7 +14,7 @@ import (
 // BenchmarkProperty/replace-8     	291245523	         4.157 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkProperty(b *testing.B) {
 	b.Run("set", func(b *testing.B) {
-		p := NewProperty()
+		p := newProperty()
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
@@ -20,7 +23,7 @@ func BenchmarkProperty(b *testing.B) {
 	})
 
 	b.Run("get", func(b *testing.B) {
-		p := NewProperty()
+		p := newProperty()
 		p.Set(5, "hello")
 		b.ReportAllocs()
 		b.ResetTimer()
@@ -30,18 +33,18 @@ func BenchmarkProperty(b *testing.B) {
 	})
 
 	b.Run("replace", func(b *testing.B) {
-		p := NewProperty()
+		p := newProperty()
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
 			p.Set(5, "hello")
-			p.Remove(5)
+			p.Del(5)
 		}
 	})
 }
 
 func TestProperty(t *testing.T) {
-	p := NewProperty()
+	p := newProperty()
 
 	{ // Set the value at index
 		p.Set(9, 99.5)
@@ -55,7 +58,7 @@ func TestProperty(t *testing.T) {
 	}
 
 	{ // Remove the value
-		p.Remove(9)
+		p.Del(9)
 		v, ok := p.Get(9)
 		assert.Equal(t, nil, v)
 		assert.False(t, ok)
@@ -82,7 +85,7 @@ func TestPropertyOrder(t *testing.T) {
 	// TODO: not sure if it's all correct, what happens if
 	// we have 2 properties?
 
-	p := NewProperty()
+	p := newProperty()
 	for i := uint32(100); i < 200; i++ {
 		p.Set(i, i)
 	}
@@ -94,7 +97,7 @@ func TestPropertyOrder(t *testing.T) {
 	}
 
 	for i := uint32(150); i < 180; i++ {
-		p.Remove(i)
+		p.Del(i)
 		p.Set(i, i)
 	}
 
