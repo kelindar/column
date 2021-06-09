@@ -4,6 +4,7 @@
 package columnar
 
 import (
+	"reflect"
 	"sync"
 
 	"github.com/kelindar/bitmap"
@@ -14,19 +15,18 @@ type Object map[string]interface{}
 
 // Collection represents a collection of objects in a columnar format
 type Collection struct {
-	lock  sync.RWMutex       // The collection lock
-	size  uint32             // The current size
-	fill  bitmap.Bitmap      // The fill-list
-	props map[string]Mutator // The map of properties
-	index map[string]*index  // The set of indexes
-
+	lock  sync.RWMutex      // The collection lock
+	size  uint32            // The current size
+	fill  bitmap.Bitmap     // The fill-list
+	props map[string]Column // The map of properties
+	index map[string]Index  // The set of indexes by index name
 }
 
 // New creates a new columnar collection.
 func New() *Collection {
 	return &Collection{
-		props: make(map[string]Mutator, 8),
-		index: make(map[string]*index, 8),
+		props: make(map[string]Column, 8),
+		index: make(map[string]Index, 8),
 		fill:  make(bitmap.Bitmap, 0, 4),
 	}
 }
@@ -72,22 +72,18 @@ func (c *Collection) Add(obj Object) uint32 {
 		c.size++
 	}
 
+	// Mark the current index in the fill list
 	c.fill.Set(idx)
 
-	// Add to all of the properties
-	for k, v := range obj {
-		if _, ok := c.props[k]; !ok {
-			c.props[k] = newProperty()
+	// For each registered column, assign the appropriate object property. If the
+	// column is actually is an index, use its index column instead.
+	for columnName, column := range c.props {
+		if i, ok := column.(Index); ok {
+			columnName = i.Column()
 		}
 
-		// Set the value for this property
-		c.props[k].Set(idx, v)
-
-		// If there's an index for this property, keep it up-to-date
-		for _, i := range c.index {
-			if i.Target() == k {
-				i.Set(idx, v)
-			}
+		if v, ok := obj[columnName]; ok {
+			column.Set(idx, v)
 		}
 	}
 
@@ -103,24 +99,44 @@ func (c *Collection) Remove(idx uint32) {
 	c.fill.Remove(idx)
 
 	// Remove the data for this element
-	for _, p := range c.props {
-		p.Del(idx)
-	}
-
-	// Update the index for this element
-	for _, i := range c.index {
-		i.Del(idx)
+	for _, column := range c.props {
+		column.Del(idx)
 	}
 }
 
-// Index creates an index on a specified property
-func (c *Collection) Index(name, property string, fn IndexFunc) {
+// AddColumnsOf registers a set of columns that are present in the target object
+func (c *Collection) AddColumnsOf(object Object) {
+	for k, v := range object {
+		c.AddColumn(k, reflect.TypeOf(v))
+	}
+}
+
+// AddColumn registers a column of a specified type to the collection
+func (c *Collection) AddColumn(columnName string, columnType reflect.Type) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+
+	column := columnFor(columnName, columnType)
+	c.props[columnName] = column
+
+	// If the column also implements index capability, add it for indexing
+	if i, ok := column.(Index); ok {
+		c.index[columnName] = i
+	}
+}
+
+// AddIndex creates an index on a specified property
+func (c *Collection) AddIndex(indexName, columnName string, fn IndexFunc) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
 	if fn != nil {
-		c.index[name] = newIndex(property, fn)
+		index := newIndex(columnName, fn)
+		c.props[indexName] = index
+		c.index[indexName] = index
 	} else { // Remove the index
-		delete(c.index, name)
+		delete(c.index, indexName)
+		delete(c.props, indexName)
 	}
 }
 

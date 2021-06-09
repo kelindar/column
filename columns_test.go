@@ -14,7 +14,7 @@ import (
 // BenchmarkProperty/replace-8     	291245523	         4.157 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkProperty(b *testing.B) {
 	b.Run("set", func(b *testing.B) {
-		p := newProperty()
+		p := newColumnAny()
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
@@ -23,7 +23,7 @@ func BenchmarkProperty(b *testing.B) {
 	})
 
 	b.Run("get", func(b *testing.B) {
-		p := newProperty()
+		p := newColumnAny()
 		p.Set(5, "hello")
 		b.ReportAllocs()
 		b.ResetTimer()
@@ -33,7 +33,7 @@ func BenchmarkProperty(b *testing.B) {
 	})
 
 	b.Run("replace", func(b *testing.B) {
-		p := newProperty()
+		p := newColumnAny()
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
@@ -44,7 +44,7 @@ func BenchmarkProperty(b *testing.B) {
 }
 
 func TestProperty(t *testing.T) {
-	p := newProperty()
+	p := newColumnAny().(*columnAny)
 
 	{ // Set the value at index
 		p.Set(9, 99.5)
@@ -85,7 +85,7 @@ func TestPropertyOrder(t *testing.T) {
 	// TODO: not sure if it's all correct, what happens if
 	// we have 2 properties?
 
-	p := newProperty()
+	p := newColumnAny()
 	for i := uint32(100); i < 200; i++ {
 		p.Set(i, i)
 	}

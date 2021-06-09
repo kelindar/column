@@ -33,7 +33,7 @@ type Query struct {
 // With applies a logical AND operation to the current query and the specified index.
 func (q Query) With(index string) Query {
 	if idx, ok := q.owner.index[index]; ok {
-		q.index.And(idx.Index())
+		q.index.And(idx.Bitmap())
 	}
 	return q
 }
@@ -41,7 +41,7 @@ func (q Query) With(index string) Query {
 // Without applies a logical AND NOT operation to the current query and the specified index.
 func (q Query) Without(index string) Query {
 	if idx, ok := q.owner.index[index]; ok {
-		q.index.AndNot(idx.Index())
+		q.index.AndNot(idx.Bitmap())
 	}
 	return q
 }
@@ -65,15 +65,6 @@ func (q Query) WithString(property string, value string) Query {
 	return q.WithFilter(property, func(v interface{}) bool {
 		return v == value
 	})
-	/*if p, ok := q.owner.props[property]; ok {
-		q.index.Filter(func(x uint32) bool {
-			if v, ok := p.Get(x); ok {
-				return v == value
-			}
-			return false
-		})
-	}
-	return q*/
 }
 
 // count returns the number of objects matching the query

@@ -48,6 +48,16 @@ func TestCount(t *testing.T) {
 		})
 	}))
 
+	// How many active players?
+	assert.Equal(t, 27, players.Count(func(filter Query) {
+		filter.With("active")
+	}))
+
+	// How many inactive players?
+	assert.Equal(t, 23, players.Count(func(filter Query) {
+		filter.Without("active")
+	}))
+
 	// How many human mages over age of 30?
 	assert.Equal(t, 3, players.Count(oldHumanMages))
 }

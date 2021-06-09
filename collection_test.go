@@ -100,6 +100,7 @@ func TestCollection(t *testing.T) {
 	}
 
 	col := New()
+	col.AddColumnsOf(obj)
 	idx := col.Add(obj)
 
 	{ // Find the object by its index
@@ -128,22 +129,24 @@ func loadPlayers() *Collection {
 	out := New()
 
 	// index on humans
-	out.Index("human", "race", func(v interface{}) bool {
+	out.AddIndex("human", "race", func(v interface{}) bool {
 		return v == "human"
 	})
 
 	// index for mages
-	out.Index("mage", "class", func(v interface{}) bool {
+	out.AddIndex("mage", "class", func(v interface{}) bool {
 		return v == "mage"
 	})
 
 	// index for old
-	out.Index("old", "age", func(v interface{}) bool {
+	out.AddIndex("old", "age", func(v interface{}) bool {
 		return v.(float64) >= 30
 	})
 
 	// Load the items into the collection
-	for _, p := range loadFixture("players.json") {
+	players := loadFixture("players.json")
+	out.AddColumnsOf(players[0])
+	for _, p := range players {
 		out.Add(p)
 	}
 	return out

@@ -7,13 +7,17 @@ import (
 	"github.com/kelindar/bitmap"
 )
 
-// Indexer represents an index contract
-type Indexer interface {
-	Index() bitmap.Bitmap
+// Index represents an index contract
+type Index interface {
+	Column
+	Column() string
+	Bitmap() bitmap.Bitmap
 }
 
 // IndexFunc represents a function which can be used to build an index
 type IndexFunc = func(v interface{}) bool
+
+// ---------------------------------------------------------------------------------
 
 // Index represents the index implementation
 type index struct {
@@ -31,13 +35,13 @@ func newIndex(prop string, rule func(v interface{}) bool) *index {
 	}
 }
 
-// Index returns the associated index bitmap.
-func (i *index) Index() bitmap.Bitmap {
+// Bitmap returns the associated index bitmap.
+func (i *index) Bitmap() bitmap.Bitmap {
 	return i.fill
 }
 
-// Target returns the target name of the property on which this index should apply.
-func (i *index) Target() string {
+// Column returns the target name of the column on which this index should apply.
+func (i *index) Column() string {
 	return i.prop
 }
 
@@ -48,6 +52,15 @@ func (i *index) Set(idx uint32, value interface{}) {
 	} else {
 		i.fill.Remove(idx)
 	}
+}
+
+// Get retrieves a value at a specified index.
+func (i *index) Get(idx uint32) (interface{}, bool) {
+	if idx >= uint32(len(i.fill)) {
+		return false, false
+	}
+
+	return i.fill.Contains(idx), true
 }
 
 // Del deletes the element from the index.
