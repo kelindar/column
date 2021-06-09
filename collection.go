@@ -15,18 +15,18 @@ type Object map[string]interface{}
 
 // Collection represents a collection of objects in a columnar format
 type Collection struct {
-	lock  sync.RWMutex      // The collection lock
-	size  uint32            // The current size
-	fill  bitmap.Bitmap     // The fill-list
-	props map[string]Column // The map of properties
-	index map[string]Index  // The set of indexes by index name
+	lock  sync.RWMutex        // The collection lock
+	size  uint32              // The current size
+	fill  bitmap.Bitmap       // The fill-list
+	props map[string]Column   // The map of properties
+	index map[string]computed // The set of indexes by index name
 }
 
 // New creates a new columnar collection.
 func New() *Collection {
 	return &Collection{
 		props: make(map[string]Column, 8),
-		index: make(map[string]Index, 8),
+		index: make(map[string]computed, 8),
 		fill:  make(bitmap.Bitmap, 0, 4),
 	}
 }
@@ -76,9 +76,9 @@ func (c *Collection) Add(obj Object) uint32 {
 	c.fill.Set(idx)
 
 	// For each registered column, assign the appropriate object property. If the
-	// column is actually is an index, use its index column instead.
+	// column is actually an indirect index, use that column.
 	for columnName, column := range c.props {
-		if i, ok := column.(Index); ok {
+		if i, ok := column.(computed); ok {
 			columnName = i.Column()
 		}
 
@@ -118,11 +118,6 @@ func (c *Collection) AddColumn(columnName string, columnType reflect.Type) {
 
 	column := columnFor(columnName, columnType)
 	c.props[columnName] = column
-
-	// If the column also implements index capability, add it for indexing
-	if i, ok := column.(Index); ok {
-		c.index[columnName] = i
-	}
 }
 
 // AddIndex creates an index on a specified property

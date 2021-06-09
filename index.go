@@ -7,11 +7,9 @@ import (
 	"github.com/kelindar/bitmap"
 )
 
-// Index represents an index contract
-type Index interface {
-	Column
+// computed represents a computed column
+type computed interface {
 	Column() string
-	Bitmap() bitmap.Bitmap
 }
 
 // IndexFunc represents a function which can be used to build an index

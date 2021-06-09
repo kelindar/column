@@ -11,12 +11,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// BenchmarkCollection/add-8         	 5004789	       234.1 ns/op	      82 B/op	       0 allocs/op
-// BenchmarkCollection/fetch-to-8    	92310531	        12.28 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/count-8       	 1653796	       725.2 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/count-indexed-8         	23074526	        51.51 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/find-8                  	 1207858	       996.8 ns/op	     336 B/op	       2 allocs/op
-// BenchmarkCollection/find-indexed-8          	 3986691	       303.9 ns/op	     336 B/op	       2 allocs/op
+// BenchmarkCollection/add-8         	30803667	        46.77 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/fetch-to-8    	91654827	        11.99 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/count-8       	 1707348	       709.0 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/count-idx-8   	19009177	        62.45 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/find-8        	 1232196	       963.3 ns/op	     336 B/op	       2 allocs/op
+// BenchmarkCollection/find-idx-8    	 3949594	       304.5 ns/op	     336 B/op	       2 allocs/op
 func BenchmarkCollection(b *testing.B) {
 	players := loadPlayers()
 	obj := Object{
@@ -56,7 +56,7 @@ func BenchmarkCollection(b *testing.B) {
 		}
 	})
 
-	b.Run("count-indexed", func(b *testing.B) {
+	b.Run("count-idx", func(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
@@ -76,7 +76,7 @@ func BenchmarkCollection(b *testing.B) {
 		}
 	})
 
-	b.Run("find-indexed", func(b *testing.B) {
+	b.Run("find-idx", func(b *testing.B) {
 		count := 0
 		b.ReportAllocs()
 		b.ResetTimer()

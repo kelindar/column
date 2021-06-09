@@ -58,6 +58,11 @@ func TestCount(t *testing.T) {
 		filter.Without("active")
 	}))
 
+	// How many players with a name?
+	assert.Equal(t, 50, players.Count(func(filter Query) {
+		filter.With("name")
+	}))
+
 	// How many human mages over age of 30?
 	assert.Equal(t, 3, players.Count(oldHumanMages))
 }

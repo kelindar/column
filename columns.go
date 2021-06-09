@@ -14,6 +14,7 @@ type Column interface {
 	Set(idx uint32, value interface{})
 	Get(idx uint32) (interface{}, bool)
 	Del(idx uint32)
+	Bitmap() bitmap.Bitmap
 }
 
 // columnFor creates a new column instance for a specified type
@@ -30,14 +31,14 @@ func columnFor(columnName string, typ reflect.Type) Column {
 
 // columnAny represents a generic column
 type columnAny struct {
-	free bitmap.Bitmap // The free-list
+	fill bitmap.Bitmap // The fill-list
 	data []interface{} // The actual values
 }
 
 // newColumnAny creates a new generic column
 func newColumnAny() Column {
 	return &columnAny{
-		free: make(bitmap.Bitmap, 0, 4),
+		fill: make(bitmap.Bitmap, 0, 4),
 		data: make([]interface{}, 0, 64),
 	}
 }
@@ -46,22 +47,17 @@ func newColumnAny() Column {
 func (p *columnAny) Set(idx uint32, value interface{}) {
 	size := uint32(len(p.data))
 	for i := size; i <= idx; i++ {
-		p.free.Set(i)
 		p.data = append(p.data, nil)
 	}
 
-	// If this is a replacement, remove
-	if p.free.Contains(idx) {
-		p.free.Remove(idx)
-	}
-
 	// Set the data at index
+	p.fill.Set(idx)
 	p.data[idx] = value
 }
 
 // Get retrieves a value at a specified index
 func (p *columnAny) Get(idx uint32) (interface{}, bool) {
-	if idx >= uint32(len(p.data)) || p.free.Contains(idx) {
+	if idx >= uint32(len(p.data)) || !p.fill.Contains(idx) {
 		return nil, false
 	}
 
@@ -70,7 +66,13 @@ func (p *columnAny) Get(idx uint32) (interface{}, bool) {
 
 // Del removes a value at a specified index
 func (p *columnAny) Del(idx uint32) {
-	p.free.Set(idx)
+	p.fill.Remove(idx)
+	p.data[idx] = nil
+}
+
+// Bitmap returns the associated index bitmap.
+func (p *columnAny) Bitmap() bitmap.Bitmap {
+	return p.fill
 }
 
 // ------------------------------------------------------------------------

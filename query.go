@@ -32,7 +32,7 @@ type Query struct {
 
 // With applies a logical AND operation to the current query and the specified index.
 func (q Query) With(index string) Query {
-	if idx, ok := q.owner.index[index]; ok {
+	if idx, ok := q.owner.props[index]; ok {
 		q.index.And(idx.Bitmap())
 	}
 	return q
@@ -40,7 +40,7 @@ func (q Query) With(index string) Query {
 
 // Without applies a logical AND NOT operation to the current query and the specified index.
 func (q Query) Without(index string) Query {
-	if idx, ok := q.owner.index[index]; ok {
+	if idx, ok := q.owner.props[index]; ok {
 		q.index.AndNot(idx.Bitmap())
 	}
 	return q
