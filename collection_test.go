@@ -11,12 +11,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// BenchmarkCollection/add-8         	30803667	        46.77 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/fetch-to-8    	91654827	        11.99 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/count-8       	 1707348	       709.0 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/count-idx-8   	19009177	        62.45 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/find-8        	 1232196	       963.3 ns/op	     336 B/op	       2 allocs/op
-// BenchmarkCollection/find-idx-8    	 3949594	       304.5 ns/op	     336 B/op	       2 allocs/op
+// BenchmarkCollection/add-8         	25438010	        47.00 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/fetch-to-8    	 3174392	       373.9 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/count-8       	  175803	      6621 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/count-idx-8   	13089733	        85.11 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/find-8        	  169615	      7508 ns/op	     336 B/op	       2 allocs/op
+// BenchmarkCollection/find-idx-8    	 1257127	       952.0 ns/op	     336 B/op	       2 allocs/op
 func BenchmarkCollection(b *testing.B) {
 	players := loadPlayers()
 	obj := Object{
@@ -133,6 +133,21 @@ func loadPlayers() *Collection {
 		return v == "human"
 	})
 
+	// index on dwarves
+	out.AddIndex("dwarf", "race", func(v interface{}) bool {
+		return v == "dwarf"
+	})
+
+	// index on elves
+	out.AddIndex("elf", "race", func(v interface{}) bool {
+		return v == "elf"
+	})
+
+	// index on orcs
+	out.AddIndex("orc", "race", func(v interface{}) bool {
+		return v == "orc"
+	})
+
 	// index for mages
 	out.AddIndex("mage", "class", func(v interface{}) bool {
 		return v == "mage"
@@ -149,6 +164,7 @@ func loadPlayers() *Collection {
 	for _, p := range players {
 		out.Add(p)
 	}
+
 	return out
 }
 

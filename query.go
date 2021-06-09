@@ -46,6 +46,14 @@ func (q Query) Without(index string) Query {
 	return q
 }
 
+// Union computes a union between the current query and the specified index.
+func (q Query) Union(index string) Query {
+	if idx, ok := q.owner.props[index]; ok {
+		q.index.Or(idx.Bitmap())
+	}
+	return q
+}
+
 // WithFilter applies a filter predicate over values for a specific properties. It filters
 // down the items in the query.
 func (q Query) WithFilter(property string, predicate func(v interface{}) bool) Query {

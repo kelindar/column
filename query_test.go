@@ -32,44 +32,49 @@ func TestFind(t *testing.T) {
 		return true
 	}, "name")
 
-	assert.Equal(t, 3, count)
+	assert.Equal(t, 21, count)
 }
 
 func TestCount(t *testing.T) {
 	players := loadPlayers()
 
 	// Count all players
-	assert.Equal(t, 50, players.Count(nil))
+	assert.Equal(t, 500, players.Count(nil))
 
-	// How many humans
-	assert.Equal(t, 14, players.Count(func(filter Query) {
+	// How many humans?
+	assert.Equal(t, 138, players.Count(func(filter Query) {
 		filter.WithFilter("race", func(v interface{}) bool {
 			return v == "human"
 		})
 	}))
 
+	// How many elves + dwarves?
+	assert.Equal(t, 254, players.Count(func(filter Query) {
+		filter.With("elf").Union("dwarf")
+	}))
+
 	// How many active players?
-	assert.Equal(t, 27, players.Count(func(filter Query) {
+	assert.Equal(t, 247, players.Count(func(filter Query) {
 		filter.With("active")
 	}))
 
 	// How many inactive players?
-	assert.Equal(t, 23, players.Count(func(filter Query) {
+	assert.Equal(t, 253, players.Count(func(filter Query) {
 		filter.Without("active")
 	}))
 
 	// How many players with a name?
-	assert.Equal(t, 50, players.Count(func(filter Query) {
+	assert.Equal(t, 500, players.Count(func(filter Query) {
 		filter.With("name")
 	}))
 
 	// How many human mages over age of 30?
-	assert.Equal(t, 3, players.Count(oldHumanMages))
+	assert.Equal(t, 21, players.Count(oldHumanMages))
 }
 
 func TestIndexed(t *testing.T) {
 	players := loadPlayers()
 
 	// How many human mages over age of 30?
-	assert.Equal(t, 3, players.Count(oldHumanMagesIndexed))
+	assert.Equal(t, 21, players.Count(oldHumanMagesIndexed))
 }

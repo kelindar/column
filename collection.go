@@ -16,7 +16,6 @@ type Object map[string]interface{}
 // Collection represents a collection of objects in a columnar format
 type Collection struct {
 	lock  sync.RWMutex        // The collection lock
-	size  uint32              // The current size
 	fill  bitmap.Bitmap       // The fill-list
 	props map[string]Column   // The map of properties
 	index map[string]computed // The set of indexes by index name
@@ -46,7 +45,7 @@ func (c *Collection) FetchTo(idx uint32, dest *Object) bool {
 	defer c.lock.RUnlock()
 
 	// If it's empty or over the sequence, not found
-	if idx >= c.size || !c.fill.Contains(idx) {
+	if idx >= uint32(len(c.fill))*64 || !c.fill.Contains(idx) {
 		return false
 	}
 
@@ -68,8 +67,7 @@ func (c *Collection) Add(obj Object) uint32 {
 	// Find the index for the add
 	idx, ok := c.fill.FirstZero()
 	if !ok {
-		idx = c.size
-		c.size++
+		idx = uint32(len(c.fill)) * 64
 	}
 
 	// Mark the current index in the fill list
