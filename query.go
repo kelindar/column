@@ -1,7 +1,7 @@
 // Copyright (c) Roman Atachiants and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
-package columnar
+package column
 
 import (
 	"sync"
@@ -23,6 +23,8 @@ func aquireBitmap() *bitmap.Bitmap {
 func releaseBitmap(b *bitmap.Bitmap) {
 	bitmaps.Put(b)
 }
+
+// --------------------------- Query ----------------------------
 
 // Query represents a query for a collection
 type Query struct {
@@ -54,12 +56,12 @@ func (q Query) Union(index string) Query {
 	return q
 }
 
-// WithFilter applies a filter predicate over values for a specific properties. It filters
+// WithValue applies a filter predicate over values for a specific properties. It filters
 // down the items in the query.
-func (q Query) WithFilter(property string, predicate func(v interface{}) bool) Query {
+func (q Query) WithValue(property string, predicate func(v interface{}) bool) Query {
 	if p, ok := q.owner.props[property]; ok {
 		q.index.Filter(func(x uint32) bool {
-			if v, ok := p.Get(x); ok {
+			if v, ok := p.Value(x); ok {
 				return predicate(v)
 			}
 			return false
@@ -68,10 +70,59 @@ func (q Query) WithFilter(property string, predicate func(v interface{}) bool) Q
 	return q
 }
 
-// WithString ...
-func (q Query) WithString(property string, value string) Query {
-	return q.WithFilter(property, func(v interface{}) bool {
-		return v == value
+// WithFloat64 filters down the values based on the specified predicate. The column for
+// this filter must be numerical and convertible to float64.
+func (q Query) WithFloat64(property string, predicate func(v float64) bool) Query {
+	if p, ok := q.owner.props[property]; ok {
+		if n, ok := p.(numerical); ok {
+			q.index.Filter(func(x uint32) bool {
+				if v, ok := n.Float64(x); ok {
+					return predicate(v)
+				}
+				return false
+			})
+		}
+	}
+	return q
+}
+
+// WithInt64 filters down the values based on the specified predicate. The column for
+// this filter must be numerical and convertible to int64.
+func (q Query) WithInt64(property string, predicate func(v int64) bool) Query {
+	if p, ok := q.owner.props[property]; ok {
+		if n, ok := p.(numerical); ok {
+			q.index.Filter(func(x uint32) bool {
+				if v, ok := n.Int64(x); ok {
+					return predicate(v)
+				}
+				return false
+			})
+		}
+	}
+	return q
+}
+
+// WithUint64 filters down the values based on the specified predicate. The column for
+// this filter must be numerical and convertible to uint64.
+func (q Query) WithUint64(property string, predicate func(v uint64) bool) Query {
+	if p, ok := q.owner.props[property]; ok {
+		if n, ok := p.(numerical); ok {
+			q.index.Filter(func(x uint32) bool {
+				if v, ok := n.Uint64(x); ok {
+					return predicate(v)
+				}
+				return false
+			})
+		}
+	}
+	return q
+}
+
+// WithString filters down the values based on the specified predicate. The column for
+// this filter must be a string.
+func (q Query) WithString(property string, predicate func(v string) bool) Query {
+	return q.WithValue(property, func(v interface{}) bool {
+		return predicate(v.(string))
 	})
 }
 
@@ -82,19 +133,71 @@ func (q *Query) count() int {
 
 // iterate iterates over the objects with the given properties, but does not perform any
 // locking.
-func (q Query) iterate(fn func(Object) bool, props []string) {
-	obj := make(Object, len(props))
-
-	// Range over the entries in the index, since we're selecting row by row
+func (q Query) iterate(fn func(Selector) bool) {
 	q.index.Range(func(x uint32) bool {
-		for _, name := range props {
-			if prop, ok := q.owner.props[name]; ok {
-				if v, ok := prop.Get(x); ok {
-					obj[name] = v
-					fn(obj)
-				}
-			}
-		}
-		return true
+		return fn(Selector{
+			index: x,
+			owner: q.owner,
+		})
 	})
+}
+
+// --------------------------- Selector ----------------------------
+
+// Selector represents a column selector which can retrieve a value by a column name.
+type Selector struct {
+	index uint32
+	owner *Collection
+}
+
+// Value reads a value for a current row at a given column.
+func (s *Selector) Value(column string) interface{} {
+	if c, ok := s.owner.props[column]; ok {
+		v, _ := c.Value(s.index)
+		return v
+	}
+	return nil
+}
+
+// String reads a string value for a current row at a given column.
+func (s *Selector) String(column string) string {
+	if c, ok := s.owner.props[column]; ok {
+		if v, ok := c.Value(s.index); ok {
+			return v.(string)
+		}
+	}
+	return ""
+}
+
+// Float64 reads a float64 value for a current row at a given column.
+func (s *Selector) Float64(column string) float64 {
+	if c, ok := s.owner.props[column]; ok {
+		if n, ok := c.(numerical); ok {
+			v, _ := n.Float64(s.index)
+			return v
+		}
+	}
+	return 0
+}
+
+// Int64 reads an int64 value for a current row at a given column.
+func (s *Selector) Int64(column string) int64 {
+	if c, ok := s.owner.props[column]; ok {
+		if n, ok := c.(numerical); ok {
+			v, _ := n.Int64(s.index)
+			return v
+		}
+	}
+	return 0
+}
+
+// Uint64 reads a uint64 value for a current row at a given column.
+func (s *Selector) Uint64(column string) uint64 {
+	if c, ok := s.owner.props[column]; ok {
+		if n, ok := c.(numerical); ok {
+			v, _ := n.Uint64(s.index)
+			return v
+		}
+	}
+	return 0
 }

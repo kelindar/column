@@ -1,7 +1,7 @@
 // Copyright (c) Roman Atachiants and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
-package columnar
+package column
 
 import (
 	"encoding/json"
@@ -11,12 +11,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// BenchmarkCollection/add-8         	25438010	        47.00 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/fetch-to-8    	 3174392	       373.9 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/count-8       	  175803	      6621 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/count-idx-8   	13089733	        85.11 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/find-8        	  169615	      7508 ns/op	     336 B/op	       2 allocs/op
-// BenchmarkCollection/find-idx-8    	 1257127	       952.0 ns/op	     336 B/op	       2 allocs/op
+// BenchmarkCollection/add-8         	29772168	        47.09 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/count-8       	  169482	      6731 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/count-idx-8   	14232207	        86.13 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/find-8        	  169244	      7430 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/find-idx-8    	 1879239	       626.3 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/find-one-8    	  236313	      4803 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/fetch-8       	39630772	        29.77 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkCollection(b *testing.B) {
 	players := loadPlayers()
 	obj := Object{
@@ -39,15 +40,6 @@ func BenchmarkCollection(b *testing.B) {
 		}
 	})
 
-	b.Run("fetch-to", func(b *testing.B) {
-		dst := make(Object, 8)
-		b.ReportAllocs()
-		b.ResetTimer()
-		for n := 0; n < b.N; n++ {
-			players.FetchTo(20, &dst)
-		}
-	})
-
 	b.Run("count", func(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
@@ -65,29 +57,61 @@ func BenchmarkCollection(b *testing.B) {
 	})
 
 	b.Run("find", func(b *testing.B) {
-		count := 0
+		count, name := 0, ""
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			players.Find(oldHumanMages, func(o Object) bool {
+			players.Find(oldHumanMages, func(v Selector) bool {
 				count++
+				name = v.String("name")
 				return true
-			}, "name")
+			})
 		}
+		assert.NotEmpty(b, name)
 	})
 
 	b.Run("find-idx", func(b *testing.B) {
-		count := 0
+		count, name := 0, ""
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			players.Find(oldHumanMagesIndexed, func(o Object) bool {
+			players.Find(oldHumanMagesIndexed, func(v Selector) bool {
 				count++
+				name = v.String("name")
 				return true
-			}, "name")
+			})
 		}
+		assert.NotEmpty(b, name)
 	})
 
+	b.Run("find-one", func(b *testing.B) {
+		name := ""
+		b.ReportAllocs()
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			players.Find(func(where Query) {
+				where.WithString("name", func(v string) bool {
+					return v == "Olivia Stewart"
+				})
+			}, func(v Selector) bool {
+				name = v.String("name")
+				return true
+			})
+		}
+		assert.NotEmpty(b, name)
+	})
+
+	b.Run("fetch", func(b *testing.B) {
+		name := ""
+		b.ReportAllocs()
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			if s, ok := players.Fetch(20); ok {
+				name = s.String("name")
+			}
+		}
+		assert.NotEmpty(b, name)
+	})
 }
 
 // BenchmarkFlatMap/count-map-8         	   62560	     18912 ns/op	       0 B/op	       0 allocs/op
@@ -122,23 +146,22 @@ func TestCollection(t *testing.T) {
 	idx := col.Add(obj)
 
 	{ // Find the object by its index
-		obj, ok := col.Fetch(idx)
+		v, ok := col.Fetch(idx)
 		assert.True(t, ok)
-		assert.Equal(t, "Roman", obj["name"])
+		assert.Equal(t, "Roman", v.String("name"))
 	}
 
 	{ // Remove the object
 		col.Remove(idx)
-		obj, ok := col.Fetch(idx)
+		_, ok := col.Fetch(idx)
 		assert.False(t, ok)
-		assert.Nil(t, obj)
 	}
 
 	{ // Add a new one, should replace
 		idx := col.Add(obj)
-		obj, ok := col.Fetch(idx)
+		v, ok := col.Fetch(idx)
 		assert.True(t, ok)
-		assert.Equal(t, "Roman", obj["name"])
+		assert.Equal(t, "Roman", v.String("name"))
 	}
 }
 

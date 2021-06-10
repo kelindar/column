@@ -1,7 +1,7 @@
 // Copyright (c) Roman Atachiants and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
-package columnar
+package column
 
 import (
 	"reflect"
@@ -28,35 +28,6 @@ func New() *Collection {
 		index: make(map[string]computed, 8),
 		fill:  make(bitmap.Bitmap, 0, 4),
 	}
-}
-
-// Fetch retrieves an object by its handle
-func (c *Collection) Fetch(index uint32) (Object, bool) {
-	obj := make(Object, 8)
-	if ok := c.FetchTo(index, &obj); !ok {
-		return nil, false
-	}
-	return obj, true
-}
-
-// FetchTo retrieves an object by its handle into a existing object
-func (c *Collection) FetchTo(idx uint32, dest *Object) bool {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-
-	// If it's empty or over the sequence, not found
-	if idx >= uint32(len(c.fill))*64 || !c.fill.Contains(idx) {
-		return false
-	}
-
-	// Reassemble the object from its properties
-	obj := *dest
-	for name, prop := range c.props {
-		if v, ok := prop.Get(idx); ok {
-			obj[name] = v
-		}
-	}
-	return true
 }
 
 // Add adds an object to a collection and returns the allocated index
@@ -150,14 +121,32 @@ func (c *Collection) Count(where func(where Query)) int {
 	return q.count()
 }
 
-// Find ...
-func (c *Collection) Find(where func(where Query), fn func(Object) bool, props ...string) {
+// Find performs a read-only query by filtering down the collection using the first
+// where clause and then returns an iterator which halts the iteration if returned
+// false.
+func (c *Collection) Find(where func(where Query), fn func(v Selector) bool) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
 	q := c.query(where)
 	defer releaseBitmap(q.index)
-	q.iterate(fn, props)
+	q.iterate(fn)
+}
+
+// Fetch retrieves an object by its handle and returns a selector for it.
+func (c *Collection) Fetch(idx uint32) (Selector, bool) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	// If it's empty or over the sequence, not found
+	if idx >= uint32(len(c.fill))*64 || !c.fill.Contains(idx) {
+		return Selector{}, false
+	}
+
+	return Selector{
+		index: idx,
+		owner: c,
+	}, true
 }
 
 func (c *Collection) query(where func(Query)) Query {

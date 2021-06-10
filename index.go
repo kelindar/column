@@ -1,7 +1,7 @@
 // Copyright (c) Roman Atachiants and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
-package columnar
+package column
 
 import (
 	"github.com/kelindar/bitmap"
@@ -52,8 +52,8 @@ func (i *index) Set(idx uint32, value interface{}) {
 	}
 }
 
-// Get retrieves a value at a specified index.
-func (i *index) Get(idx uint32) (interface{}, bool) {
+// Value retrieves a value at a specified index.
+func (i *index) Value(idx uint32) (interface{}, bool) {
 	if idx >= uint32(len(i.fill)) {
 		return false, false
 	}

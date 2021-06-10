@@ -1,7 +1,7 @@
 // Copyright (c) Roman Atachiants and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
-package columnar
+package column
 
 import (
 	"testing"
@@ -12,10 +12,14 @@ import (
 // oldHumanMages returns a query
 func oldHumanMages(filter Query) {
 	filter.
-		WithString("race", "human").
-		WithString("class", "mage").
-		WithFilter("age", func(v interface{}) bool {
-			return v.(float64) >= 30
+		WithString("race", func(v string) bool {
+			return v == "human"
+		}).
+		WithString("class", func(v string) bool {
+			return v == "mage"
+		}).
+		WithFloat64("age", func(v float64) bool {
+			return v >= 30
 		})
 }
 
@@ -27,10 +31,11 @@ func oldHumanMagesIndexed(filter Query) {
 func TestFind(t *testing.T) {
 	players := loadPlayers()
 	count := 0
-	players.Find(oldHumanMages, func(o Object) bool {
+	players.Find(oldHumanMages, func(v Selector) bool {
 		count++
+		assert.NotEmpty(t, v.String("name"))
 		return true
-	}, "name")
+	})
 
 	assert.Equal(t, 21, count)
 }
@@ -43,7 +48,7 @@ func TestCount(t *testing.T) {
 
 	// How many humans?
 	assert.Equal(t, 138, players.Count(func(filter Query) {
-		filter.WithFilter("race", func(v interface{}) bool {
+		filter.WithValue("race", func(v interface{}) bool {
 			return v == "human"
 		})
 	}))
