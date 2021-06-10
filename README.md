@@ -16,11 +16,16 @@ around them. Under the hood, this uses roaring bitmaps extensively to provide fa
 ```go
 // oldHumanMages returns a query which performs a full scan on 3 different columns and compares
 // them given the specified predicates. This is not indexed.
-func oldHumanMages(filter columnar.Query) {
-	filter.WithString("race", "human").
-		WithString("class", "mage").
-		WithFilter("age", func(v interface{}) bool {
-			return v.(float64) >= 30
+func oldHumanMages(filter column.Query) {
+	filter.
+		WithString("race", func(v string) bool {
+			return v == "human"
+		}).
+		WithString("class", func(v string) bool {
+			return v == "mage"
+		}).
+		WithFloat64("age", func(v float64) bool {
+			return v >= 30
 		})
 }
 
@@ -34,7 +39,7 @@ func oldHumanMagesIndexed(filter columnar.Query) {
 func main(){
 
 	// Create a new columnar collection
-	players := columnar.New()
+	players := column.NewCollection()
 
 	// index on humans
 	players.Index("human", "race", func(v interface{}) bool {
@@ -63,10 +68,10 @@ func main(){
 
 	// Same condition as above, but we also select the actual names of those 
 	// players and iterate through them
-	players.Find(oldHumanMagesIndexed, func(o Object) bool {
-		fmt.Println(o["name"]) // outputs the name
+	players.Find(oldHumanMagesIndexed, func(row column.Selector) bool {
+		println(row.String("name")) // prints the name
 		return true
-	}, "name")
+	})
 }
 ```
 
@@ -74,10 +79,11 @@ func main(){
 
 ```
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkCollection/add-8              5004789    234.1 ns/op     82 B/op    0 allocs/op
-BenchmarkCollection/fetch-to-8        92310531    12.28 ns/op      0 B/op    0 allocs/op
-BenchmarkCollection/count-8            1653796    725.2 ns/op      0 B/op    0 allocs/op
-BenchmarkCollection/count-indexed-8   23074526    51.51 ns/op      0 B/op    0 allocs/op
-BenchmarkCollection/find-8             1207858    996.8 ns/op    336 B/op    2 allocs/op
-BenchmarkCollection/find-indexed-8     3986691    303.9 ns/op    336 B/op    2 allocs/op
+BenchmarkCollection/add-8         29772168    47.09 ns/op     0 B/op     0 allocs/op
+BenchmarkCollection/count-8         169482     6731 ns/op     0 B/op     0 allocs/op
+BenchmarkCollection/count-idx-8   14232207    86.13 ns/op     0 B/op     0 allocs/op
+BenchmarkCollection/find-8          169244     7430 ns/op     0 B/op     0 allocs/op
+BenchmarkCollection/find-idx-8     1879239    626.3 ns/op     0 B/op     0 allocs/op
+BenchmarkCollection/find-one-8      236313     4803 ns/op     0 B/op     0 allocs/op
+BenchmarkCollection/fetch-8       39630772    29.77 ns/op     0 B/op     0 allocs/op
 ```

@@ -21,8 +21,8 @@ type Collection struct {
 	index map[string]computed // The set of indexes by index name
 }
 
-// New creates a new columnar collection.
-func New() *Collection {
+// NewCollection creates a new columnar collection.
+func NewCollection() *Collection {
 	return &Collection{
 		props: make(map[string]Column, 8),
 		index: make(map[string]computed, 8),

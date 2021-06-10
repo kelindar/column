@@ -29,13 +29,13 @@ func BenchmarkCollection(b *testing.B) {
 	}
 
 	b.Run("add", func(b *testing.B) {
-		col := New()
+		col := NewCollection()
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
 			col.Add(obj)
 			if col.Count(nil) >= 1000 {
-				col = New()
+				col = NewCollection()
 			}
 		}
 	})
@@ -141,7 +141,7 @@ func TestCollection(t *testing.T) {
 		"mana":   200,
 	}
 
-	col := New()
+	col := NewCollection()
 	col.AddColumnsOf(obj)
 	idx := col.Add(obj)
 
@@ -167,7 +167,7 @@ func TestCollection(t *testing.T) {
 
 // loadPlayers loads a list of players from the fixture
 func loadPlayers() *Collection {
-	out := New()
+	out := NewCollection()
 
 	// index on humans
 	out.AddIndex("human", "race", func(v interface{}) bool {
