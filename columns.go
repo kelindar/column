@@ -79,31 +79,21 @@ func (p *columnAny) Bitmap() bitmap.Bitmap {
 
 // columnBool represents a boolean column
 type columnBool struct {
-	free bitmap.Bitmap // The free-list
+	fill bitmap.Bitmap // The fill-list
 	data bitmap.Bitmap // The actual values
 }
 
 // newColumnBool creates a new property column
 func newColumnBool() Column {
 	return &columnBool{
-		free: make(bitmap.Bitmap, 0, 4),
+		fill: make(bitmap.Bitmap, 0, 4),
 		data: make(bitmap.Bitmap, 0, 4),
 	}
 }
 
 // Set sets a value at a specified index
 func (p *columnBool) Set(idx uint32, value interface{}) {
-	size := uint32(len(p.data))
-	for i := size; i <= idx; i++ {
-		p.free.Set(i)
-	}
-
-	// If this is a replacement, remove
-	if p.free.Contains(idx) {
-		p.free.Remove(idx)
-	}
-
-	// Set the data at index
+	p.fill.Set(idx)
 	if value.(bool) {
 		p.data.Set(idx)
 	} else {
@@ -113,7 +103,7 @@ func (p *columnBool) Set(idx uint32, value interface{}) {
 
 // Get retrieves a value at a specified index
 func (p *columnBool) Get(idx uint32) (interface{}, bool) {
-	if idx >= uint32(len(p.data)) || p.free.Contains(idx) {
+	if idx >= uint32(len(p.data)) || !p.fill.Contains(idx) {
 		return false, false
 	}
 
@@ -122,7 +112,8 @@ func (p *columnBool) Get(idx uint32) (interface{}, bool) {
 
 // Del removes a value at a specified index
 func (p *columnBool) Del(idx uint32) {
-	p.free.Set(idx)
+	p.fill.Remove(idx)
+	p.data.Remove(idx)
 }
 
 // Bitmap returns the associated index bitmap.

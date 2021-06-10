@@ -11,7 +11,7 @@ import (
 )
 
 // Object represents a single object
-type Object map[string]interface{}
+type Object = map[string]interface{}
 
 // Collection represents a collection of objects in a columnar format
 type Collection struct {
