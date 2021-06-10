@@ -90,6 +90,24 @@ func BenchmarkCollection(b *testing.B) {
 
 }
 
+// BenchmarkFlatMap/count-map-8         	   62560	     18912 ns/op	       0 B/op	       0 allocs/op
+func BenchmarkFlatMap(b *testing.B) {
+	players := loadFixture("players.json")
+
+	b.Run("count-map", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			count := 0
+			for _, p := range players {
+				if p["race"] == "human" && p["class"] == "mage" && p["age"].(float64) >= 30 {
+					count++
+				}
+			}
+		}
+	})
+}
+
 func TestCollection(t *testing.T) {
 	obj := Object{
 		"name":   "Roman",
@@ -180,9 +198,5 @@ func loadFixture(name string) []Object {
 		panic(err)
 	}
 
-	/*out := make([]Object, 0, 1000*len(data))
-	for i := 0; i < 1000; i++ {
-		out = append(out, data...)
-	}*/
 	return data
 }

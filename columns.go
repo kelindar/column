@@ -21,7 +21,7 @@ type Column interface {
 func columnFor(columnName string, typ reflect.Type) Column {
 	switch typ.Kind() {
 	case reflect.Bool:
-		return newColumnBool(columnName)
+		return newColumnBool()
 	default:
 		return newColumnAny()
 	}
@@ -79,15 +79,13 @@ func (p *columnAny) Bitmap() bitmap.Bitmap {
 
 // columnBool represents a boolean column
 type columnBool struct {
-	name string        // The name of the column
 	free bitmap.Bitmap // The free-list
 	data bitmap.Bitmap // The actual values
 }
 
 // newColumnBool creates a new property column
-func newColumnBool(name string) Column {
+func newColumnBool() Column {
 	return &columnBool{
-		name: name,
 		free: make(bitmap.Bitmap, 0, 4),
 		data: make(bitmap.Bitmap, 0, 4),
 	}
@@ -108,6 +106,8 @@ func (p *columnBool) Set(idx uint32, value interface{}) {
 	// Set the data at index
 	if value.(bool) {
 		p.data.Set(idx)
+	} else {
+		p.data.Remove(idx)
 	}
 }
 
@@ -123,11 +123,6 @@ func (p *columnBool) Get(idx uint32) (interface{}, bool) {
 // Del removes a value at a specified index
 func (p *columnBool) Del(idx uint32) {
 	p.free.Set(idx)
-}
-
-// Column returns the target name of the column on which this index should apply.
-func (p *columnBool) Column() string {
-	return p.name
 }
 
 // Bitmap returns the associated index bitmap.
