@@ -1,8 +1,14 @@
 # Columnar Collections & Querying
 
+
+![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/kelindar/column)
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/kelindar/column)](https://pkg.go.dev/github.com/kelindar/column)
+[![Go Report Card](https://goreportcard.com/badge/github.com/kelindar/column)](https://goreportcard.com/report/github.com/kelindar/column)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+
 This package is my experimental attempt in building a fast, in-memory columnar collections in Go. The basic
 idea is to arrange property bags (i.e. `map[string]interface{}`) into columns and be able to write queries effiently 
-around them. Under the hood, this uses roaring bitmaps extensively to provide fast comparisons and selection.
+around them. Under the hood, this uses SIMD-powered bitmaps extensively to provide fast comparisons and selection.
 
 ## Features
 
