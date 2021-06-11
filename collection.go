@@ -137,10 +137,8 @@ func (c *Collection) View(fn func(txn Txn) error) error {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	r := aquireBitmap()
+	r := aquireBitmap(&c.fill)
 	defer releaseBitmap(r)
-	c.fill.Clone(r)
-
 	return fn(Txn{
 		owner: c,
 		index: r,

@@ -16,10 +16,14 @@ var bitmaps = &sync.Pool{
 	},
 }
 
-func aquireBitmap() *bitmap.Bitmap {
-	return bitmaps.Get().(*bitmap.Bitmap)
+// aquireBitmap acquires a bitmap for a transaction
+func aquireBitmap(source *bitmap.Bitmap) *bitmap.Bitmap {
+	b := bitmaps.Get().(*bitmap.Bitmap)
+	source.Clone(b)
+	return b
 }
 
+// releaseBitmap releases a bitmap back to the pool
 func releaseBitmap(b *bitmap.Bitmap) {
 	bitmaps.Put(b)
 }
