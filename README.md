@@ -78,8 +78,8 @@ func main(){
 	// Same condition as above, but we also select the actual names of those 
 	// players and iterate through them.
 	players.View(func(txn column.Txn) error {
-		txn.With("human", "mage", "old").Range(func(v Selector) bool {
-			println(row.String("name")) // prints the name
+		txn.With("human", "mage", "old").Range(func(v column.Selector) bool {
+			println(v.String("name")) // prints the name
 			return true
 		})
 		return nil

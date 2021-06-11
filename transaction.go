@@ -34,13 +34,13 @@ type Txn struct {
 
 // With applies a logical AND operation to the current query and the specified index.
 func (txn Txn) With(index string, extra ...string) Txn {
-	if idx, ok := txn.owner.props[index]; ok {
+	if idx, ok := txn.owner.cols[index]; ok {
 		txn.index.And(idx.Bitmap())
 	}
 
 	// go through extra indexes
 	for _, e := range extra {
-		if idx, ok := txn.owner.props[e]; ok {
+		if idx, ok := txn.owner.cols[e]; ok {
 			txn.index.And(idx.Bitmap())
 		}
 	}
@@ -49,13 +49,13 @@ func (txn Txn) With(index string, extra ...string) Txn {
 
 // Without applies a logical AND NOT operation to the current query and the specified index.
 func (txn Txn) Without(index string, extra ...string) Txn {
-	if idx, ok := txn.owner.props[index]; ok {
+	if idx, ok := txn.owner.cols[index]; ok {
 		txn.index.AndNot(idx.Bitmap())
 	}
 
 	// go through extra indexes
 	for _, e := range extra {
-		if idx, ok := txn.owner.props[e]; ok {
+		if idx, ok := txn.owner.cols[e]; ok {
 			txn.index.AndNot(idx.Bitmap())
 		}
 	}
@@ -64,13 +64,13 @@ func (txn Txn) Without(index string, extra ...string) Txn {
 
 // Union computes a union between the current query and the specified index.
 func (txn Txn) Union(index string, extra ...string) Txn {
-	if idx, ok := txn.owner.props[index]; ok {
+	if idx, ok := txn.owner.cols[index]; ok {
 		txn.index.Or(idx.Bitmap())
 	}
 
 	// go through extra indexes
 	for _, e := range extra {
-		if idx, ok := txn.owner.props[e]; ok {
+		if idx, ok := txn.owner.cols[e]; ok {
 			txn.index.Or(idx.Bitmap())
 		}
 	}
@@ -80,7 +80,7 @@ func (txn Txn) Union(index string, extra ...string) Txn {
 // WithValue applies a filter predicate over values for a specific properties. It filters
 // down the items in the query.
 func (txn Txn) WithValue(property string, predicate func(v interface{}) bool) Txn {
-	if p, ok := txn.owner.props[property]; ok {
+	if p, ok := txn.owner.cols[property]; ok {
 		txn.index.Filter(func(x uint32) bool {
 			if v, ok := p.Value(x); ok {
 				return predicate(v)
@@ -94,7 +94,7 @@ func (txn Txn) WithValue(property string, predicate func(v interface{}) bool) Tx
 // WithFloat64 filters down the values based on the specified predicate. The column for
 // this filter must be numerical and convertible to float64.
 func (txn Txn) WithFloat64(property string, predicate func(v float64) bool) Txn {
-	if p, ok := txn.owner.props[property]; ok {
+	if p, ok := txn.owner.cols[property]; ok {
 		if n, ok := p.(numerical); ok {
 			txn.index.Filter(func(x uint32) bool {
 				if v, ok := n.Float64(x); ok {
@@ -110,7 +110,7 @@ func (txn Txn) WithFloat64(property string, predicate func(v float64) bool) Txn 
 // WithInt64 filters down the values based on the specified predicate. The column for
 // this filter must be numerical and convertible to int64.
 func (txn Txn) WithInt64(property string, predicate func(v int64) bool) Txn {
-	if p, ok := txn.owner.props[property]; ok {
+	if p, ok := txn.owner.cols[property]; ok {
 		if n, ok := p.(numerical); ok {
 			txn.index.Filter(func(x uint32) bool {
 				if v, ok := n.Int64(x); ok {
@@ -126,7 +126,7 @@ func (txn Txn) WithInt64(property string, predicate func(v int64) bool) Txn {
 // WithUint64 filters down the values based on the specified predicate. The column for
 // this filter must be numerical and convertible to uint64.
 func (txn Txn) WithUint64(property string, predicate func(v uint64) bool) Txn {
-	if p, ok := txn.owner.props[property]; ok {
+	if p, ok := txn.owner.cols[property]; ok {
 		if n, ok := p.(numerical); ok {
 			txn.index.Filter(func(x uint32) bool {
 				if v, ok := n.Uint64(x); ok {
@@ -173,7 +173,7 @@ type Selector struct {
 
 // Value reads a value for a current row at a given column.
 func (s *Selector) Value(column string) interface{} {
-	if c, ok := s.owner.props[column]; ok {
+	if c, ok := s.owner.cols[column]; ok {
 		v, _ := c.Value(s.index)
 		return v
 	}
@@ -182,7 +182,7 @@ func (s *Selector) Value(column string) interface{} {
 
 // String reads a string value for a current row at a given column.
 func (s *Selector) String(column string) string {
-	if c, ok := s.owner.props[column]; ok {
+	if c, ok := s.owner.cols[column]; ok {
 		if v, ok := c.Value(s.index); ok {
 			return v.(string)
 		}
@@ -192,7 +192,7 @@ func (s *Selector) String(column string) string {
 
 // Float64 reads a float64 value for a current row at a given column.
 func (s *Selector) Float64(column string) float64 {
-	if c, ok := s.owner.props[column]; ok {
+	if c, ok := s.owner.cols[column]; ok {
 		if n, ok := c.(numerical); ok {
 			v, _ := n.Float64(s.index)
 			return v
@@ -203,7 +203,7 @@ func (s *Selector) Float64(column string) float64 {
 
 // Int64 reads an int64 value for a current row at a given column.
 func (s *Selector) Int64(column string) int64 {
-	if c, ok := s.owner.props[column]; ok {
+	if c, ok := s.owner.cols[column]; ok {
 		if n, ok := c.(numerical); ok {
 			v, _ := n.Int64(s.index)
 			return v
@@ -214,7 +214,7 @@ func (s *Selector) Int64(column string) int64 {
 
 // Uint64 reads a uint64 value for a current row at a given column.
 func (s *Selector) Uint64(column string) uint64 {
-	if c, ok := s.owner.props[column]; ok {
+	if c, ok := s.owner.cols[column]; ok {
 		if n, ok := c.(numerical); ok {
 			v, _ := n.Uint64(s.index)
 			return v
@@ -225,7 +225,7 @@ func (s *Selector) Uint64(column string) uint64 {
 
 // Bool reads a boolean value for a current row at a given column.
 func (s *Selector) Bool(column string) bool {
-	if c, ok := s.owner.props[column]; ok {
+	if c, ok := s.owner.cols[column]; ok {
 		return c.Contains(s.index)
 	}
 	return false

@@ -15,18 +15,16 @@ type Object = map[string]interface{}
 
 // Collection represents a collection of objects in a columnar format
 type Collection struct {
-	lock  sync.RWMutex        // The collection lock
-	fill  bitmap.Bitmap       // The fill-list
-	props map[string]Column   // The map of properties
-	index map[string]computed // The set of indexes by index name
+	lock sync.RWMutex      // The collection lock
+	fill bitmap.Bitmap     // The fill-list
+	cols map[string]Column // The map of properties
 }
 
 // NewCollection creates a new columnar collection.
 func NewCollection() *Collection {
 	return &Collection{
-		props: make(map[string]Column, 8),
-		index: make(map[string]computed, 8),
-		fill:  make(bitmap.Bitmap, 0, 4),
+		fill: make(bitmap.Bitmap, 0, 4),
+		cols: make(map[string]Column, 8),
 	}
 }
 
@@ -46,7 +44,7 @@ func (c *Collection) Add(obj Object) uint32 {
 
 	// For each registered column, assign the appropriate object property. If the
 	// column is actually an indirect index, use that column.
-	for columnName, column := range c.props {
+	for columnName, column := range c.cols {
 		if i, ok := column.(computed); ok {
 			columnName = i.Column()
 		}
@@ -68,7 +66,7 @@ func (c *Collection) Remove(idx uint32) {
 	c.fill.Remove(idx)
 
 	// Remove the data for this element
-	for _, column := range c.props {
+	for _, column := range c.cols {
 		column.Del(idx)
 	}
 }
@@ -93,7 +91,7 @@ func (c *Collection) AddColumn(columnName string, columnType reflect.Type) {
 	defer c.lock.Unlock()
 
 	column := columnFor(columnName, columnType)
-	c.props[columnName] = column
+	c.cols[columnName] = column
 }
 
 // AddIndex creates an index on a specified property
@@ -103,11 +101,9 @@ func (c *Collection) AddIndex(indexName, columnName string, fn IndexFunc) {
 
 	if fn != nil {
 		index := newIndex(columnName, fn)
-		c.props[indexName] = index
-		c.index[indexName] = index
+		c.cols[indexName] = index
 	} else { // Remove the index
-		delete(c.index, indexName)
-		delete(c.props, indexName)
+		delete(c.cols, indexName)
 	}
 }
 
