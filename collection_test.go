@@ -8,15 +8,20 @@ import (
 	"os"
 	"testing"
 
+	"github.com/kelindar/bitmap"
 	"github.com/stretchr/testify/assert"
 )
 
-// BenchmarkCollection/add-8         	21583004	        54.86 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/count-8       	  179092	      6761 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/count-idx-8   	14948353	        81.69 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/find-8        	  166666	      7259 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/find-idx-8    	 1774310	       618.6 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/fetch-8       	43480938	        28.11 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/insert-8        	21456541	        55.89 ns/op	       3 B/op	       0 allocs/op
+// BenchmarkCollection/fetch-8       	41421588	        28.65 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/count-8       	  177513	      6747 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/count-idx-8   	12116866	        98.30 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/find-8        	  164317	      7284 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/find-idx-8    	 1778757	       693.0 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/update-at-8   	 3767920	       319.8 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/update-all-8  	    6664	    169815 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/delete-at-8   	 4808724	       248.4 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/delete-all-8  	    8570	    134996 ns/op	       4 B/op	       0 allocs/op
 func BenchmarkCollection(b *testing.B) {
 	players := loadPlayers()
 	obj := Object{
@@ -27,23 +32,35 @@ func BenchmarkCollection(b *testing.B) {
 		"mana":   200,
 	}
 
-	b.Run("add", func(b *testing.B) {
+	b.Run("insert", func(b *testing.B) {
 		col := NewCollection()
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			col.Add(obj)
+			col.Insert(obj)
 			if col.Count() >= 1000 {
 				col = NewCollection()
 			}
 		}
 	})
 
+	b.Run("fetch", func(b *testing.B) {
+		name := ""
+		b.ReportAllocs()
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			if s, ok := players.Fetch(20); ok {
+				name = s.String("name")
+			}
+		}
+		assert.NotEmpty(b, name)
+	})
+
 	b.Run("count", func(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			players.View(func(txn Txn) error {
+			players.Query(func(txn Txn) error {
 				txn.WithString("race", func(v string) bool {
 					return v == "human"
 				}).WithString("class", func(v string) bool {
@@ -60,7 +77,7 @@ func BenchmarkCollection(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			players.View(func(txn Txn) error {
+			players.Query(func(txn Txn) error {
 				txn.With("human", "mage", "old").Count()
 				return nil
 			})
@@ -72,7 +89,7 @@ func BenchmarkCollection(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			players.View(func(txn Txn) error {
+			players.Query(func(txn Txn) error {
 				txn.WithString("race", func(v string) bool {
 					return v == "human"
 				}).WithString("class", func(v string) bool {
@@ -95,7 +112,7 @@ func BenchmarkCollection(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			players.View(func(txn Txn) error {
+			players.Query(func(txn Txn) error {
 				txn.With("human", "mage", "old").Range(func(v Selector) bool {
 					count++
 					name = v.String("name")
@@ -107,16 +124,53 @@ func BenchmarkCollection(b *testing.B) {
 		assert.NotEmpty(b, name)
 	})
 
-	b.Run("fetch", func(b *testing.B) {
-		name := ""
+	b.Run("update-at", func(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			if s, ok := players.Fetch(20); ok {
-				name = s.String("name")
-			}
+			players.UpdateAt(20, "balance", 1.0)
 		}
-		assert.NotEmpty(b, name)
+	})
+
+	b.Run("update-all", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			players.Query(func(txn Txn) error {
+				txn.Range(func(v Selector) bool {
+					v.Update("balance", 1.0)
+					return true
+				})
+				return nil
+			})
+		}
+	})
+
+	b.Run("delete-at", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			players.DeleteAt(20)
+		}
+	})
+
+	b.Run("delete-all", func(b *testing.B) {
+		var fill bitmap.Bitmap
+		c := loadPlayers()  // Clone since we're deleting here
+		c.fill.Clone(&fill) // Save the state
+
+		b.ReportAllocs()
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			fill.Clone(&c.fill) // Restore
+			c.Query(func(txn Txn) error {
+				txn.Range(func(v Selector) bool {
+					v.Delete()
+					return true
+				})
+				return nil
+			})
+		}
 	})
 }
 
@@ -151,7 +205,7 @@ func TestCollection(t *testing.T) {
 	assert.Error(t, col.CreateIndex("", "", nil))
 
 	col.AddColumnsOf(obj)
-	idx := col.Add(obj)
+	idx := col.Insert(obj)
 
 	{ // Find the object by its index
 		v, ok := col.Fetch(idx)
@@ -160,13 +214,13 @@ func TestCollection(t *testing.T) {
 	}
 
 	{ // Remove the object
-		col.Remove(idx)
+		col.DeleteAt(idx)
 		_, ok := col.Fetch(idx)
 		assert.False(t, ok)
 	}
 
 	{ // Add a new one, should replace
-		idx := col.Add(obj)
+		idx := col.Insert(obj)
 		v, ok := col.Fetch(idx)
 		assert.True(t, ok)
 		assert.Equal(t, "Roman", v.String("name"))
@@ -211,7 +265,7 @@ func loadPlayers() *Collection {
 	players := loadFixture("players.json")
 	out.AddColumnsOf(players[0])
 	for _, p := range players {
-		out.Add(p)
+		out.Insert(p)
 	}
 
 	return out

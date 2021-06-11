@@ -12,7 +12,7 @@ import (
 func TestFind(t *testing.T) {
 	players := loadPlayers()
 	count := 0
-	players.View(func(txn Txn) error {
+	players.Query(func(txn Txn) error {
 		txn.WithString("race", func(v string) bool {
 			return v == "human"
 		}).WithString("class", func(v string) bool {
@@ -37,7 +37,7 @@ func TestCount(t *testing.T) {
 	assert.Equal(t, 500, players.Count())
 
 	// How many humans?
-	players.View(func(txn Txn) error {
+	players.Query(func(txn Txn) error {
 		assert.Equal(t, 138, txn.WithValue("race", func(v interface{}) bool {
 			return v == "human"
 		}).Count())
@@ -45,25 +45,25 @@ func TestCount(t *testing.T) {
 	})
 
 	// How many elves + dwarves?
-	players.View(func(txn Txn) error {
+	players.Query(func(txn Txn) error {
 		assert.Equal(t, 254, txn.With("elf").Union("dwarf").Count())
 		return nil
 	})
 
 	// How many active players?
-	players.View(func(txn Txn) error {
+	players.Query(func(txn Txn) error {
 		assert.Equal(t, 247, txn.With("active").Count())
 		return nil
 	})
 
 	// How many inactive players?
-	players.View(func(txn Txn) error {
+	players.Query(func(txn Txn) error {
 		assert.Equal(t, 253, txn.Without("active").Count())
 		return nil
 	})
 
 	// How many players with a name?
-	players.View(func(txn Txn) error {
+	players.Query(func(txn Txn) error {
 		assert.Equal(t, 500, txn.With("name").Count())
 		return nil
 	})
@@ -71,12 +71,12 @@ func TestCount(t *testing.T) {
 
 func TestIndexInvalid(t *testing.T) {
 	players := loadPlayers()
-	players.View(func(txn Txn) error {
+	players.Query(func(txn Txn) error {
 		assert.Equal(t, 0, txn.With("invalid-index").Count())
 		return nil
 	})
 
-	players.View(func(txn Txn) error {
+	players.Query(func(txn Txn) error {
 		assert.Equal(t, 0, txn.With("human", "invalid-index").Count())
 		return nil
 	})
@@ -89,26 +89,26 @@ func TestIndexed(t *testing.T) {
 	})
 
 	// How many players are rich?
-	players.View(func(txn Txn) error {
+	players.Query(func(txn Txn) error {
 		assert.Equal(t, 74, txn.With("rich").Count())
 		return nil
 	})
 
 	// Drop the index and check again
 	players.DropIndex("rich")
-	players.View(func(txn Txn) error {
+	players.Query(func(txn Txn) error {
 		assert.Equal(t, 0, txn.With("rich").Count())
 		return nil
 	})
 
 	// How many human mages over age of 30?
-	players.View(func(txn Txn) error {
+	players.Query(func(txn Txn) error {
 		assert.Equal(t, 21, txn.With("human", "mage", "old").Count())
 		return nil
 	})
 
 	// Check the index value
-	players.View(func(txn Txn) error {
+	players.Query(func(txn Txn) error {
 		txn.With("human", "mage", "old").
 			Range(func(v Selector) bool {
 				assert.True(t, v.Float64("age") >= 30)
@@ -118,6 +118,43 @@ func TestIndexed(t *testing.T) {
 				assert.True(t, v.Bool("old"))
 				return true
 			})
+		return nil
+	})
+}
+
+func TestUpdate(t *testing.T) {
+	players := loadPlayers()
+
+	// Delete all old people from the collection
+	players.Query(func(txn Txn) error {
+		txn.With("old").Range(func(v Selector) bool {
+			v.Delete()
+			return true
+		})
+		return nil
+	})
+
+	// How many human mages left?
+	players.Query(func(txn Txn) error {
+		assert.Equal(t, 13, txn.With("human", "mage").Count())
+		return nil
+	})
+
+	// Make everyone poor
+	players.Query(func(txn Txn) error {
+		txn.Range(func(v Selector) bool {
+			v.Update("balance", 1.0)
+			return true
+		})
+		return nil
+	})
+
+	// Every player should be now poor
+	count := players.Count()
+	players.Query(func(txn Txn) error {
+		assert.Equal(t, count, txn.WithFloat64("balance", func(v float64) bool {
+			return v == 1.0
+		}).Count())
 		return nil
 	})
 }

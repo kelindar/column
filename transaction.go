@@ -32,8 +32,8 @@ func releaseBitmap(b *bitmap.Bitmap) {
 
 // Txn represents a transaction which supports filtering and projection.
 type Txn struct {
-	owner *Collection
-	index *bitmap.Bitmap
+	owner *Collection    // The target collection
+	index *bitmap.Bitmap // The filtering index
 }
 
 // With applies a logical AND operation to the current query and the specified index.
@@ -175,8 +175,8 @@ func (txn Txn) Range(fn func(Selector) bool) {
 
 // Selector represents a column selector which can retrieve a value by a column name.
 type Selector struct {
-	index uint32
-	owner *Collection
+	index uint32      // The current index
+	owner *Collection // The owner collection
 }
 
 // Value reads a value for a current row at a given column.
@@ -237,4 +237,37 @@ func (s *Selector) Bool(column string) bool {
 		return c.Contains(s.index)
 	}
 	return false
+}
+
+// --------------------------- Update ----------------------------
+
+// update represents an update operation
+type update struct {
+	delete bool        // Delete or update?
+	index  uint32      // The index to update/delete
+	column string      // The column to update
+	value  interface{} // The value to update to
+}
+
+// Delete deletes the current item. The actual operation will be queued and
+// executed once the current the transaction completes.
+func (s *Selector) Delete() {
+	s.owner.qlock.Lock()
+	defer s.owner.qlock.Unlock()
+	s.owner.queue = append(s.owner.queue, update{
+		delete: true,
+		index:  s.index,
+	})
+}
+
+// Update updates a column value for the current item. The actual operation
+// will be queued and executed once the current the transaction completes.
+func (s *Selector) Update(columnName string, value interface{}) {
+	s.owner.qlock.Lock()
+	defer s.owner.qlock.Unlock()
+	s.owner.queue = append(s.owner.queue, update{
+		index:  s.index,
+		column: columnName,
+		value:  value,
+	})
 }

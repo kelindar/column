@@ -49,13 +49,13 @@ func main(){
 	loaded := loadFixture("players.json")
 	players.AddColumnsOf(loaded[0])
 	for _, v := range loaded {
-		players.Add(v)
+		players.Insert(v)
 	}
 
 	// This performs a full scan on 3 different columns and compares them given the 
 	// specified predicates. This is not indexed, but does a columnar scan which is
 	// cache-friendly.
-	players.View(func(txn column.Txn) error {
+	players.Query(func(txn column.Txn) error {
 		println(txn.WithString("race", func(v string) bool {
 			return v == "human"
 		}).WithString("class", func(v string) bool {
@@ -70,14 +70,14 @@ func main(){
 	// over pre-built indexes and combines them using a logical AND operation. The result
 	// will be the same as the query above but the performance of the query is 10x-100x
 	// faster depending on the size of the underlying data.
-	players.View(func(txn column.Txn) error {
+	players.Query(func(txn column.Txn) error {
 		println(txn.With("human", "mage", "old").Count()) // prints the count
 		return nil
 	})
 
 	// Same condition as above, but we also select the actual names of those 
 	// players and iterate through them.
-	players.View(func(txn column.Txn) error {
+	players.Query(func(txn column.Txn) error {
 		txn.With("human", "mage", "old").Range(func(v column.Selector) bool {
 			println(v.String("name")) // prints the name
 			return true
