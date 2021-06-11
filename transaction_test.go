@@ -69,8 +69,37 @@ func TestCount(t *testing.T) {
 	})
 }
 
+func TestIndexInvalid(t *testing.T) {
+	players := loadPlayers()
+	players.View(func(txn Txn) error {
+		assert.Equal(t, 0, txn.With("invalid-index").Count())
+		return nil
+	})
+
+	players.View(func(txn Txn) error {
+		assert.Equal(t, 0, txn.With("human", "invalid-index").Count())
+		return nil
+	})
+}
+
 func TestIndexed(t *testing.T) {
 	players := loadPlayers()
+	players.CreateIndex("rich", "balance", func(v interface{}) bool {
+		return v.(float64) > 3500
+	})
+
+	// How many players are rich?
+	players.View(func(txn Txn) error {
+		assert.Equal(t, 74, txn.With("rich").Count())
+		return nil
+	})
+
+	// Drop the index and check again
+	players.DropIndex("rich")
+	players.View(func(txn Txn) error {
+		assert.Equal(t, 0, txn.With("rich").Count())
+		return nil
+	})
 
 	// How many human mages over age of 30?
 	players.View(func(txn Txn) error {

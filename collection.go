@@ -4,6 +4,7 @@
 package column
 
 import (
+	"fmt"
 	"reflect"
 	"sync"
 
@@ -94,17 +95,40 @@ func (c *Collection) AddColumn(columnName string, columnType reflect.Type) {
 	c.cols[columnName] = column
 }
 
-// AddIndex creates an index on a specified property
-func (c *Collection) AddIndex(indexName, columnName string, fn IndexFunc) {
+// CreateIndex creates an index column with a specified name which depends on a given
+// column. The index function will be applied on the values of the column whenever
+// a new row is added or updated.
+func (c *Collection) CreateIndex(indexName, columnName string, fn IndexFunc) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-
-	if fn != nil {
-		index := newIndex(columnName, fn)
-		c.cols[indexName] = index
-	} else { // Remove the index
-		delete(c.cols, indexName)
+	if fn == nil || columnName == "" || indexName == "" {
+		return fmt.Errorf("column: create index must specify name, column and function")
 	}
+
+	// Create and add the index column,
+	index := newIndex(columnName, fn)
+	c.cols[indexName] = index
+
+	// If a column with this name already exists, iterate through all of the values
+	// that we have in the collection and apply the filter.
+	if column, ok := c.cols[columnName]; ok {
+		c.fill.Clone(&index.fill)
+		index.fill.Filter(func(x uint32) bool {
+			if v, ok := column.Value(x); ok {
+				return fn(v)
+			}
+			return false
+		})
+	}
+	return nil
+}
+
+// DropIndex removes the index column with the specified name. If the index with this
+// name does not exist, this operation is a no-op.
+func (c *Collection) DropIndex(indexName string) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	delete(c.cols, indexName)
 }
 
 // View creates a read-only transaction which allows for filtering and iteration

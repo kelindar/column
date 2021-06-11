@@ -36,12 +36,16 @@ type Txn struct {
 func (txn Txn) With(index string, extra ...string) Txn {
 	if idx, ok := txn.owner.cols[index]; ok {
 		txn.index.And(idx.Bitmap())
+	} else {
+		txn.index.Clear()
 	}
 
 	// go through extra indexes
 	for _, e := range extra {
 		if idx, ok := txn.owner.cols[e]; ok {
 			txn.index.And(idx.Bitmap())
+		} else {
+			txn.index.Clear()
 		}
 	}
 	return txn

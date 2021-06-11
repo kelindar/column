@@ -31,17 +31,17 @@ func main(){
 	players := column.NewCollection()
 
 	// index on humans
-	players.AddIndex("human", "race", func(v interface{}) bool {
+	players.CreateIndex("human", "race", func(v interface{}) bool {
 		return v == "human"
 	})
 
 	// index for mages
-	players.AddIndex("mage", "class", func(v interface{}) bool {
+	players.CreateIndex("mage", "class", func(v interface{}) bool {
 		return v == "mage"
 	})
 
 	// index for old
-	players.AddIndex("old", "age", func(v interface{}) bool {
+	players.CreateIndex("old", "age", func(v interface{}) bool {
 		return v.(float64) >= 30
 	})
 

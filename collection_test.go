@@ -148,6 +148,8 @@ func TestCollection(t *testing.T) {
 	}
 
 	col := NewCollection()
+	assert.Error(t, col.CreateIndex("", "", nil))
+
 	col.AddColumnsOf(obj)
 	idx := col.Add(obj)
 
@@ -176,32 +178,32 @@ func loadPlayers() *Collection {
 	out := NewCollection()
 
 	// index on humans
-	out.AddIndex("human", "race", func(v interface{}) bool {
+	out.CreateIndex("human", "race", func(v interface{}) bool {
 		return v == "human"
 	})
 
 	// index on dwarves
-	out.AddIndex("dwarf", "race", func(v interface{}) bool {
+	out.CreateIndex("dwarf", "race", func(v interface{}) bool {
 		return v == "dwarf"
 	})
 
 	// index on elves
-	out.AddIndex("elf", "race", func(v interface{}) bool {
+	out.CreateIndex("elf", "race", func(v interface{}) bool {
 		return v == "elf"
 	})
 
 	// index on orcs
-	out.AddIndex("orc", "race", func(v interface{}) bool {
+	out.CreateIndex("orc", "race", func(v interface{}) bool {
 		return v == "orc"
 	})
 
 	// index for mages
-	out.AddIndex("mage", "class", func(v interface{}) bool {
+	out.CreateIndex("mage", "class", func(v interface{}) bool {
 		return v == "mage"
 	})
 
 	// index for old
-	out.AddIndex("old", "age", func(v interface{}) bool {
+	out.CreateIndex("old", "age", func(v interface{}) bool {
 		return v.(float64) >= 30
 	})
 
