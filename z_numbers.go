@@ -81,6 +81,11 @@ func (p *columnFloat32) Bitmap() bitmap.Bitmap {
 	return p.fill
 }
 
+// Contains checks whether the column has a value at a specified index.
+func (p *columnFloat32) Contains(idx uint32) bool {
+	return p.fill.Contains(idx)
+}
+
 // --------------------------- float64s ----------------------------
 
 // columnFloat64 represents a generic column
@@ -154,6 +159,11 @@ func (p *columnFloat64) Del(idx uint32) {
 // Bitmap returns the associated index bitmap.
 func (p *columnFloat64) Bitmap() bitmap.Bitmap {
 	return p.fill
+}
+
+// Contains checks whether the column has a value at a specified index.
+func (p *columnFloat64) Contains(idx uint32) bool {
+	return p.fill.Contains(idx)
 }
 
 // --------------------------- ints ----------------------------
@@ -231,6 +241,11 @@ func (p *columnInt) Bitmap() bitmap.Bitmap {
 	return p.fill
 }
 
+// Contains checks whether the column has a value at a specified index.
+func (p *columnInt) Contains(idx uint32) bool {
+	return p.fill.Contains(idx)
+}
+
 // --------------------------- int16s ----------------------------
 
 // columnInt16 represents a generic column
@@ -304,6 +319,11 @@ func (p *columnInt16) Del(idx uint32) {
 // Bitmap returns the associated index bitmap.
 func (p *columnInt16) Bitmap() bitmap.Bitmap {
 	return p.fill
+}
+
+// Contains checks whether the column has a value at a specified index.
+func (p *columnInt16) Contains(idx uint32) bool {
+	return p.fill.Contains(idx)
 }
 
 // --------------------------- int32s ----------------------------
@@ -381,6 +401,11 @@ func (p *columnInt32) Bitmap() bitmap.Bitmap {
 	return p.fill
 }
 
+// Contains checks whether the column has a value at a specified index.
+func (p *columnInt32) Contains(idx uint32) bool {
+	return p.fill.Contains(idx)
+}
+
 // --------------------------- int64s ----------------------------
 
 // columnInt64 represents a generic column
@@ -454,6 +479,11 @@ func (p *columnInt64) Del(idx uint32) {
 // Bitmap returns the associated index bitmap.
 func (p *columnInt64) Bitmap() bitmap.Bitmap {
 	return p.fill
+}
+
+// Contains checks whether the column has a value at a specified index.
+func (p *columnInt64) Contains(idx uint32) bool {
+	return p.fill.Contains(idx)
 }
 
 // --------------------------- uints ----------------------------
@@ -531,6 +561,11 @@ func (p *columnUint) Bitmap() bitmap.Bitmap {
 	return p.fill
 }
 
+// Contains checks whether the column has a value at a specified index.
+func (p *columnUint) Contains(idx uint32) bool {
+	return p.fill.Contains(idx)
+}
+
 // --------------------------- uint16s ----------------------------
 
 // columnUint16 represents a generic column
@@ -604,6 +639,11 @@ func (p *columnUint16) Del(idx uint32) {
 // Bitmap returns the associated index bitmap.
 func (p *columnUint16) Bitmap() bitmap.Bitmap {
 	return p.fill
+}
+
+// Contains checks whether the column has a value at a specified index.
+func (p *columnUint16) Contains(idx uint32) bool {
+	return p.fill.Contains(idx)
 }
 
 // --------------------------- uint32s ----------------------------
@@ -681,6 +721,11 @@ func (p *columnUint32) Bitmap() bitmap.Bitmap {
 	return p.fill
 }
 
+// Contains checks whether the column has a value at a specified index.
+func (p *columnUint32) Contains(idx uint32) bool {
+	return p.fill.Contains(idx)
+}
+
 // --------------------------- uint64s ----------------------------
 
 // columnUint64 represents a generic column
@@ -754,4 +799,9 @@ func (p *columnUint64) Del(idx uint32) {
 // Bitmap returns the associated index bitmap.
 func (p *columnUint64) Bitmap() bitmap.Bitmap {
 	return p.fill
+}
+
+// Contains checks whether the column has a value at a specified index.
+func (p *columnUint64) Contains(idx uint32) bool {
+	return p.fill.Contains(idx)
 }

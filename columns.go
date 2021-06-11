@@ -1,8 +1,8 @@
 // Copyright (c) Roman Atachiants and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
-//go:generate genny -pkg=columnar -in=generic.go -out=z_numbers.go gen "number=float32,float64,int,int16,int32,int64,uint,uint16,uint32,uint64"
-//go:generate genny -pkg=columnar -in=generic_test.go -out=z_numbers_test.go gen "number=float32,float64,int,int16,int32,int64,uint,uint16,uint32,uint64"
+//go:generate genny -pkg=column -in=generic.go -out=z_numbers.go gen "number=float32,float64,int,int16,int32,int64,uint,uint16,uint32,uint64"
+//go:generate genny -pkg=column -in=generic_test.go -out=z_numbers_test.go gen "number=float32,float64,int,int16,int32,int64,uint,uint16,uint32,uint64"
 
 package column
 
@@ -14,10 +14,11 @@ import (
 
 // Column represents a column implementation
 type Column interface {
+	Bitmap() bitmap.Bitmap
 	Set(idx uint32, value interface{})
 	Del(idx uint32)
 	Value(idx uint32) (interface{}, bool)
-	Bitmap() bitmap.Bitmap
+	Contains(idx uint32) bool
 }
 
 // Numerical represents a numerical column implementation
@@ -105,6 +106,11 @@ func (p *columnAny) Bitmap() bitmap.Bitmap {
 	return p.fill
 }
 
+// Contains checks whether the column has a value at a specified index.
+func (p *columnAny) Contains(idx uint32) bool {
+	return p.fill.Contains(idx)
+}
+
 // --------------------------- booleans ----------------------------
 
 // columnBool represents a boolean column
@@ -133,7 +139,7 @@ func (p *columnBool) Set(idx uint32, value interface{}) {
 
 // Value retrieves a value at a specified index
 func (p *columnBool) Value(idx uint32) (interface{}, bool) {
-	if idx >= uint32(len(p.data)) || !p.fill.Contains(idx) {
+	if !p.fill.Contains(idx) {
 		return false, false
 	}
 
@@ -149,4 +155,73 @@ func (p *columnBool) Del(idx uint32) {
 // Bitmap returns the associated index bitmap.
 func (p *columnBool) Bitmap() bitmap.Bitmap {
 	return p.data
+}
+
+// Contains checks whether the column has a value at a specified index.
+func (p *columnBool) Contains(idx uint32) bool {
+	return p.fill.Contains(idx)
+}
+
+// --------------------------- computed index ----------------------------
+
+// computed represents a computed column
+type computed interface {
+	Column() string
+}
+
+// IndexFunc represents a function which can be used to build an index
+type IndexFunc = func(v interface{}) bool
+
+// Index represents the index implementation
+type index struct {
+	prop string
+	rule func(v interface{}) bool
+	fill bitmap.Bitmap
+}
+
+// newIndex creates a new indexer
+func newIndex(prop string, rule func(v interface{}) bool) *index {
+	return &index{
+		prop: prop,
+		rule: rule,
+		fill: make(bitmap.Bitmap, 0, 8),
+	}
+}
+
+// Bitmap returns the associated index bitmap.
+func (i *index) Bitmap() bitmap.Bitmap {
+	return i.fill
+}
+
+// Column returns the target name of the column on which this index should apply.
+func (i *index) Column() string {
+	return i.prop
+}
+
+// Set keeps the index up-to-date when a new value is added.
+func (i *index) Set(idx uint32, value interface{}) {
+	if i.rule(value) {
+		i.fill.Set(idx)
+	} else {
+		i.fill.Remove(idx)
+	}
+}
+
+// Value retrieves a value at a specified index.
+func (i *index) Value(idx uint32) (interface{}, bool) {
+	if idx >= uint32(len(i.fill))*64 {
+		return false, false
+	}
+
+	return i.fill.Contains(idx), true
+}
+
+// Del deletes the element from the index.
+func (i *index) Del(idx uint32) {
+	i.fill.Remove(idx)
+}
+
+// Contains checks whether the column has a value at a specified index.
+func (i *index) Contains(idx uint32) bool {
+	return i.fill.Contains(idx)
 }

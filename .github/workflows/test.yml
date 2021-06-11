@@ -1,0 +1,26 @@
+name: Test
+on: [push, pull_request]
+env:
+  GITHUB_TOKEN: ${{ secrets.COVERALLS_TOKEN }}
+  GO111MODULE: "on"
+jobs:
+  test:
+    name: Test with Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: "1.16"
+      - name: Check out code
+        uses: actions/checkout@v2
+      - name: Install dependencies
+        run: |
+          go mod download
+      - name: Run Unit Tests
+        run: |
+          go test -race -covermode atomic -coverprofile=profile.cov ./...
+      - name: Upload Coverage
+        uses: shogo82148/actions-goveralls@v1
+        with:
+          path-to-profile: profile.cov

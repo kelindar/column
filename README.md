@@ -1,21 +1,26 @@
-# Columnar Collections & Querying
+<p align="center">
+<img width="330" height="110" src=".github/logo.png" border="0" alt="kelindar/column">
+<br>
+<img src="https://img.shields.io/github/go-mod/go-version/kelindar/column" alt="Go Version">
+<a href="https://pkg.go.dev/github.com/kelindar/column"><img src="https://pkg.go.dev/badge/github.com/kelindar/column" alt="PkgGoDev"></a>
+<a href="https://goreportcard.com/report/github.com/kelindar/column"><img src="https://goreportcard.com/badge/github.com/kelindar/column" alt="Go Report Card"></a>
+<a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License"></a>
+<a href="https://coveralls.io/github/kelindar/column"><img src="https://coveralls.io/repos/github/kelindar/column/badge.svg" alt="Coverage"></a>
+</p>
 
+# Columnar In-Memory DB with Bitmap Indexing
 
-![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/kelindar/column)
-[![PkgGoDev](https://pkg.go.dev/badge/github.com/kelindar/column)](https://pkg.go.dev/github.com/kelindar/column)
-[![Go Report Card](https://goreportcard.com/badge/github.com/kelindar/column)](https://goreportcard.com/report/github.com/kelindar/column)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+This package contains a **hihg-performance, columnar, in-memory database** that supports fast querying and iteration with zero-allocations and bitmap indexing. 
 
-This package is my experimental attempt in building a fast, in-memory columnar collections in Go. The basic
-idea is to arrange property bags (i.e. `map[string]interface{}`) into columns and be able to write queries effiently 
-around them. Under the hood, this uses SIMD-powered bitmaps extensively to provide fast comparisons and selection.
+The general idea is to leverage cache-friendly ways of organizing data in [structures of arrays (SoA)](https://en.wikipedia.org/wiki/AoS_and_SoA) otherwise known "columnar" storage in database design. This, in turn allows us to iterate and filter over columns very efficiently. On top of that, this package also adds [bitmap indexing](https://en.wikipedia.org/wiki/Bitmap_index) to the columnar storage, allowing to build filter queries using binary `and`, `and not`, `or` and `xor` (see [kelindar/bitmap](https://github.com/kelindar/bitmap) with SIMD support). 
 
 ## Features
 
- * Columnar (Structures of Arrays) data layout for very fast iteration over large sets of data
- * Zero heap allocation (or close to it) inside the library (see benchmarks below)
- * Querying capability with filtering (aka "where" clause) and projections (aka "select" clause)
- * Using dense and fast bitmaps for indexing and free/fill-lists
+ * Cache-friendly **columnar data layout** that minimizes cache-misses
+ * **Zero heap allocation** (or close to it) inside the library (see benchmarks below)
+ * Support for **SIMD-enabled filtering** (i.e. "where" clause) by leveraging [binary indexing](https://github.com/kelindar/bitmap)
+ * Support for **columnar projection**  (i.e. "select" clause) for fast retrieval
+ * Support for **computed indexes** that are dynamically calculated based on provided predicate
 
 ## Example usage
 
@@ -39,7 +44,7 @@ func oldHumanMages(filter column.Query) {
 // will be the same as the query above but the performance of the query is 10x-100x faster
 // depending on the size of the underlying data.
 func oldHumanMagesIndexed(filter columnar.Query) {
-	filter.With("human").With("mage").With("old")
+	filter.With("human", "mage", "old")
 }
 
 func main(){
@@ -48,29 +53,31 @@ func main(){
 	players := column.NewCollection()
 
 	// index on humans
-	players.Index("human", "race", func(v interface{}) bool {
+	players.AddIndex("human", "race", func(v interface{}) bool {
 		return v == "human"
 	})
 
 	// index for mages
-	players.Index("mage", "class", func(v interface{}) bool {
+	players.AddIndex("mage", "class", func(v interface{}) bool {
 		return v == "mage"
 	})
 
 	// index for old
-	players.Index("old", "age", func(v interface{}) bool {
+	players.AddIndex("old", "age", func(v interface{}) bool {
 		return v.(float64) >= 30
 	})
 
 	// Load the items into the collection
-	for _, v := range loadFixture("players.json") {
+	loaded := loadFixture("players.json")
+	players.AddColumnsOf(loaded[0])
+	for _, v := range loaded {
 		players.Add(v)
 	}
 
 	// How many human mages over age of 30? First is unindexed (scan) while the
 	// second query is indexed based on the predefined indices built above.
-	count := players.Count(oldHumanMages)
-	count := players.Count(oldHumanMagesIndexed)
+	println(players.Count(oldHumanMages))
+	println(players.Count(oldHumanMagesIndexed))
 
 	// Same condition as above, but we also select the actual names of those 
 	// players and iterate through them

@@ -33,25 +33,46 @@ type Query struct {
 }
 
 // With applies a logical AND operation to the current query and the specified index.
-func (q Query) With(index string) Query {
+func (q Query) With(index string, extra ...string) Query {
 	if idx, ok := q.owner.props[index]; ok {
 		q.index.And(idx.Bitmap())
+	}
+
+	// go through extra indexes
+	for _, e := range extra {
+		if idx, ok := q.owner.props[e]; ok {
+			q.index.And(idx.Bitmap())
+		}
 	}
 	return q
 }
 
 // Without applies a logical AND NOT operation to the current query and the specified index.
-func (q Query) Without(index string) Query {
+func (q Query) Without(index string, extra ...string) Query {
 	if idx, ok := q.owner.props[index]; ok {
 		q.index.AndNot(idx.Bitmap())
+	}
+
+	// go through extra indexes
+	for _, e := range extra {
+		if idx, ok := q.owner.props[e]; ok {
+			q.index.AndNot(idx.Bitmap())
+		}
 	}
 	return q
 }
 
 // Union computes a union between the current query and the specified index.
-func (q Query) Union(index string) Query {
+func (q Query) Union(index string, extra ...string) Query {
 	if idx, ok := q.owner.props[index]; ok {
 		q.index.Or(idx.Bitmap())
+	}
+
+	// go through extra indexes
+	for _, e := range extra {
+		if idx, ok := q.owner.props[e]; ok {
+			q.index.Or(idx.Bitmap())
+		}
 	}
 	return q
 }
@@ -200,4 +221,12 @@ func (s *Selector) Uint64(column string) uint64 {
 		}
 	}
 	return 0
+}
+
+// Bool reads a boolean value for a current row at a given column.
+func (s *Selector) Bool(column string) bool {
+	if c, ok := s.owner.props[column]; ok {
+		return c.Contains(s.index)
+	}
+	return false
 }

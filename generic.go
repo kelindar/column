@@ -1,3 +1,5 @@
+// +build ignore
+
 package column
 
 import (
@@ -80,4 +82,9 @@ func (p *columnnumber) Del(idx uint32) {
 // Bitmap returns the associated index bitmap.
 func (p *columnnumber) Bitmap() bitmap.Bitmap {
 	return p.fill
+}
+
+// Contains checks whether the column has a value at a specified index.
+func (p *columnnumber) Contains(idx uint32) bool {
+	return p.fill.Contains(idx)
 }

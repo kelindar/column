@@ -1,3 +1,5 @@
+// +build ignore
+
 package column
 
 import (
@@ -13,6 +15,7 @@ func TestOfnumbers(t *testing.T) {
 		c.Set(9, number(99))
 		assert.Equal(t, 10, len(c.data))
 		assert.NotEmpty(t, c.Bitmap())
+		assert.True(t, c.Contains(9))
 	}
 
 	{ // Get the values

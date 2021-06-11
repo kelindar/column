@@ -17,6 +17,7 @@ func TestOfFloat32s(t *testing.T) {
 		c.Set(9, float32(99))
 		assert.Equal(t, 10, len(c.data))
 		assert.NotEmpty(t, c.Bitmap())
+		assert.True(t, c.Contains(9))
 	}
 
 	{ // Get the values
@@ -65,6 +66,7 @@ func TestOfFloat64s(t *testing.T) {
 		c.Set(9, float64(99))
 		assert.Equal(t, 10, len(c.data))
 		assert.NotEmpty(t, c.Bitmap())
+		assert.True(t, c.Contains(9))
 	}
 
 	{ // Get the values
@@ -113,6 +115,7 @@ func TestOfInts(t *testing.T) {
 		c.Set(9, int(99))
 		assert.Equal(t, 10, len(c.data))
 		assert.NotEmpty(t, c.Bitmap())
+		assert.True(t, c.Contains(9))
 	}
 
 	{ // Get the values
@@ -161,6 +164,7 @@ func TestOfInt16s(t *testing.T) {
 		c.Set(9, int16(99))
 		assert.Equal(t, 10, len(c.data))
 		assert.NotEmpty(t, c.Bitmap())
+		assert.True(t, c.Contains(9))
 	}
 
 	{ // Get the values
@@ -209,6 +213,7 @@ func TestOfInt32s(t *testing.T) {
 		c.Set(9, int32(99))
 		assert.Equal(t, 10, len(c.data))
 		assert.NotEmpty(t, c.Bitmap())
+		assert.True(t, c.Contains(9))
 	}
 
 	{ // Get the values
@@ -257,6 +262,7 @@ func TestOfInt64s(t *testing.T) {
 		c.Set(9, int64(99))
 		assert.Equal(t, 10, len(c.data))
 		assert.NotEmpty(t, c.Bitmap())
+		assert.True(t, c.Contains(9))
 	}
 
 	{ // Get the values
@@ -305,6 +311,7 @@ func TestOfUints(t *testing.T) {
 		c.Set(9, uint(99))
 		assert.Equal(t, 10, len(c.data))
 		assert.NotEmpty(t, c.Bitmap())
+		assert.True(t, c.Contains(9))
 	}
 
 	{ // Get the values
@@ -353,6 +360,7 @@ func TestOfUint16s(t *testing.T) {
 		c.Set(9, uint16(99))
 		assert.Equal(t, 10, len(c.data))
 		assert.NotEmpty(t, c.Bitmap())
+		assert.True(t, c.Contains(9))
 	}
 
 	{ // Get the values
@@ -401,6 +409,7 @@ func TestOfUint32s(t *testing.T) {
 		c.Set(9, uint32(99))
 		assert.Equal(t, 10, len(c.data))
 		assert.NotEmpty(t, c.Bitmap())
+		assert.True(t, c.Contains(9))
 	}
 
 	{ // Get the values
@@ -449,6 +458,7 @@ func TestOfUint64s(t *testing.T) {
 		c.Set(9, uint64(99))
 		assert.Equal(t, 10, len(c.data))
 		assert.NotEmpty(t, c.Bitmap())
+		assert.True(t, c.Contains(9))
 	}
 
 	{ // Get the values

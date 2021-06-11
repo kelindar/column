@@ -25,7 +25,7 @@ func oldHumanMages(filter Query) {
 
 // oldHumanMages returns an indexed query
 func oldHumanMagesIndexed(filter Query) {
-	filter.With("human").With("mage").With("old")
+	filter.With("human", "mage", "old")
 }
 
 func TestFind(t *testing.T) {
@@ -82,4 +82,14 @@ func TestIndexed(t *testing.T) {
 
 	// How many human mages over age of 30?
 	assert.Equal(t, 21, players.Count(oldHumanMagesIndexed))
+
+	// Check the index value
+	players.Find(oldHumanMagesIndexed, func(v Selector) bool {
+		assert.True(t, v.Float64("age") >= 30)
+		assert.True(t, v.Int64("age") >= 30)
+		assert.True(t, v.Uint64("age") >= 30)
+		assert.True(t, v.Value("old").(bool))
+		assert.True(t, v.Bool("old"))
+		return true
+	})
 }
