@@ -11,13 +11,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// BenchmarkCollection/add-8         	29772168	        47.09 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/count-8       	  169482	      6731 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/count-idx-8   	14232207	        86.13 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/find-8        	  169244	      7430 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/find-idx-8    	 1879239	       626.3 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/find-one-8    	  236313	      4803 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/fetch-8       	39630772	        29.77 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/add-8         	21583004	        54.86 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/count-8       	  179092	      6761 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/count-idx-8   	14948353	        81.69 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/find-8        	  166666	      7259 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/find-idx-8    	 1774310	       618.6 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/fetch-8       	43480938	        28.11 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkCollection(b *testing.B) {
 	players := loadPlayers()
 	obj := Object{
@@ -34,7 +33,7 @@ func BenchmarkCollection(b *testing.B) {
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
 			col.Add(obj)
-			if col.Count(nil) >= 1000 {
+			if col.Count() >= 1000 {
 				col = NewCollection()
 			}
 		}
@@ -44,7 +43,16 @@ func BenchmarkCollection(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			players.Count(oldHumanMages)
+			players.View(func(txn Txn) error {
+				txn.WithString("race", func(v string) bool {
+					return v == "human"
+				}).WithString("class", func(v string) bool {
+					return v == "mage"
+				}).WithFloat64("age", func(v float64) bool {
+					return v >= 30
+				}).Count()
+				return nil
+			})
 		}
 	})
 
@@ -52,7 +60,10 @@ func BenchmarkCollection(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			players.Count(oldHumanMagesIndexed)
+			players.View(func(txn Txn) error {
+				txn.With("human", "mage", "old").Count()
+				return nil
+			})
 		}
 	})
 
@@ -61,10 +72,19 @@ func BenchmarkCollection(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			players.Find(oldHumanMages, func(v Selector) bool {
-				count++
-				name = v.String("name")
-				return true
+			players.View(func(txn Txn) error {
+				txn.WithString("race", func(v string) bool {
+					return v == "human"
+				}).WithString("class", func(v string) bool {
+					return v == "mage"
+				}).WithFloat64("age", func(v float64) bool {
+					return v >= 30
+				}).Range(func(v Selector) bool {
+					count++
+					name = v.String("name")
+					return true
+				})
+				return nil
 			})
 		}
 		assert.NotEmpty(b, name)
@@ -75,27 +95,13 @@ func BenchmarkCollection(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			players.Find(oldHumanMagesIndexed, func(v Selector) bool {
-				count++
-				name = v.String("name")
-				return true
-			})
-		}
-		assert.NotEmpty(b, name)
-	})
-
-	b.Run("find-one", func(b *testing.B) {
-		name := ""
-		b.ReportAllocs()
-		b.ResetTimer()
-		for n := 0; n < b.N; n++ {
-			players.Find(func(where Query) {
-				where.WithString("name", func(v string) bool {
-					return v == "Olivia Stewart"
+			players.View(func(txn Txn) error {
+				txn.With("human", "mage", "old").Range(func(v Selector) bool {
+					count++
+					name = v.String("name")
+					return true
 				})
-			}, func(v Selector) bool {
-				name = v.String("name")
-				return true
+				return nil
 			})
 		}
 		assert.NotEmpty(b, name)

@@ -24,79 +24,79 @@ func releaseBitmap(b *bitmap.Bitmap) {
 	bitmaps.Put(b)
 }
 
-// --------------------------- Query ----------------------------
+// --------------------------- Transaction ----------------------------
 
-// Query represents a query for a collection
-type Query struct {
+// Txn represents a transaction which supports filtering and projection.
+type Txn struct {
 	owner *Collection
 	index *bitmap.Bitmap
 }
 
 // With applies a logical AND operation to the current query and the specified index.
-func (q Query) With(index string, extra ...string) Query {
-	if idx, ok := q.owner.props[index]; ok {
-		q.index.And(idx.Bitmap())
+func (txn Txn) With(index string, extra ...string) Txn {
+	if idx, ok := txn.owner.props[index]; ok {
+		txn.index.And(idx.Bitmap())
 	}
 
 	// go through extra indexes
 	for _, e := range extra {
-		if idx, ok := q.owner.props[e]; ok {
-			q.index.And(idx.Bitmap())
+		if idx, ok := txn.owner.props[e]; ok {
+			txn.index.And(idx.Bitmap())
 		}
 	}
-	return q
+	return txn
 }
 
 // Without applies a logical AND NOT operation to the current query and the specified index.
-func (q Query) Without(index string, extra ...string) Query {
-	if idx, ok := q.owner.props[index]; ok {
-		q.index.AndNot(idx.Bitmap())
+func (txn Txn) Without(index string, extra ...string) Txn {
+	if idx, ok := txn.owner.props[index]; ok {
+		txn.index.AndNot(idx.Bitmap())
 	}
 
 	// go through extra indexes
 	for _, e := range extra {
-		if idx, ok := q.owner.props[e]; ok {
-			q.index.AndNot(idx.Bitmap())
+		if idx, ok := txn.owner.props[e]; ok {
+			txn.index.AndNot(idx.Bitmap())
 		}
 	}
-	return q
+	return txn
 }
 
 // Union computes a union between the current query and the specified index.
-func (q Query) Union(index string, extra ...string) Query {
-	if idx, ok := q.owner.props[index]; ok {
-		q.index.Or(idx.Bitmap())
+func (txn Txn) Union(index string, extra ...string) Txn {
+	if idx, ok := txn.owner.props[index]; ok {
+		txn.index.Or(idx.Bitmap())
 	}
 
 	// go through extra indexes
 	for _, e := range extra {
-		if idx, ok := q.owner.props[e]; ok {
-			q.index.Or(idx.Bitmap())
+		if idx, ok := txn.owner.props[e]; ok {
+			txn.index.Or(idx.Bitmap())
 		}
 	}
-	return q
+	return txn
 }
 
 // WithValue applies a filter predicate over values for a specific properties. It filters
 // down the items in the query.
-func (q Query) WithValue(property string, predicate func(v interface{}) bool) Query {
-	if p, ok := q.owner.props[property]; ok {
-		q.index.Filter(func(x uint32) bool {
+func (txn Txn) WithValue(property string, predicate func(v interface{}) bool) Txn {
+	if p, ok := txn.owner.props[property]; ok {
+		txn.index.Filter(func(x uint32) bool {
 			if v, ok := p.Value(x); ok {
 				return predicate(v)
 			}
 			return false
 		})
 	}
-	return q
+	return txn
 }
 
 // WithFloat64 filters down the values based on the specified predicate. The column for
 // this filter must be numerical and convertible to float64.
-func (q Query) WithFloat64(property string, predicate func(v float64) bool) Query {
-	if p, ok := q.owner.props[property]; ok {
+func (txn Txn) WithFloat64(property string, predicate func(v float64) bool) Txn {
+	if p, ok := txn.owner.props[property]; ok {
 		if n, ok := p.(numerical); ok {
-			q.index.Filter(func(x uint32) bool {
+			txn.index.Filter(func(x uint32) bool {
 				if v, ok := n.Float64(x); ok {
 					return predicate(v)
 				}
@@ -104,15 +104,15 @@ func (q Query) WithFloat64(property string, predicate func(v float64) bool) Quer
 			})
 		}
 	}
-	return q
+	return txn
 }
 
 // WithInt64 filters down the values based on the specified predicate. The column for
 // this filter must be numerical and convertible to int64.
-func (q Query) WithInt64(property string, predicate func(v int64) bool) Query {
-	if p, ok := q.owner.props[property]; ok {
+func (txn Txn) WithInt64(property string, predicate func(v int64) bool) Txn {
+	if p, ok := txn.owner.props[property]; ok {
 		if n, ok := p.(numerical); ok {
-			q.index.Filter(func(x uint32) bool {
+			txn.index.Filter(func(x uint32) bool {
 				if v, ok := n.Int64(x); ok {
 					return predicate(v)
 				}
@@ -120,15 +120,15 @@ func (q Query) WithInt64(property string, predicate func(v int64) bool) Query {
 			})
 		}
 	}
-	return q
+	return txn
 }
 
 // WithUint64 filters down the values based on the specified predicate. The column for
 // this filter must be numerical and convertible to uint64.
-func (q Query) WithUint64(property string, predicate func(v uint64) bool) Query {
-	if p, ok := q.owner.props[property]; ok {
+func (txn Txn) WithUint64(property string, predicate func(v uint64) bool) Txn {
+	if p, ok := txn.owner.props[property]; ok {
 		if n, ok := p.(numerical); ok {
-			q.index.Filter(func(x uint32) bool {
+			txn.index.Filter(func(x uint32) bool {
 				if v, ok := n.Uint64(x); ok {
 					return predicate(v)
 				}
@@ -136,29 +136,29 @@ func (q Query) WithUint64(property string, predicate func(v uint64) bool) Query 
 			})
 		}
 	}
-	return q
+	return txn
 }
 
 // WithString filters down the values based on the specified predicate. The column for
 // this filter must be a string.
-func (q Query) WithString(property string, predicate func(v string) bool) Query {
-	return q.WithValue(property, func(v interface{}) bool {
+func (txn Txn) WithString(property string, predicate func(v string) bool) Txn {
+	return txn.WithValue(property, func(v interface{}) bool {
 		return predicate(v.(string))
 	})
 }
 
-// count returns the number of objects matching the query
-func (q *Query) count() int {
-	return int(q.index.Count())
+// Count returns the number of objects matching the query
+func (txn Txn) Count() int {
+	return int(txn.index.Count())
 }
 
-// iterate iterates over the objects with the given properties, but does not perform any
+// Range iterates over the objects with the given properties, but does not perform any
 // locking.
-func (q Query) iterate(fn func(Selector) bool) {
-	q.index.Range(func(x uint32) bool {
+func (txn Txn) Range(fn func(Selector) bool) {
+	txn.index.Range(func(x uint32) bool {
 		return fn(Selector{
 			index: x,
-			owner: q.owner,
+			owner: txn.owner,
 		})
 	})
 }

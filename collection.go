@@ -73,6 +73,13 @@ func (c *Collection) Remove(idx uint32) {
 	}
 }
 
+// Count returns the total number of elements in the collection.
+func (c *Collection) Count() int {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	return c.fill.Count()
+}
+
 // AddColumnsOf registers a set of columns that are present in the target object
 func (c *Collection) AddColumnsOf(object Object) {
 	for k, v := range object {
@@ -104,33 +111,20 @@ func (c *Collection) AddIndex(indexName, columnName string, fn IndexFunc) {
 	}
 }
 
-// Count counts the number of elements which match the specified filter function. If
-// there is no specified filter function, it returns the total count of elements in
-// the collection.
-func (c *Collection) Count(where func(where Query)) int {
+// View creates a read-only transaction which allows for filtering and iteration
+// over the columns.
+func (c *Collection) View(fn func(txn Txn) error) error {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	// If there's no filter specified, simply count everything
-	if where == nil {
-		return c.fill.Count()
-	}
+	r := aquireBitmap()
+	defer releaseBitmap(r)
+	c.fill.Clone(r)
 
-	q := c.query(where)
-	defer releaseBitmap(q.index)
-	return q.count()
-}
-
-// Find performs a read-only query by filtering down the collection using the first
-// where clause and then returns an iterator which halts the iteration if returned
-// false.
-func (c *Collection) Find(where func(where Query), fn func(v Selector) bool) {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-
-	q := c.query(where)
-	defer releaseBitmap(q.index)
-	q.iterate(fn)
+	return fn(Txn{
+		owner: c,
+		index: r,
+	})
 }
 
 // Fetch retrieves an object by its handle and returns a selector for it.
@@ -147,15 +141,4 @@ func (c *Collection) Fetch(idx uint32) (Selector, bool) {
 		index: idx,
 		owner: c,
 	}, true
-}
-
-func (c *Collection) query(where func(Query)) Query {
-	r := aquireBitmap()
-	c.fill.Clone(r)
-	q := Query{
-		owner: c,
-		index: r,
-	}
-	where(q)
-	return q
 }

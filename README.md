@@ -25,28 +25,6 @@ The general idea is to leverage cache-friendly ways of organizing data in [struc
 ## Example usage
 
 ```go
-// oldHumanMages returns a query which performs a full scan on 3 different columns and compares
-// them given the specified predicates. This is not indexed.
-func oldHumanMages(filter column.Query) {
-	filter.
-		WithString("race", func(v string) bool {
-			return v == "human"
-		}).
-		WithString("class", func(v string) bool {
-			return v == "mage"
-		}).
-		WithFloat64("age", func(v float64) bool {
-			return v >= 30
-		})
-}
-
-// oldHumanMagesIndexed returns an indexed query which uses exlusively bitmap indexes, the result
-// will be the same as the query above but the performance of the query is 10x-100x faster
-// depending on the size of the underlying data.
-func oldHumanMagesIndexed(filter columnar.Query) {
-	filter.With("human", "mage", "old")
-}
-
 func main(){
 
 	// Create a new columnar collection
@@ -74,16 +52,37 @@ func main(){
 		players.Add(v)
 	}
 
-	// How many human mages over age of 30? First is unindexed (scan) while the
-	// second query is indexed based on the predefined indices built above.
-	println(players.Count(oldHumanMages))
-	println(players.Count(oldHumanMagesIndexed))
+	// This performs a full scan on 3 different columns and compares them given the 
+	// specified predicates. This is not indexed, but does a columnar scan which is
+	// cache-friendly.
+	players.View(func(txn column.Txn) error {
+		println(txn.WithString("race", func(v string) bool {
+			return v == "human"
+		}).WithString("class", func(v string) bool {
+			return v == "mage"
+		}).WithFloat64("age", func(v float64) bool {
+			return v >= 30
+		}).Count()) // prints the count
+		return nil
+	})
+
+	// This performs a cound, but instead of scanning through the entire dataset, it scans
+	// over pre-built indexes and combines them using a logical AND operation. The result
+	// will be the same as the query above but the performance of the query is 10x-100x
+	// faster depending on the size of the underlying data.
+	players.View(func(txn column.Txn) error {
+		println(txn.With("human", "mage", "old").Count()) // prints the count
+		return nil
+	})
 
 	// Same condition as above, but we also select the actual names of those 
-	// players and iterate through them
-	players.Find(oldHumanMagesIndexed, func(row column.Selector) bool {
-		println(row.String("name")) // prints the name
-		return true
+	// players and iterate through them.
+	players.View(func(txn column.Txn) error {
+		txn.With("human", "mage", "old").Range(func(v Selector) bool {
+			println(row.String("name")) // prints the name
+			return true
+		})
+		return nil
 	})
 }
 ```
