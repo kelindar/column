@@ -13,18 +13,18 @@ import (
 // BenchmarkProperty/get-8         	1000000000	         1.123 ns/op	       0 B/op	       0 allocs/op
 // BenchmarkProperty/replace-8     	291245523	         4.157 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkProperty(b *testing.B) {
-	b.Run("set", func(b *testing.B) {
+	b.Run("update", func(b *testing.B) {
 		p := newColumnAny()
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			p.Set(5, "hello")
+			p.Update(5, "hello")
 		}
 	})
 
-	b.Run("get", func(b *testing.B) {
+	b.Run("fetch", func(b *testing.B) {
 		p := newColumnAny()
-		p.Set(5, "hello")
+		p.Update(5, "hello")
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
@@ -37,8 +37,8 @@ func BenchmarkProperty(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			p.Set(5, "hello")
-			p.Del(5)
+			p.Update(5, "hello")
+			p.Delete(5)
 		}
 	})
 }
@@ -47,7 +47,7 @@ func TestProperty(t *testing.T) {
 	p := newColumnAny().(*columnAny)
 
 	{ // Set the value at index
-		p.Set(9, 99.5)
+		p.Update(9, 99.5)
 		assert.Equal(t, 10, len(p.data))
 	}
 
@@ -58,15 +58,15 @@ func TestProperty(t *testing.T) {
 	}
 
 	{ // Remove the value
-		p.Del(9)
+		p.Delete(9)
 		v, ok := p.Value(9)
 		assert.Equal(t, nil, v)
 		assert.False(t, ok)
 	}
 
 	{ // Set a couple of values, should only take 2 slots
-		p.Set(5, "hi")
-		p.Set(1000, "roman")
+		p.Update(5, "hi")
+		p.Update(1000, "roman")
 		assert.Equal(t, 1001, len(p.data))
 
 		v1, ok := p.Value(5)
@@ -87,7 +87,7 @@ func TestPropertyOrder(t *testing.T) {
 
 	p := newColumnAny()
 	for i := uint32(100); i < 200; i++ {
-		p.Set(i, i)
+		p.Update(i, i)
 	}
 
 	for i := uint32(100); i < 200; i++ {
@@ -97,8 +97,8 @@ func TestPropertyOrder(t *testing.T) {
 	}
 
 	for i := uint32(150); i < 180; i++ {
-		p.Del(i)
-		p.Set(i, i)
+		p.Delete(i)
+		p.Update(i, i)
 	}
 
 	for i := uint32(100); i < 200; i++ {

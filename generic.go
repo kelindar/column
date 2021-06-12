@@ -1,8 +1,8 @@
-// +build ignore
-
 package column
 
 import (
+	"sync"
+
 	"github.com/cheekybits/genny/generic"
 	"github.com/kelindar/bitmap"
 )
@@ -13,6 +13,7 @@ type number generic.Number
 
 // columnnumber represents a generic column
 type columnnumber struct {
+	sync.RWMutex
 	fill bitmap.Bitmap // The fill-list
 	data []number      // The actual values
 }
@@ -25,66 +26,100 @@ func makenumbers() Column {
 	}
 }
 
-// Set sets a value at a specified index
-func (p *columnnumber) Set(idx uint32, value interface{}) {
-	size := uint32(len(p.data))
+// Update sets a value at a specified index
+func (c *columnnumber) Update(idx uint32, value interface{}) {
+	c.Lock()
+	defer c.Unlock()
+
+	size := uint32(len(c.data))
 	for i := size; i <= idx; i++ {
-		p.data = append(p.data, 0)
+		c.data = append(c.data, 0)
 	}
 
 	// Set the data at index
-	p.fill.Set(idx)
-	p.data[idx] = value.(number)
+	c.fill.Set(idx)
+	c.data[idx] = value.(number)
 }
 
 // Value retrieves a value at a specified index
-func (p *columnnumber) Value(idx uint32) (interface{}, bool) {
-	if idx >= uint32(len(p.data)) || !p.fill.Contains(idx) {
-		return number(0), false
+func (c *columnnumber) Value(idx uint32) (v interface{}, ok bool) {
+	v = number(0)
+	c.RLock()
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = c.data[idx], true
 	}
-
-	return p.data[idx], true
+	c.RUnlock()
+	return
 }
 
 // Float64 retrieves a float64 value at a specified index
-func (p *columnnumber) Float64(idx uint32) (float64, bool) {
-	if idx >= uint32(len(p.data)) || !p.fill.Contains(idx) {
-		return 0, false
+func (c *columnnumber) Float64(idx uint32) (v float64, ok bool) {
+	c.RLock()
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = float64(c.data[idx]), true
 	}
-
-	return float64(p.data[idx]), true
+	c.RUnlock()
+	return
 }
 
 // Int64 retrieves an int64 value at a specified index
-func (p *columnnumber) Int64(idx uint32) (int64, bool) {
-	if idx >= uint32(len(p.data)) || !p.fill.Contains(idx) {
-		return 0, false
+func (c *columnnumber) Int64(idx uint32) (v int64, ok bool) {
+	c.RLock()
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = int64(c.data[idx]), true
 	}
-
-	return int64(p.data[idx]), true
+	c.RUnlock()
+	return
 }
 
 // Uint64 retrieves an uint64 value at a specified index
-func (p *columnnumber) Uint64(idx uint32) (uint64, bool) {
-	if idx >= uint32(len(p.data)) || !p.fill.Contains(idx) {
-		return 0, false
+func (c *columnnumber) Uint64(idx uint32) (v uint64, ok bool) {
+	c.RLock()
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = uint64(c.data[idx]), true
 	}
-
-	return uint64(p.data[idx]), true
+	c.RUnlock()
+	return
 }
 
-// Del removes a value at a specified index
-func (p *columnnumber) Del(idx uint32) {
-	p.fill.Remove(idx)
-	p.data[idx] = 0
+// Delete removes a value at a specified index
+func (c *columnnumber) Delete(idx uint32) {
+	c.Lock()
+	c.fill.Remove(idx)
+	c.Unlock()
 }
 
-// Bitmap returns the associated index bitmap.
-func (p *columnnumber) Bitmap() bitmap.Bitmap {
-	return p.fill
+// DeleteMany deletes a set of items from the column.
+func (c *columnnumber) DeleteMany(items *bitmap.Bitmap) {
+	c.Lock()
+	c.fill.AndNot(*items)
+	c.Unlock()
 }
 
 // Contains checks whether the column has a value at a specified index.
-func (p *columnnumber) Contains(idx uint32) bool {
-	return p.fill.Contains(idx)
+func (c *columnnumber) Contains(idx uint32) bool {
+	c.RLock()
+	defer c.RUnlock()
+	return c.fill.Contains(idx)
+}
+
+// And performs a logical and operation and updates the destination bitmap.
+func (c *columnnumber) And(dst *bitmap.Bitmap) {
+	c.RLock()
+	dst.And(c.fill)
+	c.RUnlock()
+}
+
+// And performs a logical and not operation and updates the destination bitmap.
+func (c *columnnumber) AndNot(dst *bitmap.Bitmap) {
+	c.RLock()
+	dst.AndNot(c.fill)
+	c.RUnlock()
+}
+
+// Or performs a logical or operation and updates the destination bitmap.
+func (c *columnnumber) Or(dst *bitmap.Bitmap) {
+	c.RLock()
+	dst.Or(c.fill)
+	c.RUnlock()
 }

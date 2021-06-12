@@ -16,11 +16,13 @@ type Object = map[string]interface{}
 
 // Collection represents a collection of objects in a columnar format
 type Collection struct {
-	lock  sync.RWMutex      // The collection lock
-	fill  bitmap.Bitmap     // The fill-list
-	cols  map[string]Column // The map of properties
-	qlock sync.Mutex        // The modification queue lock
-	queue []update          // The modification queue
+	lock  sync.RWMutex          // The collection lock
+	fill  bitmap.Bitmap         // The fill-list
+	cols  map[string]Column     // The map of columns
+	index map[string][]computed // The computed columns
+	qlock sync.Mutex            // The modification queue lock
+	queue []update              // The modification queue
+	purge bitmap.Bitmap         // The delete queue
 }
 
 // NewCollection creates a new columnar collection.
@@ -28,7 +30,9 @@ func NewCollection() *Collection {
 	return &Collection{
 		fill:  make(bitmap.Bitmap, 0, 4),
 		cols:  make(map[string]Column, 8),
+		index: make(map[string][]computed, 8),
 		queue: make([]update, 0, 64),
+		purge: make(bitmap.Bitmap, 0, 4),
 	}
 }
 
@@ -54,7 +58,7 @@ func (c *Collection) Insert(obj Object) uint32 {
 		}
 
 		if v, ok := obj[columnName]; ok {
-			column.Set(idx, v)
+			column.Update(idx, v)
 		}
 	}
 
@@ -63,25 +67,21 @@ func (c *Collection) Insert(obj Object) uint32 {
 
 // UpdateAt updates a specific row/column combination and sets the value. It is also
 // possible to update during the query, which is much more convenient to use.
-func (c *Collection) UpdateAt(idx uint32, columnName string, value interface{}) uint32 {
-	c.lock.Lock()
-	defer c.lock.Unlock()
+func (c *Collection) UpdateAt(idx uint32, columnName string, value interface{}) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
 
-	// TODO: improve this to avoid iteration
-
-	// Here we need to iterate over all of the columns, since we need to figure out
-	// whether there are indices that need to be updated.
-	for n, column := range c.cols {
-		if i, ok := column.(computed); ok {
-			n = i.Column()
-		}
-
-		if n == columnName {
-			column.Set(idx, value)
-		}
+	// Update the relevant column
+	if column, ok := c.cols[columnName]; ok {
+		column.Update(idx, value)
 	}
 
-	return idx
+	// If there's computed columns associated with this, update them all
+	if computed, ok := c.index[columnName]; ok {
+		for _, i := range computed {
+			i.Update(idx, value)
+		}
+	}
 }
 
 // DeleteAt removes the object at the specified index.
@@ -94,14 +94,14 @@ func (c *Collection) DeleteAt(idx uint32) {
 
 	// Remove the data for this element
 	for _, column := range c.cols {
-		column.Del(idx)
+		column.Delete(idx)
 	}
 }
 
 // Count returns the total number of elements in the collection.
 func (c *Collection) Count() int {
-	c.lock.Lock()
-	defer c.lock.Unlock()
+	c.lock.RLock()
+	defer c.lock.RUnlock()
 	return c.fill.Count()
 }
 
@@ -142,6 +142,7 @@ func (c *Collection) CreateIndex(indexName, columnName string, fn IndexFunc) err
 	// Create and add the index column,
 	index := newIndex(columnName, fn)
 	c.cols[indexName] = index
+	c.index[columnName] = append(c.index[columnName], index)
 
 	// If a column with this name already exists, iterate through all of the values
 	// that we have in the collection and apply the filter.
@@ -163,11 +164,27 @@ func (c *Collection) DropIndex(indexName string) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	// Make sure it's an actual index, otherwise we might delete a column here
-	if i, ok := c.cols[indexName]; ok {
-		if _, ok := i.(computed); ok {
-			delete(c.cols, indexName)
+	// Get the specified index to drop
+	column, ok := c.cols[indexName].(computed)
+	if !ok {
+		return
+	}
+
+	// Delete the index from the column mapping
+	columnName := column.Column()
+	delete(c.cols, indexName)
+
+	// And also delete from the the index mapping
+	if i, ok := c.index[columnName]; ok {
+		clone := make([]computed, 0, len(i))
+		for _, v := range i {
+			if v != column {
+				clone = append(clone, v)
+			}
 		}
+
+		// Swap with the new list
+		c.index[columnName] = clone
 	}
 }
 
@@ -193,26 +210,44 @@ func (c *Collection) Query(fn func(txn Txn) error) error {
 
 	// Now that the iteration has finished, we can range over the pending action
 	// queue and apply all of the actions that were requested by the cursor.
+	c.updatePending()
+	c.deletePending()
+	return err
+}
+
+// updatePending updates the pending entries that were modified during the query
+func (c *Collection) updatePending() {
 	c.qlock.Lock()
 	defer c.qlock.Unlock()
-	for _, u := range c.queue {
-		//apply()
-		if u.delete {
-			c.DeleteAt(u.index)
-			continue
-		}
-
-		c.UpdateAt(u.index, u.column, u.value)
+	if len(c.queue) == 0 {
+		return // Nothing to update
 	}
 
-	/*for _, idx := range c.purge {
-		c.DeleteAt(idx)
-	}*/
-
-	// Clean up the action queue
+	// Apply each update one by one
+	for _, u := range c.queue {
+		c.UpdateAt(u.index, u.column, u.value)
+	}
 	c.queue = c.queue[:0]
-	//c.purge = c.purge[:0]
-	return err
+}
+
+// deletePending removes all of the entries marked as to be deleted
+func (c *Collection) deletePending() {
+	c.qlock.Lock()
+	defer c.qlock.Unlock()
+	if len(c.purge) == 0 {
+		return // Nothing to delete
+	}
+
+	// Apply a batch delete on all of the columns
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	for _, column := range c.cols {
+		column.DeleteMany(&c.purge)
+	}
+
+	// Clear the items in the collection and reinitialize the purge list
+	c.fill.AndNot(c.purge)
+	c.purge.Clear()
 }
 
 // Fetch retrieves an object by its handle and returns a selector for it.

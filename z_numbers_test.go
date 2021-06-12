@@ -14,9 +14,8 @@ func TestOfFloat32s(t *testing.T) {
 	c := makeFloat32s().(*columnFloat32)
 
 	{ // Set the value at index
-		c.Set(9, float32(99))
+		c.Update(9, float32(99))
 		assert.Equal(t, 10, len(c.data))
-		assert.NotEmpty(t, c.Bitmap())
 		assert.True(t, c.Contains(9))
 	}
 
@@ -39,7 +38,7 @@ func TestOfFloat32s(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.Del(9)
+		c.Delete(9)
 
 		v, ok := c.Value(9)
 		assert.Equal(t, float32(0), v)
@@ -63,9 +62,8 @@ func TestOfFloat64s(t *testing.T) {
 	c := makeFloat64s().(*columnFloat64)
 
 	{ // Set the value at index
-		c.Set(9, float64(99))
+		c.Update(9, float64(99))
 		assert.Equal(t, 10, len(c.data))
-		assert.NotEmpty(t, c.Bitmap())
 		assert.True(t, c.Contains(9))
 	}
 
@@ -88,7 +86,7 @@ func TestOfFloat64s(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.Del(9)
+		c.Delete(9)
 
 		v, ok := c.Value(9)
 		assert.Equal(t, float64(0), v)
@@ -112,9 +110,8 @@ func TestOfInts(t *testing.T) {
 	c := makeInts().(*columnInt)
 
 	{ // Set the value at index
-		c.Set(9, int(99))
+		c.Update(9, int(99))
 		assert.Equal(t, 10, len(c.data))
-		assert.NotEmpty(t, c.Bitmap())
 		assert.True(t, c.Contains(9))
 	}
 
@@ -137,7 +134,7 @@ func TestOfInts(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.Del(9)
+		c.Delete(9)
 
 		v, ok := c.Value(9)
 		assert.Equal(t, int(0), v)
@@ -161,9 +158,8 @@ func TestOfInt16s(t *testing.T) {
 	c := makeInt16s().(*columnInt16)
 
 	{ // Set the value at index
-		c.Set(9, int16(99))
+		c.Update(9, int16(99))
 		assert.Equal(t, 10, len(c.data))
-		assert.NotEmpty(t, c.Bitmap())
 		assert.True(t, c.Contains(9))
 	}
 
@@ -186,7 +182,7 @@ func TestOfInt16s(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.Del(9)
+		c.Delete(9)
 
 		v, ok := c.Value(9)
 		assert.Equal(t, int16(0), v)
@@ -210,9 +206,8 @@ func TestOfInt32s(t *testing.T) {
 	c := makeInt32s().(*columnInt32)
 
 	{ // Set the value at index
-		c.Set(9, int32(99))
+		c.Update(9, int32(99))
 		assert.Equal(t, 10, len(c.data))
-		assert.NotEmpty(t, c.Bitmap())
 		assert.True(t, c.Contains(9))
 	}
 
@@ -235,7 +230,7 @@ func TestOfInt32s(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.Del(9)
+		c.Delete(9)
 
 		v, ok := c.Value(9)
 		assert.Equal(t, int32(0), v)
@@ -259,9 +254,8 @@ func TestOfInt64s(t *testing.T) {
 	c := makeInt64s().(*columnInt64)
 
 	{ // Set the value at index
-		c.Set(9, int64(99))
+		c.Update(9, int64(99))
 		assert.Equal(t, 10, len(c.data))
-		assert.NotEmpty(t, c.Bitmap())
 		assert.True(t, c.Contains(9))
 	}
 
@@ -284,7 +278,7 @@ func TestOfInt64s(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.Del(9)
+		c.Delete(9)
 
 		v, ok := c.Value(9)
 		assert.Equal(t, int64(0), v)
@@ -308,9 +302,8 @@ func TestOfUints(t *testing.T) {
 	c := makeUints().(*columnUint)
 
 	{ // Set the value at index
-		c.Set(9, uint(99))
+		c.Update(9, uint(99))
 		assert.Equal(t, 10, len(c.data))
-		assert.NotEmpty(t, c.Bitmap())
 		assert.True(t, c.Contains(9))
 	}
 
@@ -333,7 +326,7 @@ func TestOfUints(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.Del(9)
+		c.Delete(9)
 
 		v, ok := c.Value(9)
 		assert.Equal(t, uint(0), v)
@@ -357,9 +350,8 @@ func TestOfUint16s(t *testing.T) {
 	c := makeUint16s().(*columnUint16)
 
 	{ // Set the value at index
-		c.Set(9, uint16(99))
+		c.Update(9, uint16(99))
 		assert.Equal(t, 10, len(c.data))
-		assert.NotEmpty(t, c.Bitmap())
 		assert.True(t, c.Contains(9))
 	}
 
@@ -382,7 +374,7 @@ func TestOfUint16s(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.Del(9)
+		c.Delete(9)
 
 		v, ok := c.Value(9)
 		assert.Equal(t, uint16(0), v)
@@ -406,9 +398,8 @@ func TestOfUint32s(t *testing.T) {
 	c := makeUint32s().(*columnUint32)
 
 	{ // Set the value at index
-		c.Set(9, uint32(99))
+		c.Update(9, uint32(99))
 		assert.Equal(t, 10, len(c.data))
-		assert.NotEmpty(t, c.Bitmap())
 		assert.True(t, c.Contains(9))
 	}
 
@@ -431,7 +422,7 @@ func TestOfUint32s(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.Del(9)
+		c.Delete(9)
 
 		v, ok := c.Value(9)
 		assert.Equal(t, uint32(0), v)
@@ -455,9 +446,8 @@ func TestOfUint64s(t *testing.T) {
 	c := makeUint64s().(*columnUint64)
 
 	{ // Set the value at index
-		c.Set(9, uint64(99))
+		c.Update(9, uint64(99))
 		assert.Equal(t, 10, len(c.data))
-		assert.NotEmpty(t, c.Bitmap())
 		assert.True(t, c.Contains(9))
 	}
 
@@ -480,7 +470,7 @@ func TestOfUint64s(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.Del(9)
+		c.Delete(9)
 
 		v, ok := c.Value(9)
 		assert.Equal(t, uint64(0), v)

@@ -39,7 +39,7 @@ type Txn struct {
 // With applies a logical AND operation to the current query and the specified index.
 func (txn Txn) With(index string, extra ...string) Txn {
 	if idx, ok := txn.owner.cols[index]; ok {
-		txn.index.And(idx.Bitmap())
+		idx.And(txn.index)
 	} else {
 		txn.index.Clear()
 	}
@@ -47,7 +47,7 @@ func (txn Txn) With(index string, extra ...string) Txn {
 	// go through extra indexes
 	for _, e := range extra {
 		if idx, ok := txn.owner.cols[e]; ok {
-			txn.index.And(idx.Bitmap())
+			idx.And(txn.index)
 		} else {
 			txn.index.Clear()
 		}
@@ -58,13 +58,13 @@ func (txn Txn) With(index string, extra ...string) Txn {
 // Without applies a logical AND NOT operation to the current query and the specified index.
 func (txn Txn) Without(index string, extra ...string) Txn {
 	if idx, ok := txn.owner.cols[index]; ok {
-		txn.index.AndNot(idx.Bitmap())
+		idx.AndNot(txn.index)
 	}
 
 	// go through extra indexes
 	for _, e := range extra {
 		if idx, ok := txn.owner.cols[e]; ok {
-			txn.index.AndNot(idx.Bitmap())
+			idx.AndNot(txn.index)
 		}
 	}
 	return txn
@@ -73,13 +73,13 @@ func (txn Txn) Without(index string, extra ...string) Txn {
 // Union computes a union between the current query and the specified index.
 func (txn Txn) Union(index string, extra ...string) Txn {
 	if idx, ok := txn.owner.cols[index]; ok {
-		txn.index.Or(idx.Bitmap())
+		idx.Or(txn.index)
 	}
 
 	// go through extra indexes
 	for _, e := range extra {
 		if idx, ok := txn.owner.cols[e]; ok {
-			txn.index.Or(idx.Bitmap())
+			idx.Or(txn.index)
 		}
 	}
 	return txn
@@ -243,7 +243,6 @@ func (s *Selector) Bool(column string) bool {
 
 // update represents an update operation
 type update struct {
-	delete bool        // Delete or update?
 	index  uint32      // The index to update/delete
 	column string      // The column to update
 	value  interface{} // The value to update to
@@ -253,16 +252,18 @@ type update struct {
 // executed once the current the transaction completes.
 func (s *Selector) Delete() {
 	s.owner.qlock.Lock()
-	defer s.owner.qlock.Unlock()
-	s.owner.queue = append(s.owner.queue, update{
-		delete: true,
-		index:  s.index,
-	})
+	s.owner.purge.Set(s.index)
+	s.owner.qlock.Unlock()
 }
 
 // Update updates a column value for the current item. The actual operation
 // will be queued and executed once the current the transaction completes.
 func (s *Selector) Update(columnName string, value interface{}) {
+	/*column, ok := s.owner.cols[columnName]
+	if !ok {
+		return
+	}*/
+
 	s.owner.qlock.Lock()
 	defer s.owner.qlock.Unlock()
 	s.owner.queue = append(s.owner.queue, update{

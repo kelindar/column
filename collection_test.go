@@ -12,16 +12,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// BenchmarkCollection/insert-8        	21456541	        55.89 ns/op	       3 B/op	       0 allocs/op
-// BenchmarkCollection/fetch-8       	41421588	        28.65 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/count-8       	  177513	      6747 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/count-idx-8   	12116866	        98.30 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/find-8        	  164317	      7284 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/find-idx-8    	 1778757	       693.0 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/update-at-8   	 3767920	       319.8 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/update-all-8  	    6664	    169815 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/delete-at-8   	 4808724	       248.4 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/delete-all-8  	    8570	    134996 ns/op	       4 B/op	       0 allocs/op
+// BenchmarkCollection/insert-8         	30279708	        48.33 ns/op	       3 B/op	       0 allocs/op
+// BenchmarkCollection/fetch-8          	28533519	        35.42 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/count-8          	  111178	     10766 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/count-idx-8      	 9195838	       125.7 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/find-8           	   97149	     11439 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/find-idx-8       	 1624981	       743.5 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/update-at-8      	23639916	        48.12 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/update-all-8     	   34774	     35072 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/delete-at-8      	 2364313	       503.9 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/delete-all-8     	  166850	      7225 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkCollection(b *testing.B) {
 	players := loadPlayers()
 	obj := Object{
@@ -137,8 +137,10 @@ func BenchmarkCollection(b *testing.B) {
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
 			players.Query(func(txn Txn) error {
+				//balance, _ := txn.Column("balance")
 				txn.Range(func(v Selector) bool {
 					v.Update("balance", 1.0)
+					//v.UpdateColumn(balance, 1.0)
 					return true
 				})
 				return nil

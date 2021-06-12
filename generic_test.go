@@ -1,5 +1,3 @@
-// +build ignore
-
 package column
 
 import (
@@ -12,9 +10,8 @@ func TestOfnumbers(t *testing.T) {
 	c := makenumbers().(*columnnumber)
 
 	{ // Set the value at index
-		c.Set(9, number(99))
+		c.Update(9, number(99))
 		assert.Equal(t, 10, len(c.data))
-		assert.NotEmpty(t, c.Bitmap())
 		assert.True(t, c.Contains(9))
 	}
 
@@ -37,7 +34,7 @@ func TestOfnumbers(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.Del(9)
+		c.Delete(9)
 
 		v, ok := c.Value(9)
 		assert.Equal(t, number(0), v)
