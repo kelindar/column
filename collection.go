@@ -17,10 +17,10 @@ type Object = map[string]interface{}
 // Collection represents a collection of objects in a columnar format
 type Collection struct {
 	lock    sync.RWMutex          // The collection lock
+	qlock   sync.Mutex            // The lock for updates & delete queues
 	fill    bitmap.Bitmap         // The fill-list
 	cols    map[string]Column     // The map of columns
 	index   map[string][]computed // The computed columns
-	qlock   sync.Mutex            // The lock for updates & delete queues
 	updates map[string][]update   // The update queue
 	deletes bitmap.Bitmap         // The delete queue
 }
@@ -220,6 +220,9 @@ func (c *Collection) updatePending() {
 	c.qlock.Lock()
 	defer c.qlock.Unlock()
 
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
 	// Process the pending updates column by column
 	for columnName, updates := range c.updates {
 		if len(updates) == 0 {
@@ -227,14 +230,21 @@ func (c *Collection) updatePending() {
 		}
 
 		// Get the column that needs to be updated
-		c.lock.RLock()
 		column, exists := c.cols[columnName]
-		c.lock.RUnlock()
 
 		// Range through all of the pending updates and apply them to the column
 		if exists {
 			for _, u := range updates {
 				column.Update(u.index, u.value)
+			}
+
+			// If there's computed columns associated with this, update them all
+			if computed, ok := c.index[columnName]; ok {
+				for _, i := range computed {
+					for _, u := range updates {
+						i.Update(u.index, u.value)
+					}
+				}
 			}
 
 			// Reset the update queue but keep the key
