@@ -137,10 +137,8 @@ func BenchmarkCollection(b *testing.B) {
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
 			players.Query(func(txn Txn) error {
-				//balance, _ := txn.Column("balance")
 				txn.Range(func(v Cursor) bool {
 					v.Update("balance", 1.0)
-					//v.UpdateColumn(balance, 1.0)
 					return true
 				})
 				return nil
@@ -176,24 +174,6 @@ func BenchmarkCollection(b *testing.B) {
 	})
 }
 
-// BenchmarkFlatMap/count-map-8         	   62560	     18912 ns/op	       0 B/op	       0 allocs/op
-func BenchmarkFlatMap(b *testing.B) {
-	players := loadFixture("players.json")
-
-	b.Run("count-map", func(b *testing.B) {
-		b.ReportAllocs()
-		b.ResetTimer()
-		for n := 0; n < b.N; n++ {
-			count := 0
-			for _, p := range players {
-				if p["race"] == "human" && p["class"] == "mage" && p["age"].(float64) >= 30 {
-					count++
-				}
-			}
-		}
-	})
-}
-
 func TestCollection(t *testing.T) {
 	obj := Object{
 		"name":   "Roman",
@@ -204,10 +184,14 @@ func TestCollection(t *testing.T) {
 	}
 
 	col := NewCollection()
-	assert.Error(t, col.CreateIndex("", "", nil))
-
 	col.CreateColumnsOf(obj)
 	idx := col.Insert(obj)
+
+	// Create a coupe of indices
+	assert.Error(t, col.CreateIndex("", "", nil))
+	assert.NoError(t, col.CreateIndex("rich", "wallet", func(v interface{}) bool {
+		return v.(float64) > 100
+	}))
 
 	{ // Find the object by its index
 		v, ok := col.Fetch(idx)
@@ -226,6 +210,14 @@ func TestCollection(t *testing.T) {
 		v, ok := col.Fetch(idx)
 		assert.True(t, ok)
 		assert.Equal(t, "Roman", v.String("name"))
+	}
+
+	{ // Update the wallet
+		col.UpdateAt(0, "wallet", float64(1000))
+		v, ok := col.Fetch(idx)
+		assert.True(t, ok)
+		assert.Equal(t, int64(1000), v.Int64("wallet"))
+		assert.Equal(t, true, v.Bool("rich"))
 	}
 }
 

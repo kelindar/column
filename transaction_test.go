@@ -136,6 +136,9 @@ func TestIndexed(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	players := loadPlayers()
+	players.CreateIndex("broke", "balance", func(v interface{}) bool {
+		return v.(float64) < 100
+	})
 
 	// Delete all old people from the collection
 	players.Query(func(txn Txn) error {
@@ -167,6 +170,12 @@ func TestUpdate(t *testing.T) {
 		assert.Equal(t, count, txn.WithFloat64("balance", func(v float64) bool {
 			return v == 1.0
 		}).Count())
+		return nil
+	})
+
+	// Now the index should also be updated
+	players.Query(func(txn Txn) error {
+		assert.Equal(t, 245, txn.With("broke").Count())
 		return nil
 	})
 }
