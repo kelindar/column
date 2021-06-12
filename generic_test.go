@@ -3,6 +3,7 @@ package column
 import (
 	"testing"
 
+	"github.com/kelindar/bitmap"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -33,8 +34,27 @@ func TestOfnumbers(t *testing.T) {
 		assert.True(t, ok)
 	}
 
+	{
+		other := bitmap.Bitmap{0xffffffffffffffff}
+		c.And(&other)
+		assert.Equal(t, uint64(0b1000000000), other[0])
+	}
+
+	{
+		other := bitmap.Bitmap{0xffffffffffffffff}
+		c.AndNot(&other)
+		assert.Equal(t, uint64(0xfffffffffffffdff), other[0])
+	}
+
+	{
+		other := bitmap.Bitmap{0xffffffffffffffff}
+		c.Or(&other)
+		assert.Equal(t, uint64(0xffffffffffffffff), other[0])
+	}
+
 	{ // Remove the value
 		c.Delete(9)
+		c.DeleteMany(&bitmap.Bitmap{0xffffffffffffffff})
 
 		v, ok := c.Value(9)
 		assert.Equal(t, number(0), v)

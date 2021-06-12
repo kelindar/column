@@ -42,20 +42,6 @@ func (c *columnFloat32) Update(idx uint32, value interface{}) {
 	c.data[idx] = value.(float32)
 }
 
-// UpdateMany atomically updates a set of key/value pairs in the columns.
-func (c *columnFloat32) UpdateMany(keys *bitmap.Bitmap, values []interface{}) {
-	c.Lock()
-	defer c.Unlock()
-
-	i := 0
-	c.fill.Or(*keys)
-	keys.Range(func(idx uint32) bool {
-		c.data[idx] = values[i].(float32)
-		i++
-		return true
-	})
-}
-
 // Value retrieves a value at a specified index
 func (c *columnFloat32) Value(idx uint32) (v interface{}, ok bool) {
 	v = float32(0)
@@ -169,20 +155,6 @@ func (c *columnFloat64) Update(idx uint32, value interface{}) {
 	// Set the data at index
 	c.fill.Set(idx)
 	c.data[idx] = value.(float64)
-}
-
-// UpdateMany atomically updates a set of key/value pairs in the columns.
-func (c *columnFloat64) UpdateMany(keys *bitmap.Bitmap, values []interface{}) {
-	c.Lock()
-	defer c.Unlock()
-
-	i := 0
-	c.fill.Or(*keys)
-	keys.Range(func(idx uint32) bool {
-		c.data[idx] = values[i].(float64)
-		i++
-		return true
-	})
 }
 
 // Value retrieves a value at a specified index
@@ -300,20 +272,6 @@ func (c *columnInt) Update(idx uint32, value interface{}) {
 	c.data[idx] = value.(int)
 }
 
-// UpdateMany atomically updates a set of key/value pairs in the columns.
-func (c *columnInt) UpdateMany(keys *bitmap.Bitmap, values []interface{}) {
-	c.Lock()
-	defer c.Unlock()
-
-	i := 0
-	c.fill.Or(*keys)
-	keys.Range(func(idx uint32) bool {
-		c.data[idx] = values[i].(int)
-		i++
-		return true
-	})
-}
-
 // Value retrieves a value at a specified index
 func (c *columnInt) Value(idx uint32) (v interface{}, ok bool) {
 	v = int(0)
@@ -427,20 +385,6 @@ func (c *columnInt16) Update(idx uint32, value interface{}) {
 	// Set the data at index
 	c.fill.Set(idx)
 	c.data[idx] = value.(int16)
-}
-
-// UpdateMany atomically updates a set of key/value pairs in the columns.
-func (c *columnInt16) UpdateMany(keys *bitmap.Bitmap, values []interface{}) {
-	c.Lock()
-	defer c.Unlock()
-
-	i := 0
-	c.fill.Or(*keys)
-	keys.Range(func(idx uint32) bool {
-		c.data[idx] = values[i].(int16)
-		i++
-		return true
-	})
 }
 
 // Value retrieves a value at a specified index
@@ -558,20 +502,6 @@ func (c *columnInt32) Update(idx uint32, value interface{}) {
 	c.data[idx] = value.(int32)
 }
 
-// UpdateMany atomically updates a set of key/value pairs in the columns.
-func (c *columnInt32) UpdateMany(keys *bitmap.Bitmap, values []interface{}) {
-	c.Lock()
-	defer c.Unlock()
-
-	i := 0
-	c.fill.Or(*keys)
-	keys.Range(func(idx uint32) bool {
-		c.data[idx] = values[i].(int32)
-		i++
-		return true
-	})
-}
-
 // Value retrieves a value at a specified index
 func (c *columnInt32) Value(idx uint32) (v interface{}, ok bool) {
 	v = int32(0)
@@ -685,20 +615,6 @@ func (c *columnInt64) Update(idx uint32, value interface{}) {
 	// Set the data at index
 	c.fill.Set(idx)
 	c.data[idx] = value.(int64)
-}
-
-// UpdateMany atomically updates a set of key/value pairs in the columns.
-func (c *columnInt64) UpdateMany(keys *bitmap.Bitmap, values []interface{}) {
-	c.Lock()
-	defer c.Unlock()
-
-	i := 0
-	c.fill.Or(*keys)
-	keys.Range(func(idx uint32) bool {
-		c.data[idx] = values[i].(int64)
-		i++
-		return true
-	})
 }
 
 // Value retrieves a value at a specified index
@@ -816,20 +732,6 @@ func (c *columnUint) Update(idx uint32, value interface{}) {
 	c.data[idx] = value.(uint)
 }
 
-// UpdateMany atomically updates a set of key/value pairs in the columns.
-func (c *columnUint) UpdateMany(keys *bitmap.Bitmap, values []interface{}) {
-	c.Lock()
-	defer c.Unlock()
-
-	i := 0
-	c.fill.Or(*keys)
-	keys.Range(func(idx uint32) bool {
-		c.data[idx] = values[i].(uint)
-		i++
-		return true
-	})
-}
-
 // Value retrieves a value at a specified index
 func (c *columnUint) Value(idx uint32) (v interface{}, ok bool) {
 	v = uint(0)
@@ -943,20 +845,6 @@ func (c *columnUint16) Update(idx uint32, value interface{}) {
 	// Set the data at index
 	c.fill.Set(idx)
 	c.data[idx] = value.(uint16)
-}
-
-// UpdateMany atomically updates a set of key/value pairs in the columns.
-func (c *columnUint16) UpdateMany(keys *bitmap.Bitmap, values []interface{}) {
-	c.Lock()
-	defer c.Unlock()
-
-	i := 0
-	c.fill.Or(*keys)
-	keys.Range(func(idx uint32) bool {
-		c.data[idx] = values[i].(uint16)
-		i++
-		return true
-	})
 }
 
 // Value retrieves a value at a specified index
@@ -1074,20 +962,6 @@ func (c *columnUint32) Update(idx uint32, value interface{}) {
 	c.data[idx] = value.(uint32)
 }
 
-// UpdateMany atomically updates a set of key/value pairs in the columns.
-func (c *columnUint32) UpdateMany(keys *bitmap.Bitmap, values []interface{}) {
-	c.Lock()
-	defer c.Unlock()
-
-	i := 0
-	c.fill.Or(*keys)
-	keys.Range(func(idx uint32) bool {
-		c.data[idx] = values[i].(uint32)
-		i++
-		return true
-	})
-}
-
 // Value retrieves a value at a specified index
 func (c *columnUint32) Value(idx uint32) (v interface{}, ok bool) {
 	v = uint32(0)
@@ -1201,20 +1075,6 @@ func (c *columnUint64) Update(idx uint32, value interface{}) {
 	// Set the data at index
 	c.fill.Set(idx)
 	c.data[idx] = value.(uint64)
-}
-
-// UpdateMany atomically updates a set of key/value pairs in the columns.
-func (c *columnUint64) UpdateMany(keys *bitmap.Bitmap, values []interface{}) {
-	c.Lock()
-	defer c.Unlock()
-
-	i := 0
-	c.fill.Or(*keys)
-	keys.Range(func(idx uint32) bool {
-		c.data[idx] = values[i].(uint64)
-		i++
-		return true
-	})
 }
 
 // Value retrieves a value at a specified index

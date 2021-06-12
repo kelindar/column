@@ -91,11 +91,14 @@ func main(){
 
 ```
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkCollection/add-8         29772168    47.09 ns/op     0 B/op     0 allocs/op
-BenchmarkCollection/count-8         169482     6731 ns/op     0 B/op     0 allocs/op
-BenchmarkCollection/count-idx-8   14232207    86.13 ns/op     0 B/op     0 allocs/op
-BenchmarkCollection/find-8          169244     7430 ns/op     0 B/op     0 allocs/op
-BenchmarkCollection/find-idx-8     1879239    626.3 ns/op     0 B/op     0 allocs/op
-BenchmarkCollection/find-one-8      236313     4803 ns/op     0 B/op     0 allocs/op
-BenchmarkCollection/fetch-8       39630772    29.77 ns/op     0 B/op     0 allocs/op
+BenchmarkCollection/insert-8         26252403     48.08 ns/op     2 B/op     0 allocs/op
+BenchmarkCollection/fetch-8          29705175     35.74 ns/op     0 B/op     0 allocs/op
+BenchmarkCollection/count-8            102036     10886 ns/op     0 B/op     0 allocs/op
+BenchmarkCollection/count-idx-8       9166742     127.7 ns/op     0 B/op     0 allocs/op
+BenchmarkCollection/find-8             107601     11519 ns/op     0 B/op     0 allocs/op
+BenchmarkCollection/find-idx-8        1557285     769.6 ns/op     0 B/op     0 allocs/op
+BenchmarkCollection/update-at-8      25257255     47.87 ns/op     0 B/op     0 allocs/op
+BenchmarkCollection/update-all-8        51469     22525 ns/op     0 B/op     0 allocs/op
+BenchmarkCollection/delete-at-8       2319102     509.2 ns/op     0 B/op     0 allocs/op
+BenchmarkCollection/delete-all-8       169375      7377 ns/op     0 B/op     0 allocs/op
 ```
