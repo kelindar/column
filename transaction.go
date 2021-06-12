@@ -37,8 +37,8 @@ type Txn struct {
 }
 
 // With applies a logical AND operation to the current query and the specified index.
-func (txn Txn) With(index string, extra ...string) Txn {
-	if idx, ok := txn.owner.cols[index]; ok {
+func (txn Txn) With(column string, extra ...string) Txn {
+	if idx, ok := txn.owner.cols[column]; ok {
 		idx.And(txn.index)
 	} else {
 		txn.index.Clear()
@@ -56,8 +56,8 @@ func (txn Txn) With(index string, extra ...string) Txn {
 }
 
 // Without applies a logical AND NOT operation to the current query and the specified index.
-func (txn Txn) Without(index string, extra ...string) Txn {
-	if idx, ok := txn.owner.cols[index]; ok {
+func (txn Txn) Without(column string, extra ...string) Txn {
+	if idx, ok := txn.owner.cols[column]; ok {
 		idx.AndNot(txn.index)
 	}
 
@@ -71,8 +71,8 @@ func (txn Txn) Without(index string, extra ...string) Txn {
 }
 
 // Union computes a union between the current query and the specified index.
-func (txn Txn) Union(index string, extra ...string) Txn {
-	if idx, ok := txn.owner.cols[index]; ok {
+func (txn Txn) Union(column string, extra ...string) Txn {
+	if idx, ok := txn.owner.cols[column]; ok {
 		idx.Or(txn.index)
 	}
 
@@ -87,8 +87,8 @@ func (txn Txn) Union(index string, extra ...string) Txn {
 
 // WithValue applies a filter predicate over values for a specific properties. It filters
 // down the items in the query.
-func (txn Txn) WithValue(property string, predicate func(v interface{}) bool) Txn {
-	if p, ok := txn.owner.cols[property]; ok {
+func (txn Txn) WithValue(column string, predicate func(v interface{}) bool) Txn {
+	if p, ok := txn.owner.cols[column]; ok {
 		txn.index.Filter(func(x uint32) bool {
 			if v, ok := p.Value(x); ok {
 				return predicate(v)
@@ -101,8 +101,8 @@ func (txn Txn) WithValue(property string, predicate func(v interface{}) bool) Tx
 
 // WithFloat64 filters down the values based on the specified predicate. The column for
 // this filter must be numerical and convertible to float64.
-func (txn Txn) WithFloat64(property string, predicate func(v float64) bool) Txn {
-	if p, ok := txn.owner.cols[property]; ok {
+func (txn Txn) WithFloat64(column string, predicate func(v float64) bool) Txn {
+	if p, ok := txn.owner.cols[column]; ok {
 		if n, ok := p.(numerical); ok {
 			txn.index.Filter(func(x uint32) bool {
 				if v, ok := n.Float64(x); ok {
@@ -117,8 +117,8 @@ func (txn Txn) WithFloat64(property string, predicate func(v float64) bool) Txn 
 
 // WithInt64 filters down the values based on the specified predicate. The column for
 // this filter must be numerical and convertible to int64.
-func (txn Txn) WithInt64(property string, predicate func(v int64) bool) Txn {
-	if p, ok := txn.owner.cols[property]; ok {
+func (txn Txn) WithInt64(column string, predicate func(v int64) bool) Txn {
+	if p, ok := txn.owner.cols[column]; ok {
 		if n, ok := p.(numerical); ok {
 			txn.index.Filter(func(x uint32) bool {
 				if v, ok := n.Int64(x); ok {
@@ -133,8 +133,8 @@ func (txn Txn) WithInt64(property string, predicate func(v int64) bool) Txn {
 
 // WithUint64 filters down the values based on the specified predicate. The column for
 // this filter must be numerical and convertible to uint64.
-func (txn Txn) WithUint64(property string, predicate func(v uint64) bool) Txn {
-	if p, ok := txn.owner.cols[property]; ok {
+func (txn Txn) WithUint64(column string, predicate func(v uint64) bool) Txn {
+	if p, ok := txn.owner.cols[column]; ok {
 		if n, ok := p.(numerical); ok {
 			txn.index.Filter(func(x uint32) bool {
 				if v, ok := n.Uint64(x); ok {
@@ -149,8 +149,8 @@ func (txn Txn) WithUint64(property string, predicate func(v uint64) bool) Txn {
 
 // WithString filters down the values based on the specified predicate. The column for
 // this filter must be a string.
-func (txn Txn) WithString(property string, predicate func(v string) bool) Txn {
-	return txn.WithValue(property, func(v interface{}) bool {
+func (txn Txn) WithString(column string, predicate func(v string) bool) Txn {
+	return txn.WithValue(column, func(v interface{}) bool {
 		return predicate(v.(string))
 	})
 }
@@ -258,9 +258,9 @@ func (cur *Cursor) Delete() {
 
 // Update updates a column value for the current item. The actual operation
 // will be queued and executed once the current the transaction completes.
-func (cur *Cursor) Update(columnName string, value interface{}) {
+func (cur *Cursor) Update(column string, value interface{}) {
 	cur.owner.qlock.Lock()
-	cur.owner.updates[columnName] = append(cur.owner.updates[columnName], update{
+	cur.owner.updates[column] = append(cur.owner.updates[column], update{
 		index: cur.index,
 		value: value,
 	})
