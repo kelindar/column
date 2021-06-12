@@ -47,7 +47,7 @@ func main(){
 
 	// Load the items into the collection
 	loaded := loadFixture("players.json")
-	players.AddColumnsOf(loaded[0])
+	players.CreateColumnsOf(loaded[0])
 	for _, v := range loaded {
 		players.Insert(v)
 	}
@@ -78,7 +78,7 @@ func main(){
 	// Same condition as above, but we also select the actual names of those 
 	// players and iterate through them.
 	players.Query(func(txn column.Txn) error {
-		txn.With("human", "mage", "old").Range(func(v column.Selector) bool {
+		txn.With("human", "mage", "old").Range(func(v column.Cursor) bool {
 			println(v.String("name")) // prints the name
 			return true
 		})

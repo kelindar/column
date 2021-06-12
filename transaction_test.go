@@ -19,7 +19,7 @@ func TestFind(t *testing.T) {
 			return v == "mage"
 		}).WithFloat64("age", func(v float64) bool {
 			return v >= 30
-		}).Range(func(v Selector) bool {
+		}).Range(func(v Cursor) bool {
 			count++
 			assert.NotEmpty(t, v.String("name"))
 			return true
@@ -110,7 +110,7 @@ func TestIndexed(t *testing.T) {
 	// Check the index value
 	players.Query(func(txn Txn) error {
 		txn.With("human", "mage", "old").
-			Range(func(v Selector) bool {
+			Range(func(v Cursor) bool {
 				assert.True(t, v.Float64("age") >= 30)
 				assert.True(t, v.Int64("age") >= 30)
 				assert.True(t, v.Uint64("age") >= 30)
@@ -127,7 +127,7 @@ func TestUpdate(t *testing.T) {
 
 	// Delete all old people from the collection
 	players.Query(func(txn Txn) error {
-		txn.With("old").Range(func(v Selector) bool {
+		txn.With("old").Range(func(v Cursor) bool {
 			v.Delete()
 			return true
 		})
@@ -142,7 +142,7 @@ func TestUpdate(t *testing.T) {
 
 	// Make everyone poor
 	players.Query(func(txn Txn) error {
-		txn.Range(func(v Selector) bool {
+		txn.Range(func(v Cursor) bool {
 			v.Update("balance", 1.0)
 			return true
 		})

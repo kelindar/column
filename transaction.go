@@ -162,9 +162,9 @@ func (txn Txn) Count() int {
 
 // Range iterates over the objects with the given properties, but does not perform any
 // locking.
-func (txn Txn) Range(fn func(Selector) bool) {
+func (txn Txn) Range(fn func(v Cursor) bool) {
 	txn.index.Range(func(x uint32) bool {
-		return fn(Selector{
+		return fn(Cursor{
 			index: x,
 			owner: txn.owner,
 		})
@@ -173,25 +173,26 @@ func (txn Txn) Range(fn func(Selector) bool) {
 
 // --------------------------- Selector ----------------------------
 
-// Selector represents a column selector which can retrieve a value by a column name.
-type Selector struct {
+// Cursor represents a iteration cursor that supports both retrieval of column values
+// for the specified row and modification (update, delete).
+type Cursor struct {
 	index uint32      // The current index
 	owner *Collection // The owner collection
 }
 
 // Value reads a value for a current row at a given column.
-func (s *Selector) Value(column string) interface{} {
-	if c, ok := s.owner.cols[column]; ok {
-		v, _ := c.Value(s.index)
+func (cur *Cursor) Value(column string) interface{} {
+	if c, ok := cur.owner.cols[column]; ok {
+		v, _ := c.Value(cur.index)
 		return v
 	}
 	return nil
 }
 
 // String reads a string value for a current row at a given column.
-func (s *Selector) String(column string) string {
-	if c, ok := s.owner.cols[column]; ok {
-		if v, ok := c.Value(s.index); ok {
+func (cur *Cursor) String(column string) string {
+	if c, ok := cur.owner.cols[column]; ok {
+		if v, ok := c.Value(cur.index); ok {
 			return v.(string)
 		}
 	}
@@ -199,10 +200,10 @@ func (s *Selector) String(column string) string {
 }
 
 // Float64 reads a float64 value for a current row at a given column.
-func (s *Selector) Float64(column string) float64 {
-	if c, ok := s.owner.cols[column]; ok {
+func (cur *Cursor) Float64(column string) float64 {
+	if c, ok := cur.owner.cols[column]; ok {
 		if n, ok := c.(numerical); ok {
-			v, _ := n.Float64(s.index)
+			v, _ := n.Float64(cur.index)
 			return v
 		}
 	}
@@ -210,10 +211,10 @@ func (s *Selector) Float64(column string) float64 {
 }
 
 // Int64 reads an int64 value for a current row at a given column.
-func (s *Selector) Int64(column string) int64 {
-	if c, ok := s.owner.cols[column]; ok {
+func (cur *Cursor) Int64(column string) int64 {
+	if c, ok := cur.owner.cols[column]; ok {
 		if n, ok := c.(numerical); ok {
-			v, _ := n.Int64(s.index)
+			v, _ := n.Int64(cur.index)
 			return v
 		}
 	}
@@ -221,10 +222,10 @@ func (s *Selector) Int64(column string) int64 {
 }
 
 // Uint64 reads a uint64 value for a current row at a given column.
-func (s *Selector) Uint64(column string) uint64 {
-	if c, ok := s.owner.cols[column]; ok {
+func (cur *Cursor) Uint64(column string) uint64 {
+	if c, ok := cur.owner.cols[column]; ok {
 		if n, ok := c.(numerical); ok {
-			v, _ := n.Uint64(s.index)
+			v, _ := n.Uint64(cur.index)
 			return v
 		}
 	}
@@ -232,9 +233,9 @@ func (s *Selector) Uint64(column string) uint64 {
 }
 
 // Bool reads a boolean value for a current row at a given column.
-func (s *Selector) Bool(column string) bool {
-	if c, ok := s.owner.cols[column]; ok {
-		return c.Contains(s.index)
+func (cur *Cursor) Bool(column string) bool {
+	if c, ok := cur.owner.cols[column]; ok {
+		return c.Contains(cur.index)
 	}
 	return false
 }
@@ -243,32 +244,25 @@ func (s *Selector) Bool(column string) bool {
 
 // update represents an update operation
 type update struct {
-	index  uint32      // The index to update/delete
-	column string      // The column to update
-	value  interface{} // The value to update to
+	index uint32      // The index to update/delete
+	value interface{} // The value to update to
 }
 
 // Delete deletes the current item. The actual operation will be queued and
 // executed once the current the transaction completes.
-func (s *Selector) Delete() {
-	s.owner.qlock.Lock()
-	s.owner.purge.Set(s.index)
-	s.owner.qlock.Unlock()
+func (cur *Cursor) Delete() {
+	cur.owner.qlock.Lock()
+	cur.owner.deletes.Set(cur.index)
+	cur.owner.qlock.Unlock()
 }
 
 // Update updates a column value for the current item. The actual operation
 // will be queued and executed once the current the transaction completes.
-func (s *Selector) Update(columnName string, value interface{}) {
-	/*column, ok := s.owner.cols[columnName]
-	if !ok {
-		return
-	}*/
-
-	s.owner.qlock.Lock()
-	defer s.owner.qlock.Unlock()
-	s.owner.queue = append(s.owner.queue, update{
-		index:  s.index,
-		column: columnName,
-		value:  value,
+func (cur *Cursor) Update(columnName string, value interface{}) {
+	cur.owner.qlock.Lock()
+	cur.owner.updates[columnName] = append(cur.owner.updates[columnName], update{
+		index: cur.index,
+		value: value,
 	})
+	cur.owner.qlock.Unlock()
 }

@@ -12,16 +12,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// BenchmarkCollection/insert-8         	30279708	        48.33 ns/op	       3 B/op	       0 allocs/op
-// BenchmarkCollection/fetch-8          	28533519	        35.42 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/count-8          	  111178	     10766 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/count-idx-8      	 9195838	       125.7 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/find-8           	   97149	     11439 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/find-idx-8       	 1624981	       743.5 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/update-at-8      	23639916	        48.12 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/update-all-8     	   34774	     35072 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/delete-at-8      	 2364313	       503.9 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/delete-all-8     	  166850	      7225 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/insert-8         	26252403	        48.08 ns/op	       2 B/op	       0 allocs/op
+// BenchmarkCollection/fetch-8          	29705175	        35.74 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/count-8          	  102036	     10886 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/count-idx-8      	 9166742	       127.7 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/find-8           	  107601	     11519 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/find-idx-8       	 1557285	       769.6 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/update-at-8      	25257255	        47.87 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/update-all-8     	   51469	     22525 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/delete-at-8      	 2319102	       509.2 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/delete-all-8     	  169375	      7377 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkCollection(b *testing.B) {
 	players := loadPlayers()
 	obj := Object{
@@ -96,7 +96,7 @@ func BenchmarkCollection(b *testing.B) {
 					return v == "mage"
 				}).WithFloat64("age", func(v float64) bool {
 					return v >= 30
-				}).Range(func(v Selector) bool {
+				}).Range(func(v Cursor) bool {
 					count++
 					name = v.String("name")
 					return true
@@ -113,7 +113,7 @@ func BenchmarkCollection(b *testing.B) {
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
 			players.Query(func(txn Txn) error {
-				txn.With("human", "mage", "old").Range(func(v Selector) bool {
+				txn.With("human", "mage", "old").Range(func(v Cursor) bool {
 					count++
 					name = v.String("name")
 					return true
@@ -138,7 +138,7 @@ func BenchmarkCollection(b *testing.B) {
 		for n := 0; n < b.N; n++ {
 			players.Query(func(txn Txn) error {
 				//balance, _ := txn.Column("balance")
-				txn.Range(func(v Selector) bool {
+				txn.Range(func(v Cursor) bool {
 					v.Update("balance", 1.0)
 					//v.UpdateColumn(balance, 1.0)
 					return true
@@ -166,7 +166,7 @@ func BenchmarkCollection(b *testing.B) {
 		for n := 0; n < b.N; n++ {
 			fill.Clone(&c.fill) // Restore
 			c.Query(func(txn Txn) error {
-				txn.Range(func(v Selector) bool {
+				txn.Range(func(v Cursor) bool {
 					v.Delete()
 					return true
 				})
@@ -206,7 +206,7 @@ func TestCollection(t *testing.T) {
 	col := NewCollection()
 	assert.Error(t, col.CreateIndex("", "", nil))
 
-	col.AddColumnsOf(obj)
+	col.CreateColumnsOf(obj)
 	idx := col.Insert(obj)
 
 	{ // Find the object by its index
@@ -265,7 +265,7 @@ func loadPlayers() *Collection {
 
 	// Load the items into the collection
 	players := loadFixture("players.json")
-	out.AddColumnsOf(players[0])
+	out.CreateColumnsOf(players[0])
 	for _, p := range players {
 		out.Insert(p)
 	}

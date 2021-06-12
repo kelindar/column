@@ -16,23 +16,23 @@ type Object = map[string]interface{}
 
 // Collection represents a collection of objects in a columnar format
 type Collection struct {
-	lock  sync.RWMutex          // The collection lock
-	fill  bitmap.Bitmap         // The fill-list
-	cols  map[string]Column     // The map of columns
-	index map[string][]computed // The computed columns
-	qlock sync.Mutex            // The modification queue lock
-	queue []update              // The modification queue
-	purge bitmap.Bitmap         // The delete queue
+	lock    sync.RWMutex          // The collection lock
+	fill    bitmap.Bitmap         // The fill-list
+	cols    map[string]Column     // The map of columns
+	index   map[string][]computed // The computed columns
+	qlock   sync.Mutex            // The lock for updates & delete queues
+	updates map[string][]update   // The update queue
+	deletes bitmap.Bitmap         // The delete queue
 }
 
 // NewCollection creates a new columnar collection.
 func NewCollection() *Collection {
 	return &Collection{
-		fill:  make(bitmap.Bitmap, 0, 4),
-		cols:  make(map[string]Column, 8),
-		index: make(map[string][]computed, 8),
-		queue: make([]update, 0, 64),
-		purge: make(bitmap.Bitmap, 0, 4),
+		fill:    make(bitmap.Bitmap, 0, 4),
+		cols:    make(map[string]Column, 8),
+		index:   make(map[string][]computed, 8),
+		updates: make(map[string][]update, 8),
+		deletes: make(bitmap.Bitmap, 0, 4),
 	}
 }
 
@@ -105,8 +105,8 @@ func (c *Collection) Count() int {
 	return c.fill.Count()
 }
 
-// AddColumnsOf registers a set of columns that are present in the target object
-func (c *Collection) AddColumnsOf(object Object) {
+// CreateColumnsOf registers a set of columns that are present in the target object.
+func (c *Collection) CreateColumnsOf(object Object) {
 	for k, v := range object {
 		c.CreateColumn(k, reflect.TypeOf(v))
 	}
@@ -219,22 +219,35 @@ func (c *Collection) Query(fn func(txn Txn) error) error {
 func (c *Collection) updatePending() {
 	c.qlock.Lock()
 	defer c.qlock.Unlock()
-	if len(c.queue) == 0 {
-		return // Nothing to update
-	}
 
-	// Apply each update one by one
-	for _, u := range c.queue {
-		c.UpdateAt(u.index, u.column, u.value)
+	// Process the pending updates column by column
+	for columnName, updates := range c.updates {
+		if len(updates) == 0 {
+			continue // No updates for this column
+		}
+
+		// Get the column that needs to be updated
+		c.lock.RLock()
+		column, exists := c.cols[columnName]
+		c.lock.RUnlock()
+
+		// Range through all of the pending updates and apply them to the column
+		if exists {
+			for _, u := range updates {
+				column.Update(u.index, u.value)
+			}
+
+			// Reset the update queue but keep the key
+			c.updates[columnName] = c.updates[columnName][:0]
+		}
 	}
-	c.queue = c.queue[:0]
 }
 
 // deletePending removes all of the entries marked as to be deleted
 func (c *Collection) deletePending() {
 	c.qlock.Lock()
 	defer c.qlock.Unlock()
-	if len(c.purge) == 0 {
+	if len(c.deletes) == 0 {
 		return // Nothing to delete
 	}
 
@@ -242,25 +255,25 @@ func (c *Collection) deletePending() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	for _, column := range c.cols {
-		column.DeleteMany(&c.purge)
+		column.DeleteMany(&c.deletes)
 	}
 
 	// Clear the items in the collection and reinitialize the purge list
-	c.fill.AndNot(c.purge)
-	c.purge.Clear()
+	c.fill.AndNot(c.deletes)
+	c.deletes.Clear()
 }
 
 // Fetch retrieves an object by its handle and returns a selector for it.
-func (c *Collection) Fetch(idx uint32) (Selector, bool) {
+func (c *Collection) Fetch(idx uint32) (Cursor, bool) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
 	// If it's empty or over the sequence, not found
 	if idx >= uint32(len(c.fill))*64 || !c.fill.Contains(idx) {
-		return Selector{}, false
+		return Cursor{}, false
 	}
 
-	return Selector{
+	return Cursor{
 		index: idx,
 		owner: c,
 	}, true
