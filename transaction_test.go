@@ -50,6 +50,18 @@ func TestCount(t *testing.T) {
 		return nil
 	})
 
+	// How many elves + dwarves + human?
+	players.Query(func(txn Txn) error {
+		assert.Equal(t, 392, txn.With("elf").Union("dwarf", "human").Count())
+		return nil
+	})
+
+	// How many not elves, dwarfs or humans?
+	players.Query(func(txn Txn) error {
+		assert.Equal(t, 108, txn.Without("elf", "dwarf", "human").Count())
+		return nil
+	})
+
 	// How many active players?
 	players.Query(func(txn Txn) error {
 		assert.Equal(t, 247, txn.With("active").Count())
