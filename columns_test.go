@@ -6,6 +6,7 @@ package column
 import (
 	"testing"
 
+	"github.com/kelindar/bitmap"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -14,7 +15,7 @@ import (
 // BenchmarkProperty/replace-8     	291245523	         4.157 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkProperty(b *testing.B) {
 	b.Run("update", func(b *testing.B) {
-		p := newColumnAny()
+		p := makeAny()
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
@@ -23,7 +24,7 @@ func BenchmarkProperty(b *testing.B) {
 	})
 
 	b.Run("fetch", func(b *testing.B) {
-		p := newColumnAny()
+		p := makeAny()
 		p.Update(5, "hello")
 		b.ReportAllocs()
 		b.ResetTimer()
@@ -33,7 +34,7 @@ func BenchmarkProperty(b *testing.B) {
 	})
 
 	b.Run("replace", func(b *testing.B) {
-		p := newColumnAny()
+		p := makeAny()
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
@@ -44,7 +45,7 @@ func BenchmarkProperty(b *testing.B) {
 }
 
 func TestProperty(t *testing.T) {
-	p := newColumnAny().(*columnAny)
+	p := makeAny().(*columnAny)
 
 	{ // Set the value at index
 		p.Update(9, 99.5)
@@ -85,7 +86,7 @@ func TestPropertyOrder(t *testing.T) {
 	// TODO: not sure if it's all correct, what happens if
 	// we have 2 properties?
 
-	p := newColumnAny()
+	p := makeAny()
 	for i := uint32(100); i < 200; i++ {
 		p.Update(i, i)
 	}
@@ -105,5 +106,51 @@ func TestPropertyOrder(t *testing.T) {
 		x, ok := p.Value(i)
 		assert.True(t, ok)
 		assert.Equal(t, i, x)
+	}
+}
+
+func TestColumns(t *testing.T) {
+	cols := []Column{
+		makeBools(),
+		makeAny(),
+	}
+	for _, c := range cols {
+
+		{ // Set the value at index
+			c.Update(9, true)
+			assert.True(t, c.Contains(9))
+		}
+
+		{ // Get the values
+			v, ok := c.Value(9)
+			assert.Equal(t, true, v)
+			assert.True(t, ok)
+		}
+
+		{
+			other := bitmap.Bitmap{0xffffffffffffffff}
+			c.And(&other)
+			assert.Equal(t, uint64(0b1000000000), other[0])
+		}
+
+		{
+			other := bitmap.Bitmap{0xffffffffffffffff}
+			c.AndNot(&other)
+			assert.Equal(t, uint64(0xfffffffffffffdff), other[0])
+		}
+
+		{
+			other := bitmap.Bitmap{0xffffffffffffffff}
+			c.Or(&other)
+			assert.Equal(t, uint64(0xffffffffffffffff), other[0])
+		}
+
+		{ // Remove the value
+			c.Delete(9)
+			c.DeleteMany(&bitmap.Bitmap{0xffffffffffffffff})
+
+			_, ok := c.Value(9)
+			assert.False(t, ok)
+		}
 	}
 }

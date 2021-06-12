@@ -58,7 +58,7 @@ func columnFor(columnName string, typ reflect.Type) Column {
 	case reflect.Bool:
 		return makeBools()
 	default:
-		return newColumnAny()
+		return makeAny()
 	}
 }
 
@@ -71,8 +71,8 @@ type columnAny struct {
 	data []interface{} // The actual values
 }
 
-// newColumnAny creates a new generic column
-func newColumnAny() Column {
+// makeAny creates a new generic column
+func makeAny() Column {
 	return &columnAny{
 		fill: make(bitmap.Bitmap, 0, 4),
 		data: make([]interface{}, 0, 64),
