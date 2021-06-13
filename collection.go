@@ -132,7 +132,7 @@ func (c *Collection) DropColumn(columnName string) {
 // CreateIndex creates an index column with a specified name which depends on a given
 // column. The index function will be applied on the values of the column whenever
 // a new row is added or updated.
-func (c *Collection) CreateIndex(indexName, columnName string, fn IndexFunc) error {
+func (c *Collection) CreateIndex(indexName, columnName string, fn func(v interface{}) bool) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if fn == nil || columnName == "" || indexName == "" {

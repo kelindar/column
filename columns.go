@@ -20,9 +20,9 @@ type Column interface {
 	DeleteMany(items *bitmap.Bitmap)
 	Value(idx uint32) (interface{}, bool)
 	Contains(idx uint32) bool
-	And(dst *bitmap.Bitmap)
-	AndNot(dst *bitmap.Bitmap)
-	Or(dst *bitmap.Bitmap)
+	Intersect(*bitmap.Bitmap)
+	Difference(*bitmap.Bitmap)
+	Union(*bitmap.Bitmap)
 }
 
 // Numerical represents a numerical column implementation
@@ -62,28 +62,78 @@ func columnFor(columnName string, typ reflect.Type) Column {
 	}
 }
 
+// --------------------------- Base ----------------------------
+
+// column represents a base column implementation with a lock and a fill list
+type column struct {
+	sync.RWMutex
+	fill bitmap.Bitmap
+}
+
+// Delete removes a value at a specified index
+func (c *column) Delete(idx uint32) {
+	c.Lock()
+	c.fill.Remove(idx)
+	c.Unlock()
+}
+
+// DeleteMany deletes a set of items from the column.
+func (c *column) DeleteMany(items *bitmap.Bitmap) {
+	c.Lock()
+	c.fill.AndNot(*items)
+	c.Unlock()
+}
+
+// Contains checks whether the column has a value at a specified index.
+func (c *column) Contains(idx uint32) (exists bool) {
+	c.RLock()
+	exists = c.fill.Contains(idx)
+	c.RUnlock()
+	return
+}
+
+// Intersect performs a logical and operation and updates the destination bitmap.
+func (c *column) Intersect(dst *bitmap.Bitmap) {
+	c.RLock()
+	dst.And(c.fill)
+	c.RUnlock()
+}
+
+// Difference performs a logical and not operation and updates the destination bitmap.
+func (c *column) Difference(dst *bitmap.Bitmap) {
+	c.RLock()
+	dst.AndNot(c.fill)
+	c.RUnlock()
+}
+
+// Union performs a logical or operation and updates the destination bitmap.
+func (c *column) Union(dst *bitmap.Bitmap) {
+	c.RLock()
+	dst.Or(c.fill)
+	c.RUnlock()
+}
+
 // --------------------------- Any ----------------------------
 
 // columnAny represents a generic column
 type columnAny struct {
-	sync.RWMutex
-	fill bitmap.Bitmap // The fill-list
+	column
 	data []interface{} // The actual values
 }
 
 // makeAny creates a new generic column
 func makeAny() Column {
 	return &columnAny{
-		fill: make(bitmap.Bitmap, 0, 4),
 		data: make([]interface{}, 0, 64),
+		column: column{
+			fill: make(bitmap.Bitmap, 0, 4),
+		},
 	}
 }
 
 // Update sets a value at a specified index
 func (c *columnAny) Update(idx uint32, value interface{}) {
 	c.Lock()
-	defer c.Unlock()
-
 	size := uint32(len(c.data))
 	for i := size; i <= idx; i++ {
 		c.data = append(c.data, nil)
@@ -91,7 +141,8 @@ func (c *columnAny) Update(idx uint32, value interface{}) {
 
 	// Set the data at index
 	c.fill.Set(idx)
-	c.data[idx] = value.(interface{})
+	c.data[idx] = value
+	c.Unlock()
 }
 
 // Value retrieves a value at a specified index
@@ -110,41 +161,6 @@ func (c *columnAny) Delete(idx uint32) {
 	c.fill.Remove(idx)
 	c.data[idx] = nil
 	c.Unlock()
-}
-
-// DeleteMany deletes a set of items from the column.
-func (c *columnAny) DeleteMany(items *bitmap.Bitmap) {
-	c.Lock()
-	c.fill.AndNot(*items)
-	c.Unlock()
-}
-
-// Contains checks whether the column has a value at a specified index.
-func (c *columnAny) Contains(idx uint32) bool {
-	c.RLock()
-	defer c.RUnlock()
-	return c.fill.Contains(idx)
-}
-
-// And performs a logical and operation and updates the destination bitmap.
-func (c *columnAny) And(dst *bitmap.Bitmap) {
-	c.RLock()
-	dst.And(c.fill)
-	c.RUnlock()
-}
-
-// And performs a logical and not operation and updates the destination bitmap.
-func (c *columnAny) AndNot(dst *bitmap.Bitmap) {
-	c.RLock()
-	dst.AndNot(c.fill)
-	c.RUnlock()
-}
-
-// Or performs a logical or operation and updates the destination bitmap.
-func (c *columnAny) Or(dst *bitmap.Bitmap) {
-	c.RLock()
-	dst.Or(c.fill)
-	c.RUnlock()
 }
 
 // --------------------------- booleans ----------------------------
@@ -212,22 +228,22 @@ func (c *columnBool) Contains(idx uint32) bool {
 	return c.fill.Contains(idx)
 }
 
-// And performs a logical and operation and updates the destination bitmap.
-func (c *columnBool) And(dst *bitmap.Bitmap) {
+// Intersect performs a logical and operation and updates the destination bitmap.
+func (c *columnBool) Intersect(dst *bitmap.Bitmap) {
 	c.RLock()
 	dst.And(c.data)
 	c.RUnlock()
 }
 
-// And performs a logical and not operation and updates the destination bitmap.
-func (c *columnBool) AndNot(dst *bitmap.Bitmap) {
+// Difference performs a logical and not operation and updates the destination bitmap.
+func (c *columnBool) Difference(dst *bitmap.Bitmap) {
 	c.RLock()
 	dst.AndNot(c.data)
 	c.RUnlock()
 }
 
-// Or performs a logical or operation and updates the destination bitmap.
-func (c *columnBool) Or(dst *bitmap.Bitmap) {
+// Union performs a logical or operation and updates the destination bitmap.
+func (c *columnBool) Union(dst *bitmap.Bitmap) {
 	c.RLock()
 	dst.Or(c.data)
 	c.RUnlock()
@@ -241,15 +257,11 @@ type computed interface {
 	Column() string
 }
 
-// IndexFunc represents a function which can be used to build an index
-type IndexFunc = func(v interface{}) bool
-
 // Index represents the index implementation
 type index struct {
-	sync.RWMutex
+	column
 	prop string
 	rule func(v interface{}) bool
-	fill bitmap.Bitmap
 }
 
 // newIndex creates a new indexer
@@ -257,7 +269,9 @@ func newIndex(prop string, rule func(v interface{}) bool) *index {
 	return &index{
 		prop: prop,
 		rule: rule,
-		fill: make(bitmap.Bitmap, 0, 8),
+		column: column{
+			fill: make(bitmap.Bitmap, 0, 4),
+		},
 	}
 }
 
@@ -286,46 +300,4 @@ func (c *index) Value(idx uint32) (interface{}, bool) {
 	}
 
 	return c.fill.Contains(idx), true
-}
-
-// Delete deletes the element from the index.
-func (c *index) Delete(idx uint32) {
-	c.Lock()
-	c.fill.Remove(idx)
-	c.Unlock()
-}
-
-// DeleteMany deletes a set of items from the column.
-func (c *index) DeleteMany(items *bitmap.Bitmap) {
-	c.Lock()
-	c.fill.AndNot(*items)
-	c.Unlock()
-}
-
-// Contains checks whether the column has a value at a specified index.
-func (c *index) Contains(idx uint32) bool {
-	c.RLock()
-	defer c.RUnlock()
-	return c.fill.Contains(idx)
-}
-
-// And performs a logical and operation and updates the destination bitmap.
-func (c *index) And(dst *bitmap.Bitmap) {
-	c.RLock()
-	dst.And(c.fill)
-	c.RUnlock()
-}
-
-// And performs a logical and not operation and updates the destination bitmap.
-func (c *index) AndNot(dst *bitmap.Bitmap) {
-	c.RLock()
-	dst.AndNot(c.fill)
-	c.RUnlock()
-}
-
-// Or performs a logical or operation and updates the destination bitmap.
-func (c *index) Or(dst *bitmap.Bitmap) {
-	c.RLock()
-	dst.Or(c.fill)
-	c.RUnlock()
 }

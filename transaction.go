@@ -39,7 +39,7 @@ type Txn struct {
 // With applies a logical AND operation to the current query and the specified index.
 func (txn Txn) With(column string, extra ...string) Txn {
 	if idx, ok := txn.owner.cols[column]; ok {
-		idx.And(txn.index)
+		idx.Intersect(txn.index)
 	} else {
 		txn.index.Clear()
 	}
@@ -47,7 +47,7 @@ func (txn Txn) With(column string, extra ...string) Txn {
 	// go through extra indexes
 	for _, e := range extra {
 		if idx, ok := txn.owner.cols[e]; ok {
-			idx.And(txn.index)
+			idx.Intersect(txn.index)
 		} else {
 			txn.index.Clear()
 		}
@@ -58,13 +58,13 @@ func (txn Txn) With(column string, extra ...string) Txn {
 // Without applies a logical AND NOT operation to the current query and the specified index.
 func (txn Txn) Without(column string, extra ...string) Txn {
 	if idx, ok := txn.owner.cols[column]; ok {
-		idx.AndNot(txn.index)
+		idx.Difference(txn.index)
 	}
 
 	// go through extra indexes
 	for _, e := range extra {
 		if idx, ok := txn.owner.cols[e]; ok {
-			idx.AndNot(txn.index)
+			idx.Difference(txn.index)
 		}
 	}
 	return txn
@@ -73,13 +73,13 @@ func (txn Txn) Without(column string, extra ...string) Txn {
 // Union computes a union between the current query and the specified index.
 func (txn Txn) Union(column string, extra ...string) Txn {
 	if idx, ok := txn.owner.cols[column]; ok {
-		idx.Or(txn.index)
+		idx.Union(txn.index)
 	}
 
 	// go through extra indexes
 	for _, e := range extra {
 		if idx, ok := txn.owner.cols[e]; ok {
-			idx.Or(txn.index)
+			idx.Union(txn.index)
 		}
 	}
 	return txn

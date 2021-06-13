@@ -3,8 +3,6 @@
 package column
 
 import (
-	"sync"
-
 	"github.com/cheekybits/genny/generic"
 	"github.com/kelindar/bitmap"
 )
@@ -15,16 +13,17 @@ type number generic.Number
 
 // columnnumber represents a generic column
 type columnnumber struct {
-	sync.RWMutex
-	fill bitmap.Bitmap // The fill-list
-	data []number      // The actual values
+	column
+	data []number // The actual values
 }
 
 // makenumbers creates a new vector or numbers
 func makenumbers() Column {
 	return &columnnumber{
-		fill: make(bitmap.Bitmap, 0, 4),
 		data: make([]number, 0, 64),
+		column: column{
+			fill: make(bitmap.Bitmap, 0, 4),
+		},
 	}
 }
 
@@ -82,46 +81,4 @@ func (c *columnnumber) Uint64(idx uint32) (v uint64, ok bool) {
 	}
 	c.RUnlock()
 	return
-}
-
-// Delete removes a value at a specified index
-func (c *columnnumber) Delete(idx uint32) {
-	c.Lock()
-	c.fill.Remove(idx)
-	c.Unlock()
-}
-
-// DeleteMany deletes a set of items from the column.
-func (c *columnnumber) DeleteMany(items *bitmap.Bitmap) {
-	c.Lock()
-	c.fill.AndNot(*items)
-	c.Unlock()
-}
-
-// Contains checks whether the column has a value at a specified index.
-func (c *columnnumber) Contains(idx uint32) bool {
-	c.RLock()
-	defer c.RUnlock()
-	return c.fill.Contains(idx)
-}
-
-// And performs a logical and operation and updates the destination bitmap.
-func (c *columnnumber) And(dst *bitmap.Bitmap) {
-	c.RLock()
-	dst.And(c.fill)
-	c.RUnlock()
-}
-
-// And performs a logical and not operation and updates the destination bitmap.
-func (c *columnnumber) AndNot(dst *bitmap.Bitmap) {
-	c.RLock()
-	dst.AndNot(c.fill)
-	c.RUnlock()
-}
-
-// Or performs a logical or operation and updates the destination bitmap.
-func (c *columnnumber) Or(dst *bitmap.Bitmap) {
-	c.RLock()
-	dst.Or(c.fill)
-	c.RUnlock()
 }

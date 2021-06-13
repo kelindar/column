@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// BenchmarkProperty/set-8         	344183034	         3.498 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkProperty/get-8         	1000000000	         1.123 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkProperty/replace-8     	291245523	         4.157 ns/op	       0 B/op	       0 allocs/op
-func BenchmarkProperty(b *testing.B) {
+// BenchmarkColumn/update-8         	51225134	        23.17 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkColumn/fetch-8          	100000000	        11.01 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkColumn/replace-8        	23745964	        45.09 ns/op	       0 B/op	       0 allocs/op
+func BenchmarkColumn(b *testing.B) {
 	b.Run("update", func(b *testing.B) {
 		p := makeAny()
 		b.ReportAllocs()
@@ -129,19 +129,19 @@ func TestColumns(t *testing.T) {
 
 		{
 			other := bitmap.Bitmap{0xffffffffffffffff}
-			c.And(&other)
+			c.Intersect(&other)
 			assert.Equal(t, uint64(0b1000000000), other[0])
 		}
 
 		{
 			other := bitmap.Bitmap{0xffffffffffffffff}
-			c.AndNot(&other)
+			c.Difference(&other)
 			assert.Equal(t, uint64(0xfffffffffffffdff), other[0])
 		}
 
 		{
 			other := bitmap.Bitmap{0xffffffffffffffff}
-			c.Or(&other)
+			c.Union(&other)
 			assert.Equal(t, uint64(0xffffffffffffffff), other[0])
 		}
 

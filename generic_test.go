@@ -38,19 +38,19 @@ func TestOfnumbers(t *testing.T) {
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.And(&other)
+		c.Intersect(&other)
 		assert.Equal(t, uint64(0b1000000000), other[0])
 	}
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.AndNot(&other)
+		c.Difference(&other)
 		assert.Equal(t, uint64(0xfffffffffffffdff), other[0])
 	}
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Or(&other)
+		c.Union(&other)
 		assert.Equal(t, uint64(0xffffffffffffffff), other[0])
 	}
 

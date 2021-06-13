@@ -40,19 +40,19 @@ func TestOfFloat32s(t *testing.T) {
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.And(&other)
+		c.Intersect(&other)
 		assert.Equal(t, uint64(0b1000000000), other[0])
 	}
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.AndNot(&other)
+		c.Difference(&other)
 		assert.Equal(t, uint64(0xfffffffffffffdff), other[0])
 	}
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Or(&other)
+		c.Union(&other)
 		assert.Equal(t, uint64(0xffffffffffffffff), other[0])
 	}
 
@@ -107,19 +107,19 @@ func TestOfFloat64s(t *testing.T) {
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.And(&other)
+		c.Intersect(&other)
 		assert.Equal(t, uint64(0b1000000000), other[0])
 	}
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.AndNot(&other)
+		c.Difference(&other)
 		assert.Equal(t, uint64(0xfffffffffffffdff), other[0])
 	}
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Or(&other)
+		c.Union(&other)
 		assert.Equal(t, uint64(0xffffffffffffffff), other[0])
 	}
 
@@ -174,19 +174,19 @@ func TestOfInts(t *testing.T) {
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.And(&other)
+		c.Intersect(&other)
 		assert.Equal(t, uint64(0b1000000000), other[0])
 	}
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.AndNot(&other)
+		c.Difference(&other)
 		assert.Equal(t, uint64(0xfffffffffffffdff), other[0])
 	}
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Or(&other)
+		c.Union(&other)
 		assert.Equal(t, uint64(0xffffffffffffffff), other[0])
 	}
 
@@ -241,19 +241,19 @@ func TestOfInt16s(t *testing.T) {
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.And(&other)
+		c.Intersect(&other)
 		assert.Equal(t, uint64(0b1000000000), other[0])
 	}
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.AndNot(&other)
+		c.Difference(&other)
 		assert.Equal(t, uint64(0xfffffffffffffdff), other[0])
 	}
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Or(&other)
+		c.Union(&other)
 		assert.Equal(t, uint64(0xffffffffffffffff), other[0])
 	}
 
@@ -308,19 +308,19 @@ func TestOfInt32s(t *testing.T) {
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.And(&other)
+		c.Intersect(&other)
 		assert.Equal(t, uint64(0b1000000000), other[0])
 	}
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.AndNot(&other)
+		c.Difference(&other)
 		assert.Equal(t, uint64(0xfffffffffffffdff), other[0])
 	}
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Or(&other)
+		c.Union(&other)
 		assert.Equal(t, uint64(0xffffffffffffffff), other[0])
 	}
 
@@ -375,19 +375,19 @@ func TestOfInt64s(t *testing.T) {
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.And(&other)
+		c.Intersect(&other)
 		assert.Equal(t, uint64(0b1000000000), other[0])
 	}
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.AndNot(&other)
+		c.Difference(&other)
 		assert.Equal(t, uint64(0xfffffffffffffdff), other[0])
 	}
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Or(&other)
+		c.Union(&other)
 		assert.Equal(t, uint64(0xffffffffffffffff), other[0])
 	}
 
@@ -442,19 +442,19 @@ func TestOfUints(t *testing.T) {
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.And(&other)
+		c.Intersect(&other)
 		assert.Equal(t, uint64(0b1000000000), other[0])
 	}
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.AndNot(&other)
+		c.Difference(&other)
 		assert.Equal(t, uint64(0xfffffffffffffdff), other[0])
 	}
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Or(&other)
+		c.Union(&other)
 		assert.Equal(t, uint64(0xffffffffffffffff), other[0])
 	}
 
@@ -509,19 +509,19 @@ func TestOfUint16s(t *testing.T) {
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.And(&other)
+		c.Intersect(&other)
 		assert.Equal(t, uint64(0b1000000000), other[0])
 	}
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.AndNot(&other)
+		c.Difference(&other)
 		assert.Equal(t, uint64(0xfffffffffffffdff), other[0])
 	}
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Or(&other)
+		c.Union(&other)
 		assert.Equal(t, uint64(0xffffffffffffffff), other[0])
 	}
 
@@ -576,19 +576,19 @@ func TestOfUint32s(t *testing.T) {
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.And(&other)
+		c.Intersect(&other)
 		assert.Equal(t, uint64(0b1000000000), other[0])
 	}
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.AndNot(&other)
+		c.Difference(&other)
 		assert.Equal(t, uint64(0xfffffffffffffdff), other[0])
 	}
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Or(&other)
+		c.Union(&other)
 		assert.Equal(t, uint64(0xffffffffffffffff), other[0])
 	}
 
@@ -643,19 +643,19 @@ func TestOfUint64s(t *testing.T) {
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.And(&other)
+		c.Intersect(&other)
 		assert.Equal(t, uint64(0b1000000000), other[0])
 	}
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.AndNot(&other)
+		c.Difference(&other)
 		assert.Equal(t, uint64(0xfffffffffffffdff), other[0])
 	}
 
 	{
 		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Or(&other)
+		c.Union(&other)
 		assert.Equal(t, uint64(0xffffffffffffffff), other[0])
 	}
 
