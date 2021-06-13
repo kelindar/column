@@ -60,7 +60,7 @@ func main(){
 			return v == "human"
 		}).WithString("class", func(v string) bool {
 			return v == "mage"
-		}).WithFloat64("age", func(v float64) bool {
+		}).WithFloat("age", func(v float64) bool {
 			return v >= 30
 		}).Count()) // prints the count
 		return nil
@@ -78,10 +78,10 @@ func main(){
 	// Same condition as above, but we also select the actual names of those 
 	// players and iterate through them.
 	players.Query(func(txn column.Txn) error {
-		txn.With("human", "mage", "old").Range(func(v column.Cursor) bool {
-			println(v.String("name")) // prints the name
+		txn.With("human", "mage", "old").Select(func(v column.Selector) bool {
+			println(v.String()) // prints the name
 			return true
-		})
+		}, "name") // The column to select
 		return nil
 	})
 }
