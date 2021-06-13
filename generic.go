@@ -42,6 +42,17 @@ func (c *columnnumber) Update(idx uint32, value interface{}) {
 	c.data[idx] = value.(number)
 }
 
+// UpdateMany performs a series of updates at once
+func (c *columnnumber) UpdateMany(updates []Update) {
+	c.Lock()
+	defer c.Unlock()
+
+	for _, u := range updates {
+		c.fill.Set(u.Index)
+		c.data[u.Index] = u.Value.(number)
+	}
+}
+
 // Value retrieves a value at a specified index
 func (c *columnnumber) Value(idx uint32) (v interface{}, ok bool) {
 	v = number(0)

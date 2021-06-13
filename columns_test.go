@@ -152,5 +152,11 @@ func TestColumns(t *testing.T) {
 			_, ok := c.Value(9)
 			assert.False(t, ok)
 		}
+
+		{ // Update several items at once
+			c.UpdateMany([]Update{{1, true}, {2, false}})
+			assert.True(t, c.Contains(1))
+			assert.True(t, c.Contains(2))
+		}
 	}
 }

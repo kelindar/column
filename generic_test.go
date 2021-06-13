@@ -74,4 +74,11 @@ func TestOfnumbers(t *testing.T) {
 		assert.Equal(t, uint64(0), u)
 		assert.False(t, ok)
 	}
+
+	{ // Update several items at once
+		c.UpdateMany([]Update{{1, number(1)}, {2, number(2)}})
+		assert.True(t, c.Contains(1))
+		assert.True(t, c.Contains(2))
+	}
+
 }

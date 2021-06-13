@@ -21,7 +21,7 @@ type Collection struct {
 	fill    bitmap.Bitmap         // The fill-list
 	cols    map[string]Column     // The map of columns
 	index   map[string][]computed // The computed columns
-	updates map[string][]update   // The update queue
+	updates map[string][]Update   // The update queue
 	deletes bitmap.Bitmap         // The delete queue
 }
 
@@ -31,7 +31,7 @@ func NewCollection() *Collection {
 		fill:    make(bitmap.Bitmap, 0, 4),
 		cols:    make(map[string]Column, 8),
 		index:   make(map[string][]computed, 8),
-		updates: make(map[string][]update, 8),
+		updates: make(map[string][]Update, 8),
 		deletes: make(bitmap.Bitmap, 0, 4),
 	}
 }
@@ -231,25 +231,22 @@ func (c *Collection) updatePending() {
 
 		// Get the column that needs to be updated
 		column, exists := c.cols[columnName]
+		if !exists {
+			continue
+		}
 
 		// Range through all of the pending updates and apply them to the column
-		if exists {
-			for _, u := range updates {
-				column.Update(u.index, u.value)
-			}
+		column.UpdateMany(updates)
 
-			// If there's computed columns associated with this, update them all
-			if computed, ok := c.index[columnName]; ok {
-				for _, i := range computed {
-					for _, u := range updates {
-						i.Update(u.index, u.value)
-					}
-				}
+		// If there's computed columns associated with this, update them all
+		if computed, ok := c.index[columnName]; ok {
+			for _, i := range computed {
+				i.UpdateMany(updates)
 			}
-
-			// Reset the update queue but keep the key
-			c.updates[columnName] = c.updates[columnName][:0]
 		}
+
+		// Reset the update queue but keep the key
+		c.updates[columnName] = c.updates[columnName][:0]
 	}
 }
 

@@ -16,6 +16,7 @@ import (
 // Column represents a column implementation
 type Column interface {
 	Update(idx uint32, value interface{})
+	UpdateMany(updates []Update)
 	Delete(idx uint32)
 	DeleteMany(items *bitmap.Bitmap)
 	Value(idx uint32) (interface{}, bool)
@@ -145,6 +146,17 @@ func (c *columnAny) Update(idx uint32, value interface{}) {
 	c.Unlock()
 }
 
+// UpdateMany performs a series of updates at once
+func (c *columnAny) UpdateMany(updates []Update) {
+	c.Lock()
+	defer c.Unlock()
+
+	for _, u := range updates {
+		c.fill.Set(u.Index)
+		c.data[u.Index] = u.Value
+	}
+}
+
 // Value retrieves a value at a specified index
 func (c *columnAny) Value(idx uint32) (v interface{}, ok bool) {
 	c.RLock()
@@ -190,6 +202,21 @@ func (c *columnBool) Update(idx uint32, value interface{}) {
 		c.data.Set(idx)
 	} else {
 		c.data.Remove(idx)
+	}
+}
+
+// UpdateMany performs a series of updates at once
+func (c *columnBool) UpdateMany(updates []Update) {
+	c.Lock()
+	defer c.Unlock()
+
+	for _, u := range updates {
+		c.fill.Set(u.Index)
+		if u.Value.(bool) {
+			c.data.Set(u.Index)
+		} else {
+			c.data.Remove(u.Index)
+		}
 	}
 }
 
@@ -288,6 +315,20 @@ func (c *index) Update(idx uint32, value interface{}) {
 		c.fill.Set(idx)
 	} else {
 		c.fill.Remove(idx)
+	}
+}
+
+// UpdateMany performs a series of updates at once
+func (c *index) UpdateMany(updates []Update) {
+	c.Lock()
+	defer c.Unlock()
+
+	for _, u := range updates {
+		if c.rule(u.Value) {
+			c.fill.Set(u.Index)
+		} else {
+			c.fill.Remove(u.Index)
+		}
 	}
 }
 

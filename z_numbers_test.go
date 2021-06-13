@@ -76,6 +76,13 @@ func TestOfFloat32s(t *testing.T) {
 		assert.Equal(t, uint64(0), u)
 		assert.False(t, ok)
 	}
+
+	{ // Update several items at once
+		c.UpdateMany([]Update{{1, float32(1)}, {2, float32(2)}})
+		assert.True(t, c.Contains(1))
+		assert.True(t, c.Contains(2))
+	}
+
 }
 
 func TestOfFloat64s(t *testing.T) {
@@ -143,6 +150,13 @@ func TestOfFloat64s(t *testing.T) {
 		assert.Equal(t, uint64(0), u)
 		assert.False(t, ok)
 	}
+
+	{ // Update several items at once
+		c.UpdateMany([]Update{{1, float64(1)}, {2, float64(2)}})
+		assert.True(t, c.Contains(1))
+		assert.True(t, c.Contains(2))
+	}
+
 }
 
 func TestOfInts(t *testing.T) {
@@ -210,6 +224,13 @@ func TestOfInts(t *testing.T) {
 		assert.Equal(t, uint64(0), u)
 		assert.False(t, ok)
 	}
+
+	{ // Update several items at once
+		c.UpdateMany([]Update{{1, int(1)}, {2, int(2)}})
+		assert.True(t, c.Contains(1))
+		assert.True(t, c.Contains(2))
+	}
+
 }
 
 func TestOfInt16s(t *testing.T) {
@@ -277,6 +298,13 @@ func TestOfInt16s(t *testing.T) {
 		assert.Equal(t, uint64(0), u)
 		assert.False(t, ok)
 	}
+
+	{ // Update several items at once
+		c.UpdateMany([]Update{{1, int16(1)}, {2, int16(2)}})
+		assert.True(t, c.Contains(1))
+		assert.True(t, c.Contains(2))
+	}
+
 }
 
 func TestOfInt32s(t *testing.T) {
@@ -344,6 +372,13 @@ func TestOfInt32s(t *testing.T) {
 		assert.Equal(t, uint64(0), u)
 		assert.False(t, ok)
 	}
+
+	{ // Update several items at once
+		c.UpdateMany([]Update{{1, int32(1)}, {2, int32(2)}})
+		assert.True(t, c.Contains(1))
+		assert.True(t, c.Contains(2))
+	}
+
 }
 
 func TestOfInt64s(t *testing.T) {
@@ -411,6 +446,13 @@ func TestOfInt64s(t *testing.T) {
 		assert.Equal(t, uint64(0), u)
 		assert.False(t, ok)
 	}
+
+	{ // Update several items at once
+		c.UpdateMany([]Update{{1, int64(1)}, {2, int64(2)}})
+		assert.True(t, c.Contains(1))
+		assert.True(t, c.Contains(2))
+	}
+
 }
 
 func TestOfUints(t *testing.T) {
@@ -478,6 +520,13 @@ func TestOfUints(t *testing.T) {
 		assert.Equal(t, uint64(0), u)
 		assert.False(t, ok)
 	}
+
+	{ // Update several items at once
+		c.UpdateMany([]Update{{1, uint(1)}, {2, uint(2)}})
+		assert.True(t, c.Contains(1))
+		assert.True(t, c.Contains(2))
+	}
+
 }
 
 func TestOfUint16s(t *testing.T) {
@@ -545,6 +594,13 @@ func TestOfUint16s(t *testing.T) {
 		assert.Equal(t, uint64(0), u)
 		assert.False(t, ok)
 	}
+
+	{ // Update several items at once
+		c.UpdateMany([]Update{{1, uint16(1)}, {2, uint16(2)}})
+		assert.True(t, c.Contains(1))
+		assert.True(t, c.Contains(2))
+	}
+
 }
 
 func TestOfUint32s(t *testing.T) {
@@ -612,6 +668,13 @@ func TestOfUint32s(t *testing.T) {
 		assert.Equal(t, uint64(0), u)
 		assert.False(t, ok)
 	}
+
+	{ // Update several items at once
+		c.UpdateMany([]Update{{1, uint32(1)}, {2, uint32(2)}})
+		assert.True(t, c.Contains(1))
+		assert.True(t, c.Contains(2))
+	}
+
 }
 
 func TestOfUint64s(t *testing.T) {
@@ -679,4 +742,11 @@ func TestOfUint64s(t *testing.T) {
 		assert.Equal(t, uint64(0), u)
 		assert.False(t, ok)
 	}
+
+	{ // Update several items at once
+		c.UpdateMany([]Update{{1, uint64(1)}, {2, uint64(2)}})
+		assert.True(t, c.Contains(1))
+		assert.True(t, c.Contains(2))
+	}
+
 }

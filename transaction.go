@@ -242,10 +242,10 @@ func (cur *Cursor) Bool(column string) bool {
 
 // --------------------------- Update ----------------------------
 
-// update represents an update operation
-type update struct {
-	index uint32      // The index to update/delete
-	value interface{} // The value to update to
+// Update represents an update operation
+type Update struct {
+	Index uint32      // The index to update/delete
+	Value interface{} // The value to update to
 }
 
 // Delete deletes the current item. The actual operation will be queued and
@@ -260,9 +260,9 @@ func (cur *Cursor) Delete() {
 // will be queued and executed once the current the transaction completes.
 func (cur *Cursor) Update(column string, value interface{}) {
 	cur.owner.qlock.Lock()
-	cur.owner.updates[column] = append(cur.owner.updates[column], update{
-		index: cur.index,
-		value: value,
+	cur.owner.updates[column] = append(cur.owner.updates[column], Update{
+		Index: cur.index,
+		Value: value,
 	})
 	cur.owner.qlock.Unlock()
 }

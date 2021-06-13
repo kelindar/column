@@ -39,6 +39,17 @@ func (c *columnFloat32) Update(idx uint32, value interface{}) {
 	c.data[idx] = value.(float32)
 }
 
+// UpdateMany performs a series of updates at once
+func (c *columnFloat32) UpdateMany(updates []Update) {
+	c.Lock()
+	defer c.Unlock()
+
+	for _, u := range updates {
+		c.fill.Set(u.Index)
+		c.data[u.Index] = u.Value.(float32)
+	}
+}
+
 // Value retrieves a value at a specified index
 func (c *columnFloat32) Value(idx uint32) (v interface{}, ok bool) {
 	v = float32(0)
@@ -111,6 +122,17 @@ func (c *columnFloat64) Update(idx uint32, value interface{}) {
 	// Set the data at index
 	c.fill.Set(idx)
 	c.data[idx] = value.(float64)
+}
+
+// UpdateMany performs a series of updates at once
+func (c *columnFloat64) UpdateMany(updates []Update) {
+	c.Lock()
+	defer c.Unlock()
+
+	for _, u := range updates {
+		c.fill.Set(u.Index)
+		c.data[u.Index] = u.Value.(float64)
+	}
 }
 
 // Value retrieves a value at a specified index
@@ -187,6 +209,17 @@ func (c *columnInt) Update(idx uint32, value interface{}) {
 	c.data[idx] = value.(int)
 }
 
+// UpdateMany performs a series of updates at once
+func (c *columnInt) UpdateMany(updates []Update) {
+	c.Lock()
+	defer c.Unlock()
+
+	for _, u := range updates {
+		c.fill.Set(u.Index)
+		c.data[u.Index] = u.Value.(int)
+	}
+}
+
 // Value retrieves a value at a specified index
 func (c *columnInt) Value(idx uint32) (v interface{}, ok bool) {
 	v = int(0)
@@ -259,6 +292,17 @@ func (c *columnInt16) Update(idx uint32, value interface{}) {
 	// Set the data at index
 	c.fill.Set(idx)
 	c.data[idx] = value.(int16)
+}
+
+// UpdateMany performs a series of updates at once
+func (c *columnInt16) UpdateMany(updates []Update) {
+	c.Lock()
+	defer c.Unlock()
+
+	for _, u := range updates {
+		c.fill.Set(u.Index)
+		c.data[u.Index] = u.Value.(int16)
+	}
 }
 
 // Value retrieves a value at a specified index
@@ -335,6 +379,17 @@ func (c *columnInt32) Update(idx uint32, value interface{}) {
 	c.data[idx] = value.(int32)
 }
 
+// UpdateMany performs a series of updates at once
+func (c *columnInt32) UpdateMany(updates []Update) {
+	c.Lock()
+	defer c.Unlock()
+
+	for _, u := range updates {
+		c.fill.Set(u.Index)
+		c.data[u.Index] = u.Value.(int32)
+	}
+}
+
 // Value retrieves a value at a specified index
 func (c *columnInt32) Value(idx uint32) (v interface{}, ok bool) {
 	v = int32(0)
@@ -407,6 +462,17 @@ func (c *columnInt64) Update(idx uint32, value interface{}) {
 	// Set the data at index
 	c.fill.Set(idx)
 	c.data[idx] = value.(int64)
+}
+
+// UpdateMany performs a series of updates at once
+func (c *columnInt64) UpdateMany(updates []Update) {
+	c.Lock()
+	defer c.Unlock()
+
+	for _, u := range updates {
+		c.fill.Set(u.Index)
+		c.data[u.Index] = u.Value.(int64)
+	}
 }
 
 // Value retrieves a value at a specified index
@@ -483,6 +549,17 @@ func (c *columnUint) Update(idx uint32, value interface{}) {
 	c.data[idx] = value.(uint)
 }
 
+// UpdateMany performs a series of updates at once
+func (c *columnUint) UpdateMany(updates []Update) {
+	c.Lock()
+	defer c.Unlock()
+
+	for _, u := range updates {
+		c.fill.Set(u.Index)
+		c.data[u.Index] = u.Value.(uint)
+	}
+}
+
 // Value retrieves a value at a specified index
 func (c *columnUint) Value(idx uint32) (v interface{}, ok bool) {
 	v = uint(0)
@@ -555,6 +632,17 @@ func (c *columnUint16) Update(idx uint32, value interface{}) {
 	// Set the data at index
 	c.fill.Set(idx)
 	c.data[idx] = value.(uint16)
+}
+
+// UpdateMany performs a series of updates at once
+func (c *columnUint16) UpdateMany(updates []Update) {
+	c.Lock()
+	defer c.Unlock()
+
+	for _, u := range updates {
+		c.fill.Set(u.Index)
+		c.data[u.Index] = u.Value.(uint16)
+	}
 }
 
 // Value retrieves a value at a specified index
@@ -631,6 +719,17 @@ func (c *columnUint32) Update(idx uint32, value interface{}) {
 	c.data[idx] = value.(uint32)
 }
 
+// UpdateMany performs a series of updates at once
+func (c *columnUint32) UpdateMany(updates []Update) {
+	c.Lock()
+	defer c.Unlock()
+
+	for _, u := range updates {
+		c.fill.Set(u.Index)
+		c.data[u.Index] = u.Value.(uint32)
+	}
+}
+
 // Value retrieves a value at a specified index
 func (c *columnUint32) Value(idx uint32) (v interface{}, ok bool) {
 	v = uint32(0)
@@ -703,6 +802,17 @@ func (c *columnUint64) Update(idx uint32, value interface{}) {
 	// Set the data at index
 	c.fill.Set(idx)
 	c.data[idx] = value.(uint64)
+}
+
+// UpdateMany performs a series of updates at once
+func (c *columnUint64) UpdateMany(updates []Update) {
+	c.Lock()
+	defer c.Unlock()
+
+	for _, u := range updates {
+		c.fill.Set(u.Index)
+		c.data[u.Index] = u.Value.(uint64)
+	}
 }
 
 // Value retrieves a value at a specified index
