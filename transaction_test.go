@@ -17,11 +17,11 @@ func TestFind(t *testing.T) {
 			return v == "human"
 		}).WithString("class", func(v string) bool {
 			return v == "mage"
-		}).WithFloat64("age", func(v float64) bool {
+		}).WithFloat("age", func(v float64) bool {
 			return v >= 30
 		}).Range(func(v Cursor) bool {
 			count++
-			assert.NotEmpty(t, v.String("name"))
+			assert.NotEmpty(t, v.StringOf("name"))
 			return true
 		})
 		return nil
@@ -79,6 +79,22 @@ func TestCount(t *testing.T) {
 		assert.Equal(t, 500, txn.With("name").Count())
 		return nil
 	})
+
+	// How many wealthy?
+	players.Query(func(txn Txn) error {
+		assert.Equal(t, 222, txn.WithInt("balance", func(v int64) bool {
+			return v > 2500
+		}).Count())
+		return nil
+	})
+
+	// How many wealthy?
+	players.Query(func(txn Txn) error {
+		assert.Equal(t, 222, txn.WithUint("balance", func(v uint64) bool {
+			return v > 2500
+		}).Count())
+		return nil
+	})
 }
 
 func TestIndexInvalid(t *testing.T) {
@@ -123,15 +139,60 @@ func TestIndexed(t *testing.T) {
 	players.Query(func(txn Txn) error {
 		txn.With("human", "mage", "old").
 			Range(func(v Cursor) bool {
-				assert.True(t, v.Float64("age") >= 30)
-				assert.True(t, v.Int64("age") >= 30)
-				assert.True(t, v.Uint64("age") >= 30)
-				assert.True(t, v.Value("old").(bool))
-				assert.True(t, v.Bool("old"))
+				assert.True(t, v.FloatOf("age") >= 30)
+				assert.True(t, v.IntOf("age") >= 30)
+				assert.True(t, v.UintOf("age") >= 30)
+				assert.True(t, v.ValueOf("old").(bool))
+				assert.True(t, v.BoolOf("old"))
+				assert.Equal(t, "mage", v.StringOf("class"))
+				assert.False(t, v.BoolOf("xxx"))
 				return true
 			})
 		return nil
 	})
+
+	// Check with multiple selectors
+	players.Query(func(txn Txn) error {
+		result := txn.With("human", "mage", "old")
+
+		result.Select(func(v Selector) bool {
+			assert.True(t, v.Float() >= 30)
+			assert.True(t, v.Int() >= 30)
+			assert.True(t, v.Uint() >= 30)
+			return true
+		}, "age")
+
+		result.Select(func(v Selector) bool {
+			assert.True(t, v.Value().(bool))
+			assert.True(t, v.Bool())
+			assert.Equal(t, "", v.String())
+			return true
+		}, "old")
+
+		result.Select(func(v Selector) bool {
+			assert.Equal(t, "mage", v.String())
+			assert.Equal(t, float64(0), v.Float())
+			assert.Equal(t, int64(0), v.Int())
+			assert.Equal(t, uint64(0), v.Uint())
+			return true
+		}, "class")
+		return nil
+	})
+
+	// Check with select many
+	players.Query(func(txn Txn) error {
+		result := txn.With("human", "mage", "old")
+		return result.SelectMany(func(v []Selector) bool {
+			assert.True(t, v[0].Float() >= 30)
+			assert.True(t, v[0].Int() >= 30)
+			assert.True(t, v[0].Uint() >= 30)
+			assert.True(t, v[1].Value().(bool))
+			assert.True(t, v[1].Bool())
+			assert.Equal(t, "mage", v[2].String())
+			return true
+		}, "age", "old", "class")
+	})
+
 }
 
 func TestUpdate(t *testing.T) {
@@ -167,7 +228,7 @@ func TestUpdate(t *testing.T) {
 	// Every player should be now poor
 	count := players.Count()
 	players.Query(func(txn Txn) error {
-		assert.Equal(t, count, txn.WithFloat64("balance", func(v float64) bool {
+		assert.Equal(t, count, txn.WithFloat("balance", func(v float64) bool {
 			return v == 1.0
 		}).Count())
 		return nil

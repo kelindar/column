@@ -4,6 +4,7 @@
 package column
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/kelindar/bitmap"
@@ -99,9 +100,9 @@ func (txn Txn) WithValue(column string, predicate func(v interface{}) bool) Txn 
 	return txn
 }
 
-// WithFloat64 filters down the values based on the specified predicate. The column for
+// WithFloat filters down the values based on the specified predicate. The column for
 // this filter must be numerical and convertible to float64.
-func (txn Txn) WithFloat64(column string, predicate func(v float64) bool) Txn {
+func (txn Txn) WithFloat(column string, predicate func(v float64) bool) Txn {
 	if p, ok := txn.owner.cols[column]; ok {
 		if n, ok := p.(numerical); ok {
 			txn.index.Filter(func(x uint32) bool {
@@ -115,9 +116,9 @@ func (txn Txn) WithFloat64(column string, predicate func(v float64) bool) Txn {
 	return txn
 }
 
-// WithInt64 filters down the values based on the specified predicate. The column for
+// WithInt filters down the values based on the specified predicate. The column for
 // this filter must be numerical and convertible to int64.
-func (txn Txn) WithInt64(column string, predicate func(v int64) bool) Txn {
+func (txn Txn) WithInt(column string, predicate func(v int64) bool) Txn {
 	if p, ok := txn.owner.cols[column]; ok {
 		if n, ok := p.(numerical); ok {
 			txn.index.Filter(func(x uint32) bool {
@@ -131,9 +132,9 @@ func (txn Txn) WithInt64(column string, predicate func(v int64) bool) Txn {
 	return txn
 }
 
-// WithUint64 filters down the values based on the specified predicate. The column for
+// WithUint filters down the values based on the specified predicate. The column for
 // this filter must be numerical and convertible to uint64.
-func (txn Txn) WithUint64(column string, predicate func(v uint64) bool) Txn {
+func (txn Txn) WithUint(column string, predicate func(v uint64) bool) Txn {
 	if p, ok := txn.owner.cols[column]; ok {
 		if n, ok := p.(numerical); ok {
 			txn.index.Filter(func(x uint32) bool {
@@ -160,8 +161,9 @@ func (txn Txn) Count() int {
 	return int(txn.index.Count())
 }
 
-// Range iterates over the objects with the given properties, but does not perform any
-// locking.
+// Range iterates over the result set and allows to query or update any column. While
+// this is flexible, it is not the most efficient way, consider Select() as an alternative
+// iteration method.
 func (txn Txn) Range(fn func(v Cursor) bool) {
 	txn.index.Range(func(x uint32) bool {
 		return fn(Cursor{
@@ -171,7 +173,57 @@ func (txn Txn) Range(fn func(v Cursor) bool) {
 	})
 }
 
-// --------------------------- Selector ----------------------------
+// Select selects and iterates over a specific column. The selector provided also allows
+// to select other columns, but at a slight performance cost.
+func (txn Txn) Select(fn func(v Selector) bool, column string) error {
+	c, ok := txn.owner.cols[column]
+	if !ok {
+		return fmt.Errorf("select: specified column '%v' does not exist", column)
+	}
+
+	// Create a selector
+	cur := Selector{
+		column: c,
+		Cursor: Cursor{
+			owner: txn.owner,
+		},
+	}
+
+	txn.index.Range(func(x uint32) bool {
+		cur.index = x
+		return fn(cur)
+	})
+	return nil
+}
+
+// SelectMany selects and iterates over a set of specified columns. The selector provided also allows
+// to select other columns, but at a slight performance cost.
+func (txn Txn) SelectMany(fn func(v []Selector) bool, columns ...string) error {
+	selectors := make([]Selector, len(columns))
+	for i, columnName := range columns {
+		c, ok := txn.owner.cols[columnName]
+		if !ok {
+			return fmt.Errorf("select: specified column '%v' does not exist", columnName)
+		}
+
+		selectors[i] = Selector{
+			column: c,
+			Cursor: Cursor{
+				owner: txn.owner,
+			},
+		}
+	}
+
+	txn.index.Range(func(x uint32) bool {
+		for i := 0; i < len(selectors); i++ {
+			selectors[i].index = x
+		}
+		return fn(selectors)
+	})
+	return nil
+}
+
+// --------------------------- Cursor ---------------------------
 
 // Cursor represents a iteration cursor that supports both retrieval of column values
 // for the specified row and modification (update, delete).
@@ -180,60 +232,56 @@ type Cursor struct {
 	owner *Collection // The owner collection
 }
 
-// Value reads a value for a current row at a given column.
-func (cur *Cursor) Value(column string) interface{} {
+// ValueOf reads a value for a current row at a given column.
+func (cur *Cursor) ValueOf(column string) (out interface{}) {
 	if c, ok := cur.owner.cols[column]; ok {
-		v, _ := c.Value(cur.index)
-		return v
+		out, _ = c.Value(cur.index)
 	}
-	return nil
+	return
 }
 
-// String reads a string value for a current row at a given column.
-func (cur *Cursor) String(column string) string {
+// StringOf reads a string value for a current row at a given column.
+func (cur *Cursor) StringOf(column string) (out string) {
 	if c, ok := cur.owner.cols[column]; ok {
 		if v, ok := c.Value(cur.index); ok {
-			return v.(string)
+			out, _ = v.(string)
 		}
 	}
-	return ""
+	return
 }
 
-// Float64 reads a float64 value for a current row at a given column.
-func (cur *Cursor) Float64(column string) float64 {
+// FloatOf reads a float64 value for a current row at a given column.
+func (cur *Cursor) FloatOf(column string) (out float64) {
 	if c, ok := cur.owner.cols[column]; ok {
 		if n, ok := c.(numerical); ok {
-			v, _ := n.Float64(cur.index)
-			return v
+			out, _ = n.Float64(cur.index)
 		}
 	}
-	return 0
+	return
 }
 
-// Int64 reads an int64 value for a current row at a given column.
-func (cur *Cursor) Int64(column string) int64 {
+// IntOf reads an int64 value for a current row at a given column.
+func (cur *Cursor) IntOf(column string) (out int64) {
 	if c, ok := cur.owner.cols[column]; ok {
 		if n, ok := c.(numerical); ok {
-			v, _ := n.Int64(cur.index)
-			return v
+			out, _ = n.Int64(cur.index)
 		}
 	}
-	return 0
+	return
 }
 
-// Uint64 reads a uint64 value for a current row at a given column.
-func (cur *Cursor) Uint64(column string) uint64 {
+// UintOf reads a uint64 value for a current row at a given column.
+func (cur *Cursor) UintOf(column string) (out uint64) {
 	if c, ok := cur.owner.cols[column]; ok {
 		if n, ok := c.(numerical); ok {
-			v, _ := n.Uint64(cur.index)
-			return v
+			out, _ = n.Uint64(cur.index)
 		}
 	}
-	return 0
+	return
 }
 
-// Bool reads a boolean value for a current row at a given column.
-func (cur *Cursor) Bool(column string) bool {
+// BoolOf reads a boolean value for a current row at a given column.
+func (cur *Cursor) BoolOf(column string) bool {
 	if c, ok := cur.owner.cols[column]; ok {
 		return c.Contains(cur.index)
 	}
@@ -265,4 +313,55 @@ func (cur *Cursor) Update(column string, value interface{}) {
 		Value: value,
 	})
 	cur.owner.qlock.Unlock()
+}
+
+// --------------------------- Selector ---------------------------
+
+// Selector represents a iteration cursor that is bound to a specific column.
+type Selector struct {
+	Cursor
+	column Column // The selected column
+}
+
+// Value reads a value for a current row at a given column.
+func (cur *Selector) Value() (out interface{}) {
+	out, _ = cur.column.Value(cur.index)
+	return
+}
+
+// String reads a string value for a current row at a given column.
+func (cur *Selector) String() (out string) {
+	if v, ok := cur.column.Value(cur.index); ok {
+		out, _ = v.(string)
+	}
+	return
+}
+
+// Float reads a float64 value for a current row at a given column.
+func (cur *Selector) Float() (out float64) {
+	if n, ok := cur.column.(numerical); ok {
+		out, _ = n.Float64(cur.index)
+	}
+	return
+}
+
+// Int reads an int64 value for a current row at a given column.
+func (cur *Selector) Int() (out int64) {
+	if n, ok := cur.column.(numerical); ok {
+		out, _ = n.Int64(cur.index)
+	}
+	return
+}
+
+// Uint reads a uint64 value for a current row at a given column.
+func (cur *Selector) Uint() (out uint64) {
+	if n, ok := cur.column.(numerical); ok {
+		out, _ = n.Uint64(cur.index)
+	}
+	return
+}
+
+// Bool reads a boolean value for a current row at a given column.
+func (cur *Selector) Bool() bool {
+	return cur.column.Contains(cur.index)
 }
