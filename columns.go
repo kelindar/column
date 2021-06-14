@@ -150,7 +150,6 @@ func (c *columnAny) Update(idx uint32, value interface{}) {
 func (c *columnAny) UpdateMany(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
-
 	for _, u := range updates {
 		c.fill.Set(u.Index)
 		c.data[u.Index] = u.Value
@@ -195,14 +194,13 @@ func makeBools() Column {
 // Update sets a value at a specified index
 func (c *columnBool) Update(idx uint32, value interface{}) {
 	c.Lock()
-	defer c.Unlock()
-
 	c.fill.Set(idx)
 	if value.(bool) {
 		c.data.Set(idx)
 	} else {
 		c.data.Remove(idx)
 	}
+	c.Unlock()
 }
 
 // UpdateMany performs a series of updates at once
@@ -249,10 +247,11 @@ func (c *columnBool) DeleteMany(items *bitmap.Bitmap) {
 }
 
 // Contains checks whether the column has a value at a specified index.
-func (c *columnBool) Contains(idx uint32) bool {
+func (c *columnBool) Contains(idx uint32) (exists bool) {
 	c.RLock()
-	defer c.RUnlock()
-	return c.fill.Contains(idx)
+	exists = c.fill.Contains(idx)
+	c.RUnlock()
+	return
 }
 
 // Intersect performs a logical and operation and updates the destination bitmap.
@@ -310,12 +309,12 @@ func (c *index) Column() string {
 // Update keeps the index up-to-date when a new value is added.
 func (c *index) Update(idx uint32, value interface{}) {
 	c.Lock()
-	defer c.Unlock()
 	if c.rule(value) {
 		c.fill.Set(idx)
 	} else {
 		c.fill.Remove(idx)
 	}
+	c.Unlock()
 }
 
 // UpdateMany performs a series of updates at once

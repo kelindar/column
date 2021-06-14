@@ -39,7 +39,7 @@ type Txn struct {
 
 // With applies a logical AND operation to the current query and the specified index.
 func (txn Txn) With(column string, extra ...string) Txn {
-	if idx, ok := txn.owner.cols[column]; ok {
+	if idx, ok := txn.owner.cols.Load(column); ok {
 		idx.Intersect(txn.index)
 	} else {
 		txn.index.Clear()
@@ -47,7 +47,7 @@ func (txn Txn) With(column string, extra ...string) Txn {
 
 	// go through extra indexes
 	for _, e := range extra {
-		if idx, ok := txn.owner.cols[e]; ok {
+		if idx, ok := txn.owner.cols.Load(e); ok {
 			idx.Intersect(txn.index)
 		} else {
 			txn.index.Clear()
@@ -58,13 +58,13 @@ func (txn Txn) With(column string, extra ...string) Txn {
 
 // Without applies a logical AND NOT operation to the current query and the specified index.
 func (txn Txn) Without(column string, extra ...string) Txn {
-	if idx, ok := txn.owner.cols[column]; ok {
+	if idx, ok := txn.owner.cols.Load(column); ok {
 		idx.Difference(txn.index)
 	}
 
 	// go through extra indexes
 	for _, e := range extra {
-		if idx, ok := txn.owner.cols[e]; ok {
+		if idx, ok := txn.owner.cols.Load(e); ok {
 			idx.Difference(txn.index)
 		}
 	}
@@ -73,13 +73,13 @@ func (txn Txn) Without(column string, extra ...string) Txn {
 
 // Union computes a union between the current query and the specified index.
 func (txn Txn) Union(column string, extra ...string) Txn {
-	if idx, ok := txn.owner.cols[column]; ok {
+	if idx, ok := txn.owner.cols.Load(column); ok {
 		idx.Union(txn.index)
 	}
 
 	// go through extra indexes
 	for _, e := range extra {
-		if idx, ok := txn.owner.cols[e]; ok {
+		if idx, ok := txn.owner.cols.Load(e); ok {
 			idx.Union(txn.index)
 		}
 	}
@@ -89,7 +89,7 @@ func (txn Txn) Union(column string, extra ...string) Txn {
 // WithValue applies a filter predicate over values for a specific properties. It filters
 // down the items in the query.
 func (txn Txn) WithValue(column string, predicate func(v interface{}) bool) Txn {
-	if p, ok := txn.owner.cols[column]; ok {
+	if p, ok := txn.owner.cols.Load(column); ok {
 		txn.index.Filter(func(x uint32) bool {
 			if v, ok := p.Value(x); ok {
 				return predicate(v)
@@ -103,7 +103,7 @@ func (txn Txn) WithValue(column string, predicate func(v interface{}) bool) Txn 
 // WithFloat filters down the values based on the specified predicate. The column for
 // this filter must be numerical and convertible to float64.
 func (txn Txn) WithFloat(column string, predicate func(v float64) bool) Txn {
-	if p, ok := txn.owner.cols[column]; ok {
+	if p, ok := txn.owner.cols.Load(column); ok {
 		if n, ok := p.(numerical); ok {
 			txn.index.Filter(func(x uint32) bool {
 				if v, ok := n.Float64(x); ok {
@@ -119,7 +119,7 @@ func (txn Txn) WithFloat(column string, predicate func(v float64) bool) Txn {
 // WithInt filters down the values based on the specified predicate. The column for
 // this filter must be numerical and convertible to int64.
 func (txn Txn) WithInt(column string, predicate func(v int64) bool) Txn {
-	if p, ok := txn.owner.cols[column]; ok {
+	if p, ok := txn.owner.cols.Load(column); ok {
 		if n, ok := p.(numerical); ok {
 			txn.index.Filter(func(x uint32) bool {
 				if v, ok := n.Int64(x); ok {
@@ -135,7 +135,7 @@ func (txn Txn) WithInt(column string, predicate func(v int64) bool) Txn {
 // WithUint filters down the values based on the specified predicate. The column for
 // this filter must be numerical and convertible to uint64.
 func (txn Txn) WithUint(column string, predicate func(v uint64) bool) Txn {
-	if p, ok := txn.owner.cols[column]; ok {
+	if p, ok := txn.owner.cols.Load(column); ok {
 		if n, ok := p.(numerical); ok {
 			txn.index.Filter(func(x uint32) bool {
 				if v, ok := n.Uint64(x); ok {
@@ -176,7 +176,7 @@ func (txn Txn) Range(fn func(v Cursor) bool) {
 // Select selects and iterates over a specific column. The selector provided also allows
 // to select other columns, but at a slight performance cost.
 func (txn Txn) Select(fn func(v Selector) bool, column string) error {
-	c, ok := txn.owner.cols[column]
+	c, ok := txn.owner.cols.Load(column)
 	if !ok {
 		return fmt.Errorf("select: specified column '%v' does not exist", column)
 	}
@@ -201,7 +201,7 @@ func (txn Txn) Select(fn func(v Selector) bool, column string) error {
 func (txn Txn) SelectMany(fn func(v []Selector) bool, columns ...string) error {
 	selectors := make([]Selector, len(columns))
 	for i, columnName := range columns {
-		c, ok := txn.owner.cols[columnName]
+		c, ok := txn.owner.cols.Load(columnName)
 		if !ok {
 			return fmt.Errorf("select: specified column '%v' does not exist", columnName)
 		}
@@ -234,7 +234,7 @@ type Cursor struct {
 
 // ValueOf reads a value for a current row at a given column.
 func (cur *Cursor) ValueOf(column string) (out interface{}) {
-	if c, ok := cur.owner.cols[column]; ok {
+	if c, ok := cur.owner.cols.Load(column); ok {
 		out, _ = c.Value(cur.index)
 	}
 	return
@@ -242,7 +242,7 @@ func (cur *Cursor) ValueOf(column string) (out interface{}) {
 
 // StringOf reads a string value for a current row at a given column.
 func (cur *Cursor) StringOf(column string) (out string) {
-	if c, ok := cur.owner.cols[column]; ok {
+	if c, ok := cur.owner.cols.Load(column); ok {
 		if v, ok := c.Value(cur.index); ok {
 			out, _ = v.(string)
 		}
@@ -252,7 +252,7 @@ func (cur *Cursor) StringOf(column string) (out string) {
 
 // FloatOf reads a float64 value for a current row at a given column.
 func (cur *Cursor) FloatOf(column string) (out float64) {
-	if c, ok := cur.owner.cols[column]; ok {
+	if c, ok := cur.owner.cols.Load(column); ok {
 		if n, ok := c.(numerical); ok {
 			out, _ = n.Float64(cur.index)
 		}
@@ -262,7 +262,7 @@ func (cur *Cursor) FloatOf(column string) (out float64) {
 
 // IntOf reads an int64 value for a current row at a given column.
 func (cur *Cursor) IntOf(column string) (out int64) {
-	if c, ok := cur.owner.cols[column]; ok {
+	if c, ok := cur.owner.cols.Load(column); ok {
 		if n, ok := c.(numerical); ok {
 			out, _ = n.Int64(cur.index)
 		}
@@ -272,7 +272,7 @@ func (cur *Cursor) IntOf(column string) (out int64) {
 
 // UintOf reads a uint64 value for a current row at a given column.
 func (cur *Cursor) UintOf(column string) (out uint64) {
-	if c, ok := cur.owner.cols[column]; ok {
+	if c, ok := cur.owner.cols.Load(column); ok {
 		if n, ok := c.(numerical); ok {
 			out, _ = n.Uint64(cur.index)
 		}
@@ -282,7 +282,7 @@ func (cur *Cursor) UintOf(column string) (out uint64) {
 
 // BoolOf reads a boolean value for a current row at a given column.
 func (cur *Cursor) BoolOf(column string) bool {
-	if c, ok := cur.owner.cols[column]; ok {
+	if c, ok := cur.owner.cols.Load(column); ok {
 		return c.Contains(cur.index)
 	}
 	return false
