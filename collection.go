@@ -95,12 +95,12 @@ func (c *Collection) Count() (count int) {
 // CreateColumnsOf registers a set of columns that are present in the target object.
 func (c *Collection) CreateColumnsOf(object Object) {
 	for k, v := range object {
-		c.CreateColumn(k, reflect.TypeOf(v))
+		c.CreateColumn(k, reflect.TypeOf(v).Kind())
 	}
 }
 
 // CreateColumn creates a column of a specified type and adds it to the collection.
-func (c *Collection) CreateColumn(columnName string, columnType reflect.Type) {
+func (c *Collection) CreateColumn(columnName string, columnType reflect.Kind) {
 	column := columnFor(columnName, columnType)
 	c.cols.Store(columnName, column)
 }

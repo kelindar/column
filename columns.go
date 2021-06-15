@@ -34,8 +34,8 @@ type numerical interface {
 }
 
 // columnFor creates a new column instance for a specified type
-func columnFor(columnName string, typ reflect.Type) Column {
-	switch typ.Kind() {
+func columnFor(columnName string, kind reflect.Kind) Column {
+	switch kind {
 	case reflect.Float32:
 		return makeFloat32s()
 	case reflect.Float64:
