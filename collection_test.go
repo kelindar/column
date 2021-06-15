@@ -12,17 +12,17 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// BenchmarkCollection/insert-8         	30649539	        46.93 ns/op	       1 B/op	       0 allocs/op
-// BenchmarkCollection/fetch-8          	29002880	        36.59 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/count-slow-8     	  105439	     11065 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/count-8          	 7963664	       142.3 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/range-8          	 1539128	       791.5 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/select-8         	 2198622	       541.3 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/select-many-8    	 2053243	       577.9 ns/op	      32 B/op	       1 allocs/op
-// BenchmarkCollection/update-at-8      	23730843	        47.92 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/update-all-8     	   92749	     12609 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/delete-at-8      	 2281185	       527.3 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/delete-all-8     	  168591	      7405 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/insert-8         	28124318	        42.16 ns/op	       1 B/op	       0 allocs/op
+// BenchmarkCollection/fetch-8          	25258159	        48.32 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/count-slow-8     	  106300	     10820 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/count-8          	 9076928	       132.0 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/range-8          	 1000000	      1046 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/select-8         	 2005491	       603.2 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/select-many-8    	 2006061	       597.5 ns/op	      48 B/op	       1 allocs/op
+// BenchmarkCollection/update-at-8      	29553374	        41.97 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/update-all-8     	  146821	      8500 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/delete-at-8      	 2629766	       448.8 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/delete-all-8     	  297520	      3497 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkCollection(b *testing.B) {
 	players := loadPlayers()
 	obj := Object{
@@ -61,7 +61,7 @@ func BenchmarkCollection(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			players.Query(func(txn Txn) error {
+			players.Query(func(txn *Txn) error {
 				txn.WithString("race", func(v string) bool {
 					return v == "human"
 				}).WithString("class", func(v string) bool {
@@ -78,7 +78,7 @@ func BenchmarkCollection(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			players.Query(func(txn Txn) error {
+			players.Query(func(txn *Txn) error {
 				txn.With("human", "mage", "old").Count()
 				return nil
 			})
@@ -90,7 +90,7 @@ func BenchmarkCollection(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			players.Query(func(txn Txn) error {
+			players.Query(func(txn *Txn) error {
 				txn.With("human", "mage", "old").Range(func(v Cursor) bool {
 					count++
 					name = v.StringOf("name")
@@ -107,7 +107,7 @@ func BenchmarkCollection(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			players.Query(func(txn Txn) error {
+			players.Query(func(txn *Txn) error {
 				txn.With("human", "mage", "old").Select(func(v Selector) bool {
 					count++
 					name = v.String()
@@ -124,7 +124,7 @@ func BenchmarkCollection(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			players.Query(func(txn Txn) error {
+			players.Query(func(txn *Txn) error {
 				txn.With("human", "mage", "old").SelectMany(func(v []Selector) bool {
 					count++
 					name = v[0].String()
@@ -145,12 +145,20 @@ func BenchmarkCollection(b *testing.B) {
 	})
 
 	b.Run("update-all", func(b *testing.B) {
+		var columns []string
+		players.cols.RangeName(func(columnName string, c Column) {
+			if _, ok := c.(numerical); ok {
+				columns = append(columns, columnName)
+			}
+		})
+
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			players.Query(func(txn Txn) error {
+			columnName := columns[n%len(columns)]
+			players.Query(func(txn *Txn) error {
 				txn.Range(func(v Cursor) bool {
-					v.Update("balance", 1.0)
+					v.Update(columnName, 1.0)
 					return true
 				})
 				return nil
@@ -175,7 +183,7 @@ func BenchmarkCollection(b *testing.B) {
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
 			fill.Clone(&c.fill) // Restore
-			c.Query(func(txn Txn) error {
+			c.Query(func(txn *Txn) error {
 				txn.Range(func(v Cursor) bool {
 					v.Delete()
 					return true
