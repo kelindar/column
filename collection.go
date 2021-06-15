@@ -248,13 +248,8 @@ func (c *columns) Load(columnName string) (Column, bool) {
 	cols := c.cols.Load().([]columnEntry)
 	for _, v := range cols {
 		if v.name == columnName {
-			if col := v.cols[0]; col != nil {
-				col.Hits()
-				return col, true
-			}
-
-			return nil, false
-			//return v.cols[0], true
+			col := v.cols[0]
+			return col, col != nil
 		}
 	}
 	return nil, false
@@ -265,7 +260,6 @@ func (c *columns) LoadWithIndex(columnName string) ([]Column, bool) {
 	cols := c.cols.Load().([]columnEntry)
 	for _, v := range cols {
 		if v.name == columnName {
-			//v.cols[0].Hits()
 			return v.cols, true
 		}
 	}

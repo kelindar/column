@@ -9,7 +9,6 @@ package column
 import (
 	"reflect"
 	"sync"
-	"sync/atomic"
 
 	"github.com/kelindar/bitmap"
 )
@@ -25,9 +24,6 @@ type Column interface {
 	Intersect(*bitmap.Bitmap)
 	Difference(*bitmap.Bitmap)
 	Union(*bitmap.Bitmap)
-
-	Hits() uint64 // TEST
-	HitsReset()
 }
 
 // Numerical represents a numerical column implementation
@@ -73,17 +69,6 @@ func columnFor(columnName string, typ reflect.Type) Column {
 type column struct {
 	sync.RWMutex
 	fill bitmap.Bitmap
-	hits uint64
-}
-
-// Hits ...
-func (c *column) Hits() uint64 {
-	return atomic.AddUint64(&c.hits, 1)
-}
-
-func (c *column) HitsReset() {
-	atomic.StoreUint64(&c.hits, 0)
-	return
 }
 
 // Delete removes a value at a specified index
@@ -206,15 +191,6 @@ func makeBools() Column {
 		fill: make(bitmap.Bitmap, 0, 4),
 		data: make(bitmap.Bitmap, 0, 4),
 	}
-}
-
-func (c *columnBool) Hits() uint64 {
-	return atomic.AddUint64(&c.hits, 1)
-}
-
-func (c *columnBool) HitsReset() {
-	atomic.StoreUint64(&c.hits, 0)
-	return
 }
 
 // Update sets a value at a specified index
