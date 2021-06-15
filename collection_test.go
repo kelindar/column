@@ -12,17 +12,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// BenchmarkCollection/insert-8         	28124318	        42.16 ns/op	       1 B/op	       0 allocs/op
-// BenchmarkCollection/fetch-8          	25258159	        48.32 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/count-slow-8     	  106300	     10820 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/count-8          	 9076928	       132.0 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/range-8          	 1000000	      1046 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/select-8         	 2005491	       603.2 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/select-many-8    	 2006061	       597.5 ns/op	      48 B/op	       1 allocs/op
-// BenchmarkCollection/update-at-8      	29553374	        41.97 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/update-all-8     	  146821	      8500 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/delete-at-8      	 2629766	       448.8 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/delete-all-8     	  297520	      3497 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/insert-8         	27327879	        42.93 ns/op	       1 B/op	       0 allocs/op
+// BenchmarkCollection/fetch-8          	21438984	        55.84 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/count-slow-8     	  111388	     10835 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/count-8          	 9427291	       128.9 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/range-8          	 1870438	       649.2 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/select-8         	 1238320	       972.2 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/update-at-8      	27687408	        41.31 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/update-all-8     	  184694	      6481 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/delete-at-8      	 2583535	       463.5 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/delete-all-8     	  324331	      3712 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkCollection(b *testing.B) {
 	players := loadPlayers()
 	obj := Object{
@@ -51,7 +50,7 @@ func BenchmarkCollection(b *testing.B) {
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
 			if s, ok := players.Fetch(20); ok {
-				name = s.StringOf("name")
+				name = s.StringAt("name")
 			}
 		}
 		assert.NotEmpty(b, name)
@@ -93,9 +92,9 @@ func BenchmarkCollection(b *testing.B) {
 			players.Query(func(txn *Txn) error {
 				txn.With("human", "mage", "old").Range(func(v Cursor) bool {
 					count++
-					name = v.StringOf("name")
+					name = v.String()
 					return true
-				})
+				}, "name")
 				return nil
 			})
 		}
@@ -110,26 +109,9 @@ func BenchmarkCollection(b *testing.B) {
 			players.Query(func(txn *Txn) error {
 				txn.With("human", "mage", "old").Select(func(v Selector) bool {
 					count++
-					name = v.String()
+					name = v.StringAt("name")
 					return true
-				}, "name")
-				return nil
-			})
-		}
-		assert.NotEmpty(b, name)
-	})
-
-	b.Run("select-many", func(b *testing.B) {
-		count, name := 0, ""
-		b.ReportAllocs()
-		b.ResetTimer()
-		for n := 0; n < b.N; n++ {
-			players.Query(func(txn *Txn) error {
-				txn.With("human", "mage", "old").SelectMany(func(v []Selector) bool {
-					count++
-					name = v[0].String()
-					return true
-				}, "name")
+				})
 				return nil
 			})
 		}
@@ -158,9 +140,9 @@ func BenchmarkCollection(b *testing.B) {
 			columnName := columns[n%len(columns)]
 			players.Query(func(txn *Txn) error {
 				txn.Range(func(v Cursor) bool {
-					v.Update(columnName, 1.0)
+					v.Update(1.0)
 					return true
-				})
+				}, columnName)
 				return nil
 			})
 		}
@@ -184,7 +166,7 @@ func BenchmarkCollection(b *testing.B) {
 		for n := 0; n < b.N; n++ {
 			fill.Clone(&c.fill) // Restore
 			c.Query(func(txn *Txn) error {
-				txn.Range(func(v Cursor) bool {
+				txn.Select(func(v Selector) bool {
 					v.Delete()
 					return true
 				})
@@ -216,7 +198,7 @@ func TestCollection(t *testing.T) {
 	{ // Find the object by its index
 		v, ok := col.Fetch(idx)
 		assert.True(t, ok)
-		assert.Equal(t, "Roman", v.StringOf("name"))
+		assert.Equal(t, "Roman", v.StringAt("name"))
 	}
 
 	{ // Remove the object
@@ -229,15 +211,15 @@ func TestCollection(t *testing.T) {
 		idx := col.Insert(obj)
 		v, ok := col.Fetch(idx)
 		assert.True(t, ok)
-		assert.Equal(t, "Roman", v.StringOf("name"))
+		assert.Equal(t, "Roman", v.StringAt("name"))
 	}
 
 	{ // Update the wallet
 		col.UpdateAt(0, "wallet", float64(1000))
 		v, ok := col.Fetch(idx)
 		assert.True(t, ok)
-		assert.Equal(t, int64(1000), v.IntOf("wallet"))
-		assert.Equal(t, true, v.BoolOf("rich"))
+		assert.Equal(t, int64(1000), v.IntAt("wallet"))
+		assert.Equal(t, true, v.BoolAt("rich"))
 	}
 }
 

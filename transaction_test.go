@@ -21,9 +21,9 @@ func TestFind(t *testing.T) {
 			return v >= 30
 		}).Range(func(v Cursor) bool {
 			count++
-			assert.NotEmpty(t, v.StringOf("name"))
+			assert.NotEmpty(t, v.String())
 			return true
-		})
+		}, "name")
 		return nil
 	})
 
@@ -138,38 +138,38 @@ func TestIndexed(t *testing.T) {
 	// Check the index value
 	players.Query(func(txn *Txn) error {
 		txn.With("human", "mage", "old").
-			Range(func(v Cursor) bool {
-				assert.True(t, v.FloatOf("age") >= 30)
-				assert.True(t, v.IntOf("age") >= 30)
-				assert.True(t, v.UintOf("age") >= 30)
-				assert.True(t, v.ValueOf("old").(bool))
-				assert.True(t, v.BoolOf("old"))
-				assert.Equal(t, "mage", v.StringOf("class"))
-				assert.False(t, v.BoolOf("xxx"))
+			Select(func(v Selector) bool {
+				assert.True(t, v.FloatAt("age") >= 30)
+				assert.True(t, v.IntAt("age") >= 30)
+				assert.True(t, v.UintAt("age") >= 30)
+				assert.True(t, v.ValueAt("old").(bool))
+				assert.True(t, v.BoolAt("old"))
+				assert.Equal(t, "mage", v.StringAt("class"))
+				assert.False(t, v.BoolAt("xxx"))
 				return true
 			})
 		return nil
 	})
 
-	// Check with multiple selectors
+	// Check with multiple Selectors
 	players.Query(func(txn *Txn) error {
 		result := txn.With("human", "mage", "old")
 
-		result.Select(func(v Selector) bool {
+		result.Range(func(v Cursor) bool {
 			assert.True(t, v.Float() >= 30)
 			assert.True(t, v.Int() >= 30)
 			assert.True(t, v.Uint() >= 30)
 			return true
 		}, "age")
 
-		result.Select(func(v Selector) bool {
+		result.Range(func(v Cursor) bool {
 			assert.True(t, v.Value().(bool))
 			assert.True(t, v.Bool())
 			assert.Equal(t, "", v.String())
 			return true
 		}, "old")
 
-		result.Select(func(v Selector) bool {
+		result.Range(func(v Cursor) bool {
 			assert.Equal(t, "mage", v.String())
 			assert.Equal(t, float64(0), v.Float())
 			assert.Equal(t, int64(0), v.Int())
@@ -177,20 +177,6 @@ func TestIndexed(t *testing.T) {
 			return true
 		}, "class")
 		return nil
-	})
-
-	// Check with select many
-	players.Query(func(txn *Txn) error {
-		result := txn.With("human", "mage", "old")
-		return result.SelectMany(func(v []Selector) bool {
-			assert.True(t, v[0].Float() >= 30)
-			assert.True(t, v[0].Int() >= 30)
-			assert.True(t, v[0].Uint() >= 30)
-			assert.True(t, v[1].Value().(bool))
-			assert.True(t, v[1].Bool())
-			assert.Equal(t, "mage", v[2].String())
-			return true
-		}, "age", "old", "class")
 	})
 
 }
@@ -203,7 +189,7 @@ func TestUpdate(t *testing.T) {
 
 	// Delete all old people from the collection
 	players.Query(func(txn *Txn) error {
-		txn.With("old").Range(func(v Cursor) bool {
+		txn.With("old").Select(func(v Selector) bool {
 			v.Delete()
 			return true
 		})
@@ -218,8 +204,8 @@ func TestUpdate(t *testing.T) {
 
 	// Make everyone poor
 	players.Query(func(txn *Txn) error {
-		txn.Range(func(v Cursor) bool {
-			v.Update("balance", 1.0)
+		txn.Select(func(v Selector) bool {
+			v.UpdateAt("balance", 1.0)
 			return true
 		})
 		return nil

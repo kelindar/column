@@ -10,7 +10,7 @@ import (
 	"github.com/kelindar/bitmap"
 )
 
-// --------------------------- Pool ----------------------------
+// --------------------------- Pool of Transactions ----------------------------
 
 // txns represents a pool of transactions
 var txns = &sync.Pool{
@@ -208,12 +208,12 @@ func (txn *Txn) Count() int {
 	return int(txn.index.Count())
 }
 
-// Range iterates over the result set and allows to query or update any column. While
-// this is flexible, it is not the most efficient way, consider Select() as an alternative
-// iteration method.
-func (txn *Txn) Range(fn func(v Cursor) bool) {
+// Select iterates over the result set and allows to query or update any column. While
+// this is flexible, it is not the most efficient way, consider Range() as an alternative
+// iteration method over a specific column.
+func (txn *Txn) Select(fn func(v Selector) bool) {
 	txn.index.Range(func(x uint32) bool {
-		return fn(Cursor{
+		return fn(Selector{
 			index: x,
 			txn:   txn,
 			owner: txn.owner,
@@ -221,18 +221,37 @@ func (txn *Txn) Range(fn func(v Cursor) bool) {
 	})
 }
 
-// Select selects and iterates over a specific column. The selector provided also allows
+// Range selects and iterates over a specific column. The cursor provided also allows
 // to select other columns, but at a slight performance cost.
-func (txn *Txn) Select(fn func(v Selector) bool, column string) error {
+func (txn *Txn) Range(fn func(v Cursor) bool, column string) error {
 	c, ok := txn.columnAt(column)
 	if !ok {
 		return fmt.Errorf("select: specified column '%v' does not exist", column)
 	}
 
-	// Create a selector
-	cur := Selector{
+	// Attempt to find the existing update queue index for this column
+	updateQueueIndex := -1
+	for i, c := range txn.updates {
+		if c.name == column {
+			updateQueueIndex = i
+			break
+		}
+	}
+
+	// Create a new update queue for the selected column
+	if updateQueueIndex == -1 {
+		updateQueueIndex = 0
+		txn.updates = append(txn.updates, updateQueue{
+			name:   column,
+			update: make([]Update, 0, 64),
+		})
+	}
+
+	// Create a Cursor
+	cur := Cursor{
 		column: c,
-		Cursor: Cursor{
+		update: int16(updateQueueIndex),
+		Selector: Selector{
 			txn:   txn,
 			owner: txn.owner,
 		},
@@ -245,37 +264,23 @@ func (txn *Txn) Select(fn func(v Selector) bool, column string) error {
 	return nil
 }
 
-// SelectMany selects and iterates over a set of specified columns. The selector provided also allows
-// to select other columns, but at a slight performance cost.
-func (txn *Txn) SelectMany(fn func(v []Selector) bool, columns ...string) error {
-	selectors := make([]Selector, len(columns))
-	for i, columnName := range columns {
-		c, ok := txn.columnAt(columnName)
-		if !ok {
-			return fmt.Errorf("select: specified column '%v' does not exist", columnName)
-		}
-
-		selectors[i] = Selector{
-			column: c,
-			Cursor: Cursor{
-				owner: txn.owner,
-			},
-		}
-	}
-
-	txn.index.Range(func(x uint32) bool {
-		for i := 0; i < len(selectors); i++ {
-			selectors[i].index = x
-		}
-		return fn(selectors)
-	})
-	return nil
-}
-
-// Commit commits the transaction.
+// Commit commits the transaction by applying all pending updates and deletes to
+// the collection. This operation is can be called several times for a transaction
+// in order to perform partial commits. If there's no pending updates/deletes, this
+// operation will result in a no-op.
 func (txn *Txn) Commit() {
 	txn.updatePending()
 	txn.deletePending()
+}
+
+// Rollback empties the pending update and delete queues and does not apply any of
+// the pending updates/deletes. This operation can be called several times for
+// a transaction in order to perform partial rollbacks.
+func (txn *Txn) Rollback() {
+	txn.deletes.Clear()
+	for i := range txn.updates {
+		txn.updates[i].update = txn.updates[i].update[:0]
+	}
 }
 
 // updatePending updates the pending entries that were modified during the query
@@ -320,26 +325,28 @@ func (txn *Txn) deletePending() {
 	txn.deletes.Clear()
 }
 
-// --------------------------- Cursor ---------------------------
+// --------------------------- Selector ---------------------------
 
-// Cursor represents a iteration cursor that supports both retrieval of column values
+// Selector represents a iteration Selector that supports both retrieval of column values
 // for the specified row and modification (update, delete).
-type Cursor struct {
-	index uint32      // The current index
-	owner *Collection // The owner collection
-	txn   *Txn        // The transaction
+type Selector struct {
+	index    uint32      // The current index
+	owner    *Collection // The owner collection
+	txn      *Txn        // The transaction
+	updateAt int32       // The update queue index
+	column   Column      // The selected column
 }
 
-// ValueOf reads a value for a current row at a given column.
-func (cur *Cursor) ValueOf(column string) (out interface{}) {
+// ValueAt reads a value for a current row at a given column.
+func (cur *Selector) ValueAt(column string) (out interface{}) {
 	if c, ok := cur.owner.cols.Load(column); ok {
 		out, _ = c.Value(cur.index)
 	}
 	return
 }
 
-// StringOf reads a string value for a current row at a given column.
-func (cur *Cursor) StringOf(column string) (out string) {
+// StringAt reads a string value for a current row at a given column.
+func (cur *Selector) StringAt(column string) (out string) {
 	if c, ok := cur.owner.cols.Load(column); ok {
 		if v, ok := c.Value(cur.index); ok {
 			out, _ = v.(string)
@@ -348,8 +355,8 @@ func (cur *Cursor) StringOf(column string) (out string) {
 	return
 }
 
-// FloatOf reads a float64 value for a current row at a given column.
-func (cur *Cursor) FloatOf(column string) (out float64) {
+// FloatAt reads a float64 value for a current row at a given column.
+func (cur *Selector) FloatAt(column string) (out float64) {
 	if c, ok := cur.owner.cols.Load(column); ok {
 		if n, ok := c.(numerical); ok {
 			out, _ = n.Float64(cur.index)
@@ -358,8 +365,8 @@ func (cur *Cursor) FloatOf(column string) (out float64) {
 	return
 }
 
-// IntOf reads an int64 value for a current row at a given column.
-func (cur *Cursor) IntOf(column string) (out int64) {
+// IntAt reads an int64 value for a current row at a given column.
+func (cur *Selector) IntAt(column string) (out int64) {
 	if c, ok := cur.owner.cols.Load(column); ok {
 		if n, ok := c.(numerical); ok {
 			out, _ = n.Int64(cur.index)
@@ -368,8 +375,8 @@ func (cur *Cursor) IntOf(column string) (out int64) {
 	return
 }
 
-// UintOf reads a uint64 value for a current row at a given column.
-func (cur *Cursor) UintOf(column string) (out uint64) {
+// UintAt reads a uint64 value for a current row at a given column.
+func (cur *Selector) UintAt(column string) (out uint64) {
 	if c, ok := cur.owner.cols.Load(column); ok {
 		if n, ok := c.(numerical); ok {
 			out, _ = n.Uint64(cur.index)
@@ -378,8 +385,8 @@ func (cur *Cursor) UintOf(column string) (out uint64) {
 	return
 }
 
-// BoolOf reads a boolean value for a current row at a given column.
-func (cur *Cursor) BoolOf(column string) bool {
+// BoolAt reads a boolean value for a current row at a given column.
+func (cur *Selector) BoolAt(column string) bool {
 	if c, ok := cur.owner.cols.Load(column); ok {
 		return c.Contains(cur.index)
 	}
@@ -396,13 +403,13 @@ type Update struct {
 
 // Delete deletes the current item. The actual operation will be queued and
 // executed once the current the transaction completes.
-func (cur *Cursor) Delete() {
+func (cur *Selector) Delete() {
 	cur.txn.deletes.Set(cur.index)
 }
 
-// Update updates a column value for the current item. The actual operation
+// UpdateAt updates a specified column value for the current item. The actual operation
 // will be queued and executed once the current the transaction completes.
-func (cur *Cursor) Update(column string, value interface{}) {
+func (cur *Selector) UpdateAt(column string, value interface{}) {
 	for i, c := range cur.txn.updates {
 		if c.name == column {
 			cur.txn.updates[i].update = append(c.update, Update{
@@ -421,25 +428,25 @@ func (cur *Cursor) Update(column string, value interface{}) {
 			Value: value,
 		}},
 	})
-
 }
 
-// --------------------------- Selector ---------------------------
+// --------------------------- Cursor ---------------------------
 
-// Selector represents a iteration cursor that is bound to a specific column.
-type Selector struct {
-	Cursor
+// Cursor represents a iteration Selector that is bound to a specific column.
+type Cursor struct {
+	Selector
+	update int16  // The index of the update queue
 	column Column // The selected column
 }
 
 // Value reads a value for a current row at a given column.
-func (cur *Selector) Value() (out interface{}) {
+func (cur *Cursor) Value() (out interface{}) {
 	out, _ = cur.column.Value(cur.index)
 	return
 }
 
 // String reads a string value for a current row at a given column.
-func (cur *Selector) String() (out string) {
+func (cur *Cursor) String() (out string) {
 	if v, ok := cur.column.Value(cur.index); ok {
 		out, _ = v.(string)
 	}
@@ -447,7 +454,7 @@ func (cur *Selector) String() (out string) {
 }
 
 // Float reads a float64 value for a current row at a given column.
-func (cur *Selector) Float() (out float64) {
+func (cur *Cursor) Float() (out float64) {
 	if n, ok := cur.column.(numerical); ok {
 		out, _ = n.Float64(cur.index)
 	}
@@ -455,7 +462,7 @@ func (cur *Selector) Float() (out float64) {
 }
 
 // Int reads an int64 value for a current row at a given column.
-func (cur *Selector) Int() (out int64) {
+func (cur *Cursor) Int() (out int64) {
 	if n, ok := cur.column.(numerical); ok {
 		out, _ = n.Int64(cur.index)
 	}
@@ -463,7 +470,7 @@ func (cur *Selector) Int() (out int64) {
 }
 
 // Uint reads a uint64 value for a current row at a given column.
-func (cur *Selector) Uint() (out uint64) {
+func (cur *Cursor) Uint() (out uint64) {
 	if n, ok := cur.column.(numerical); ok {
 		out, _ = n.Uint64(cur.index)
 	}
@@ -471,6 +478,15 @@ func (cur *Selector) Uint() (out uint64) {
 }
 
 // Bool reads a boolean value for a current row at a given column.
-func (cur *Selector) Bool() bool {
+func (cur *Cursor) Bool() bool {
 	return cur.column.Contains(cur.index)
+}
+
+// Update updates a column value for the current item. The actual operation
+// will be queued and executed once the current the transaction completes.
+func (cur *Cursor) Update(value interface{}) {
+	cur.txn.updates[cur.update].update = append(cur.txn.updates[cur.update].update, Update{
+		Index: cur.index,
+		Value: value,
+	})
 }

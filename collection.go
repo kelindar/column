@@ -166,40 +166,31 @@ func (c *Collection) Query(fn func(txn *Txn) error) error {
 	c.lock.RUnlock()
 
 	// Execute the query and keep the error for later
-	err := fn(txn)
-
-	// TODO: should we have txn.Commit() ?
+	if err := fn(txn); err != nil {
+		txn.Rollback()
+		releaseTxn(txn)
+		return err
+	}
 
 	// Now that the iteration has finished, we can range over the pending action
-	// queue and apply all of the actions that were requested by the cursor.
+	// queue and apply all of the actions that were requested by the Selector.
 	txn.Commit()
-
 	releaseTxn(txn)
-
-	//c.optimize()
-	return err
+	return nil
 }
 
-/*
-func (c *Collection) optimize() {
-	if v := atomic.AddUint64(&c.sort, 1); v%1000 == 0 {
-		c.cols.Optimize()
-	}
-}
-*/
-
-// Fetch retrieves an object by its handle and returns a selector for it.
-func (c *Collection) Fetch(idx uint32) (Cursor, bool) {
+// Fetch retrieves an object by its handle and returns a Selector for it.
+func (c *Collection) Fetch(idx uint32) (Selector, bool) {
 	c.lock.RLock()
 	contains := c.fill.Contains(idx)
 	c.lock.RUnlock()
 
 	// If it's empty or over the sequence, not found
 	if idx >= uint32(len(c.fill))*64 || !contains {
-		return Cursor{}, false
+		return Selector{}, false
 	}
 
-	return Cursor{
+	return Selector{
 		index: idx,
 		owner: c,
 	}, true
