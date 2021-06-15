@@ -16,7 +16,10 @@ import (
 var txns = &sync.Pool{
 	New: func() interface{} {
 		return &Txn{
-			updates: make([]columnUpdates, 0, 16),
+			index:   make(bitmap.Bitmap, 0, 64),
+			deletes: make(bitmap.Bitmap, 0, 64),
+			updates: make([]updateQueue, 0, 16),
+			columns: make([]columnCache, 0, 16),
 		}
 	},
 }
@@ -25,6 +28,7 @@ var txns = &sync.Pool{
 func aquireTxn(owner *Collection) *Txn {
 	txn := txns.Get().(*Txn)
 	txn.owner = owner
+	txn.columns = txn.columns[:0]
 	owner.fill.Clone(&txn.index)
 	return txn
 }
@@ -38,20 +42,51 @@ func releaseTxn(txn *Txn) {
 
 // Txn represents a transaction which supports filtering and projection.
 type Txn struct {
-	owner   *Collection     // The target collection
-	index   bitmap.Bitmap   // The filtering index
-	deletes bitmap.Bitmap   // The delete queue
-	updates []columnUpdates // The update queue
+	owner   *Collection   // The target collection
+	index   bitmap.Bitmap // The filtering index
+	deletes bitmap.Bitmap // The delete queue
+	updates []updateQueue // The update queue
+	columns []columnCache // The column mapping
 }
 
-type columnUpdates struct {
-	column string
-	update []Update
+// Update queue represents a queue per column that contains the pending updates.
+type updateQueue struct {
+	name   string   // The column name
+	update []Update // The update queue
+}
+
+// columnCache caches a column by its name. This speeds things up since it's a very
+// common operation.
+type columnCache struct {
+	name string // The column name
+	col  Column // The columns and its computed
+}
+
+// columnAt loads and caches the column for the transaction
+func (txn *Txn) columnAt(columnName string) (Column, bool) {
+	for _, v := range txn.columns {
+		if v.name == columnName {
+			return v.col, true
+		}
+	}
+
+	// Load the column from the owner
+	column, ok := txn.owner.cols.Load(columnName)
+	if !ok {
+		return nil, false
+	}
+
+	// Cache the loaded column for this transaction
+	txn.columns = append(txn.columns, columnCache{
+		name: columnName,
+		col:  column,
+	})
+	return column, true
 }
 
 // With applies a logical AND operation to the current query and the specified index.
 func (txn *Txn) With(column string, extra ...string) *Txn {
-	if idx, ok := txn.owner.cols.Load(column); ok {
+	if idx, ok := txn.columnAt(column); ok {
 		idx.Intersect(&txn.index)
 	} else {
 		txn.index.Clear()
@@ -59,7 +94,7 @@ func (txn *Txn) With(column string, extra ...string) *Txn {
 
 	// go through extra indexes
 	for _, e := range extra {
-		if idx, ok := txn.owner.cols.Load(e); ok {
+		if idx, ok := txn.columnAt(e); ok {
 			idx.Intersect(&txn.index)
 		} else {
 			txn.index.Clear()
@@ -70,13 +105,13 @@ func (txn *Txn) With(column string, extra ...string) *Txn {
 
 // Without applies a logical AND NOT operation to the current query and the specified index.
 func (txn *Txn) Without(column string, extra ...string) *Txn {
-	if idx, ok := txn.owner.cols.Load(column); ok {
+	if idx, ok := txn.columnAt(column); ok {
 		idx.Difference(&txn.index)
 	}
 
 	// go through extra indexes
 	for _, e := range extra {
-		if idx, ok := txn.owner.cols.Load(e); ok {
+		if idx, ok := txn.columnAt(e); ok {
 			idx.Difference(&txn.index)
 		}
 	}
@@ -85,13 +120,13 @@ func (txn *Txn) Without(column string, extra ...string) *Txn {
 
 // Union computes a union between the current query and the specified index.
 func (txn *Txn) Union(column string, extra ...string) *Txn {
-	if idx, ok := txn.owner.cols.Load(column); ok {
+	if idx, ok := txn.columnAt(column); ok {
 		idx.Union(&txn.index)
 	}
 
 	// go through extra indexes
 	for _, e := range extra {
-		if idx, ok := txn.owner.cols.Load(e); ok {
+		if idx, ok := txn.columnAt(e); ok {
 			idx.Union(&txn.index)
 		}
 	}
@@ -101,7 +136,7 @@ func (txn *Txn) Union(column string, extra ...string) *Txn {
 // WithValue applies a filter predicate over values for a specific properties. It filters
 // down the items in the query.
 func (txn *Txn) WithValue(column string, predicate func(v interface{}) bool) *Txn {
-	if p, ok := txn.owner.cols.Load(column); ok {
+	if p, ok := txn.columnAt(column); ok {
 		txn.index.Filter(func(x uint32) bool {
 			if v, ok := p.Value(x); ok {
 				return predicate(v)
@@ -115,7 +150,7 @@ func (txn *Txn) WithValue(column string, predicate func(v interface{}) bool) *Tx
 // WithFloat filters down the values based on the specified predicate. The column for
 // this filter must be numerical and convertible to float64.
 func (txn *Txn) WithFloat(column string, predicate func(v float64) bool) *Txn {
-	if p, ok := txn.owner.cols.Load(column); ok {
+	if p, ok := txn.columnAt(column); ok {
 		if n, ok := p.(numerical); ok {
 			txn.index.Filter(func(x uint32) bool {
 				if v, ok := n.Float64(x); ok {
@@ -131,7 +166,7 @@ func (txn *Txn) WithFloat(column string, predicate func(v float64) bool) *Txn {
 // WithInt filters down the values based on the specified predicate. The column for
 // this filter must be numerical and convertible to int64.
 func (txn *Txn) WithInt(column string, predicate func(v int64) bool) *Txn {
-	if p, ok := txn.owner.cols.Load(column); ok {
+	if p, ok := txn.columnAt(column); ok {
 		if n, ok := p.(numerical); ok {
 			txn.index.Filter(func(x uint32) bool {
 				if v, ok := n.Int64(x); ok {
@@ -147,7 +182,7 @@ func (txn *Txn) WithInt(column string, predicate func(v int64) bool) *Txn {
 // WithUint filters down the values based on the specified predicate. The column for
 // this filter must be numerical and convertible to uint64.
 func (txn *Txn) WithUint(column string, predicate func(v uint64) bool) *Txn {
-	if p, ok := txn.owner.cols.Load(column); ok {
+	if p, ok := txn.columnAt(column); ok {
 		if n, ok := p.(numerical); ok {
 			txn.index.Filter(func(x uint32) bool {
 				if v, ok := n.Uint64(x); ok {
@@ -189,7 +224,7 @@ func (txn *Txn) Range(fn func(v Cursor) bool) {
 // Select selects and iterates over a specific column. The selector provided also allows
 // to select other columns, but at a slight performance cost.
 func (txn *Txn) Select(fn func(v Selector) bool, column string) error {
-	c, ok := txn.owner.cols.Load(column)
+	c, ok := txn.columnAt(column)
 	if !ok {
 		return fmt.Errorf("select: specified column '%v' does not exist", column)
 	}
@@ -215,7 +250,7 @@ func (txn *Txn) Select(fn func(v Selector) bool, column string) error {
 func (txn *Txn) SelectMany(fn func(v []Selector) bool, columns ...string) error {
 	selectors := make([]Selector, len(columns))
 	for i, columnName := range columns {
-		c, ok := txn.owner.cols.Load(columnName)
+		c, ok := txn.columnAt(columnName)
 		if !ok {
 			return fmt.Errorf("select: specified column '%v' does not exist", columnName)
 		}
@@ -251,7 +286,7 @@ func (txn *Txn) updatePending() {
 		}
 
 		// Get the column that needs to be updated
-		columns, exists := txn.owner.cols.LoadWithIndex(u.column)
+		columns, exists := txn.owner.cols.LoadWithIndex(u.name)
 		if !exists {
 			continue
 		}
@@ -265,12 +300,6 @@ func (txn *Txn) updatePending() {
 		// Reset the queue
 		txn.updates[i].update = txn.updates[i].update[:0]
 	}
-
-	// Reset the update queue so that the next transaction always remains optimized,
-	// as the columns for the next update might differ, hence this would keep the
-	// entire list as small as possible for each transaction.
-	//txn.updates = txn.updates[:0]
-
 }
 
 // deletePending removes all of the entries marked as to be deleted
@@ -375,7 +404,7 @@ func (cur *Cursor) Delete() {
 // will be queued and executed once the current the transaction completes.
 func (cur *Cursor) Update(column string, value interface{}) {
 	for i, c := range cur.txn.updates {
-		if c.column == column {
+		if c.name == column {
 			cur.txn.updates[i].update = append(c.update, Update{
 				Index: cur.index,
 				Value: value,
@@ -384,14 +413,15 @@ func (cur *Cursor) Update(column string, value interface{}) {
 		}
 	}
 
-	// Create a new update set
-	cur.txn.updates = append(cur.txn.updates, columnUpdates{
-		column: column,
+	// Create a new update queue
+	cur.txn.updates = append(cur.txn.updates, updateQueue{
+		name: column,
 		update: []Update{{
 			Index: cur.index,
 			Value: value,
 		}},
 	})
+
 }
 
 // --------------------------- Selector ---------------------------
