@@ -4,6 +4,7 @@
 package column
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -186,6 +187,9 @@ func TestUpdate(t *testing.T) {
 	players.CreateIndex("broke", "balance", func(v interface{}) bool {
 		return v.(float64) < 100
 	})
+	players.CreateIndex("rich", "balance", func(v interface{}) bool {
+		return v.(float64) > 3000
+	})
 
 	// Delete all old people from the collection
 	players.Query(func(txn *Txn) error {
@@ -225,4 +229,37 @@ func TestUpdate(t *testing.T) {
 		assert.Equal(t, 245, txn.With("broke").Count())
 		return nil
 	})
+
+	// Make everyone rich
+	players.Query(func(txn *Txn) error {
+		txn.Range(func(v Cursor) bool {
+			v.Update(5000.0)
+			return true
+		}, "balance")
+		return nil
+	})
+
+	// Now the index should also be updated
+	players.Query(func(txn *Txn) error {
+		assert.Equal(t, 245, txn.With("rich").Count())
+		assert.Equal(t, 0, txn.With("broke").Count())
+		return nil
+	})
+
+	// Try out the rollback
+	players.Query(func(txn *Txn) error {
+		txn.Select(func(v Selector) bool {
+			v.UpdateAt("balance", 1.0)
+			return true
+		})
+		return fmt.Errorf("trigger rollback")
+	})
+
+	// Everyone should still be rich
+	players.Query(func(txn *Txn) error {
+		assert.Equal(t, 245, txn.With("rich").Count())
+		assert.Equal(t, 0, txn.With("broke").Count())
+		return nil
+	})
+
 }
