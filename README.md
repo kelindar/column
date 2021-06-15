@@ -78,7 +78,7 @@ func main(){
 	// Same condition as above, but we also select the actual names of those 
 	// players and iterate through them.
 	players.Query(func(txn column.Txn) error {
-		txn.With("human", "mage", "old").Select(func(v column.Selector) bool {
+		txn.With("human", "mage", "old").Range(func(v column.Selector) bool {
 			println(v.String()) // prints the name
 			return true
 		}, "name") // The column to select
@@ -91,14 +91,14 @@ func main(){
 
 ```
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkCollection/insert-8         26252403     48.08 ns/op     2 B/op     0 allocs/op
-BenchmarkCollection/fetch-8          29705175     35.74 ns/op     0 B/op     0 allocs/op
-BenchmarkCollection/count-8            102036     10886 ns/op     0 B/op     0 allocs/op
-BenchmarkCollection/count-idx-8       9166742     127.7 ns/op     0 B/op     0 allocs/op
-BenchmarkCollection/find-8             107601     11519 ns/op     0 B/op     0 allocs/op
-BenchmarkCollection/find-idx-8        1557285     769.6 ns/op     0 B/op     0 allocs/op
-BenchmarkCollection/update-at-8      25257255     47.87 ns/op     0 B/op     0 allocs/op
-BenchmarkCollection/update-all-8        51469     22525 ns/op     0 B/op     0 allocs/op
-BenchmarkCollection/delete-at-8       2319102     509.2 ns/op     0 B/op     0 allocs/op
-BenchmarkCollection/delete-all-8       169375      7377 ns/op     0 B/op     0 allocs/op
+BenchmarkCollection/insert-8         27589314       43.05 ns/op     1 B/op     0 allocs/op
+BenchmarkCollection/fetch-8          21041593       56.84 ns/op     0 B/op     0 allocs/op
+BenchmarkCollection/count-slow-8       109107    11001 ns/op        0 B/op     0 allocs/op
+BenchmarkCollection/count-8           9300270      128.6 ns/op      0 B/op     0 allocs/op
+BenchmarkCollection/range-8           1871557      641.0 ns/op      0 B/op     0 allocs/op
+BenchmarkCollection/select-8          1214799      975.8 ns/op      0 B/op     0 allocs/op
+BenchmarkCollection/update-at-8      28573945       41.99 ns/op     0 B/op     0 allocs/op
+BenchmarkCollection/update-all-8       184694      6481 ns/op       0 B/op     0 allocs/op
+BenchmarkCollection/delete-at-8       2613982      459.1 ns/op      0 B/op     0 allocs/op
+BenchmarkCollection/delete-all-8       324321     3730 ns/op        0 B/op     0 allocs/op
 ```
