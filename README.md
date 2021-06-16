@@ -25,8 +25,6 @@ The general idea is to leverage cache-friendly ways of organizing data in [struc
  * Support for **transaction isolation**, allowing you to create transactions and commit/rollback.
  * Optimized **batch updates/deletes**, an update during a transaction takes around `12ns`.
 
-
-
 ## Collection & Columns
 
 In order to get data into the store, you'll need to first create a `Collection` by calling `NewCollection()` method. Each collection requires a schema, which can be either specified manually by calling `CreateColumn()` multiple times or automatically inferred from an object by calling `CreateColumnsOf()` function. 
@@ -138,10 +136,10 @@ Let's first examine the `Range()` method. In the example below we select all of 
 
 ```go
 players.Query(func(txn *Txn) error {
-	txn.With("rogue").Range(func(v column.Cursor) bool {
+	txn.With("rogue").Range("name", func(v column.Cursor) bool {
 		println("rogue name ", v.String()) // Prints the name
 		return true
-	}, "name")
+	})
 	return nil
 })
 ```
@@ -150,11 +148,11 @@ Now, what if you need two columns? The range only allows you to quickly select a
 
 ```go
 players.Query(func(txn *Txn) error {
-	txn.With("rogue").Range(func(v column.Cursor) bool {
+	txn.With("rogue").Range("name", func(v column.Cursor) bool {
 		println("rogue name ", v.String())    // Prints the name
 		println("rogue age ", v.IntAt("age")) // Prints the age
 		return true
-	}, "name")
+	})
 	return nil
 })
 ```
@@ -179,11 +177,11 @@ In the example below we're selecting all of the rogues and updating both their b
 
 ```go
 players.Query(func(txn *Txn) error {
-	txn.With("rogue").Range(func(v column.Cursor) bool {
+	txn.With("rogue").Range("balance", func(v column.Cursor) bool {
 		v.Update(10.0)        // Update the "balance" to 10.0
 		v.UpdateAt("age", 50) // Update the "age" to 50
 		return true
-	}, "balance") // Select the balance
+	}) // Select the balance
 	return nil
 })
 ```
@@ -195,10 +193,10 @@ Transactions allow for isolation between two concurrent operations. In fact, all
 ```go
 // Range over all of the players and update (successfully their balance)
 players.Query(func(txn *column.Txn) error {
-	txn.Range(func(v column.Cursor) bool {
+	txn.Range("balance", func(v column.Cursor) bool {
 		v.Update(10.0) // Update the "balance" to 10.0
 		return true
-	}, "balance")
+	})
 
 	// No error, txn.Commit() will be called
 	return nil
@@ -210,10 +208,10 @@ Now, in this example, we try to update balance but a query callback returns an e
 ```go
 // Range over all of the players and update (successfully their balance)
 players.Query(func(txn *column.Txn) error {
-	txn.Range(func(v column.Cursor) bool {
+	txn.Range("balance", func(v column.Cursor) bool {
 		v.Update(10.0) // Update the "balance" to 10.0
 		return true
-	}, "balance")
+	})
 
 	// Returns an error, txn.Rollback() will be called
 	return fmt.Errorf("bug") 
@@ -225,10 +223,10 @@ You can (but probablty won't need to) call `Commit()` or `Rollback()` manually, 
 ```go
 // Range over all of the players and update (successfully their balance)
 players.Query(func(txn *column.Txn) error {
-	txn.Range(func(v column.Cursor) bool {
+	txn.Range("balance", func(v column.Cursor) bool {
 		v.Update(10.0) // Update the "balance" to 10.0
 		return true
-	}, "balance")
+	})
 
 	txn.Commit() // Manually commit all of the changes
 	return nil   // This will call txn.Commit() again, but will be a no-op
@@ -291,10 +289,10 @@ func main(){
 	// Same condition as above, but we also select the actual names of those 
 	// players and iterate through them.
 	players.Query(func(txn *column.Txn) error {
-		txn.With("human", "mage", "old").Range(func(v column.Cursor) bool {
+		txn.With("human", "mage", "old").Range("name", func(v column.Cursor) bool {
 			println(v.String()) // prints the name
 			return true
-		}, "name") // The column to select
+		}) // The column to select
 		return nil
 	})
 }

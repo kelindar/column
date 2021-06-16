@@ -90,11 +90,11 @@ func BenchmarkCollection(b *testing.B) {
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
 			players.Query(func(txn *Txn) error {
-				txn.With("human", "mage", "old").Range(func(v Cursor) bool {
+				txn.With("human", "mage", "old").Range("name", func(v Cursor) bool {
 					count++
 					name = v.String()
 					return true
-				}, "name")
+				})
 				return nil
 			})
 		}
@@ -139,10 +139,10 @@ func BenchmarkCollection(b *testing.B) {
 		for n := 0; n < b.N; n++ {
 			columnName := columns[n%len(columns)]
 			players.Query(func(txn *Txn) error {
-				txn.Range(func(v Cursor) bool {
+				txn.Range(columnName, func(v Cursor) bool {
 					v.Update(1.0)
 					return true
-				}, columnName)
+				})
 				return nil
 			})
 		}

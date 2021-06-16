@@ -223,7 +223,7 @@ func (txn *Txn) Select(fn func(v Selector) bool) {
 
 // Range selects and iterates over a specific column. The cursor provided also allows
 // to select other columns, but at a slight performance cost.
-func (txn *Txn) Range(fn func(v Cursor) bool, column string) error {
+func (txn *Txn) Range(column string, fn func(v Cursor) bool) error {
 	c, ok := txn.columnAt(column)
 	if !ok {
 		return fmt.Errorf("select: specified column '%v' does not exist", column)

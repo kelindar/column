@@ -20,11 +20,11 @@ func TestFind(t *testing.T) {
 			return v == "mage"
 		}).WithFloat("age", func(v float64) bool {
 			return v >= 30
-		}).Range(func(v Cursor) bool {
+		}).Range("name", func(v Cursor) bool {
 			count++
 			assert.NotEmpty(t, v.String())
 			return true
-		}, "name")
+		})
 		return nil
 	})
 
@@ -156,27 +156,27 @@ func TestIndexed(t *testing.T) {
 	players.Query(func(txn *Txn) error {
 		result := txn.With("human", "mage", "old")
 
-		result.Range(func(v Cursor) bool {
+		result.Range("age", func(v Cursor) bool {
 			assert.True(t, v.Float() >= 30)
 			assert.True(t, v.Int() >= 30)
 			assert.True(t, v.Uint() >= 30)
 			return true
-		}, "age")
+		})
 
-		result.Range(func(v Cursor) bool {
+		result.Range("old", func(v Cursor) bool {
 			assert.True(t, v.Value().(bool))
 			assert.True(t, v.Bool())
 			assert.Equal(t, "", v.String())
 			return true
-		}, "old")
+		})
 
-		result.Range(func(v Cursor) bool {
+		result.Range("class", func(v Cursor) bool {
 			assert.Equal(t, "mage", v.String())
 			assert.Equal(t, float64(0), v.Float())
 			assert.Equal(t, int64(0), v.Int())
 			assert.Equal(t, uint64(0), v.Uint())
 			return true
-		}, "class")
+		})
 		return nil
 	})
 
@@ -232,10 +232,10 @@ func TestUpdate(t *testing.T) {
 
 	// Make everyone rich
 	players.Query(func(txn *Txn) error {
-		txn.Range(func(v Cursor) bool {
+		txn.Range("balance", func(v Cursor) bool {
 			v.Update(5000.0)
 			return true
-		}, "balance")
+		})
 		return nil
 	})
 
