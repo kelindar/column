@@ -240,7 +240,7 @@ func (c *Collection) vacuum(ctx context.Context, interval time.Duration) {
 		case <-ticker.C:
 			now := time.Now().UnixNano()
 			c.Query(func(txn *Txn) error {
-				return txn.Range(expireColumn, func(v Cursor) bool {
+				return txn.With(expireColumn).Range(expireColumn, func(v Cursor) bool {
 					if now >= v.Int() {
 						v.Delete()
 					}
