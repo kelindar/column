@@ -27,8 +27,6 @@ func makeFloat32s() Column {
 // Update sets a value at a specified index
 func (c *columnFloat32) Update(idx uint32, value interface{}) {
 	c.Lock()
-	defer c.Unlock()
-
 	size := uint32(len(c.data))
 	for i := size; i <= idx; i++ {
 		c.data = append(c.data, 0)
@@ -37,6 +35,7 @@ func (c *columnFloat32) Update(idx uint32, value interface{}) {
 	// Set the data at index
 	c.fill.Set(idx)
 	c.data[idx] = value.(float32)
+	c.Unlock()
 }
 
 // UpdateMany performs a series of updates at once
@@ -44,9 +43,24 @@ func (c *columnFloat32) UpdateMany(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
 
-	for _, u := range updates {
+	// Range over all of the updates, and depending on the operation perform the action
+	for i, u := range updates {
 		c.fill.Set(u.Index)
-		c.data[u.Index] = u.Value.(float32)
+		switch u.Kind {
+		case UpdatePut:
+			c.data[u.Index] = u.Value.(float32)
+
+		// If this is an atomic increment/decrement, we need to change the operation to
+		// the final value, since after this update an index needs to be recalculated.
+		case UpdateAdd:
+			value := c.data[u.Index] + u.Value.(float32)
+			c.data[u.Index] = value
+			updates[i] = Update{
+				Kind:  UpdatePut,
+				Index: u.Index,
+				Value: value,
+			}
+		}
 	}
 }
 
@@ -112,8 +126,6 @@ func makeFloat64s() Column {
 // Update sets a value at a specified index
 func (c *columnFloat64) Update(idx uint32, value interface{}) {
 	c.Lock()
-	defer c.Unlock()
-
 	size := uint32(len(c.data))
 	for i := size; i <= idx; i++ {
 		c.data = append(c.data, 0)
@@ -122,6 +134,7 @@ func (c *columnFloat64) Update(idx uint32, value interface{}) {
 	// Set the data at index
 	c.fill.Set(idx)
 	c.data[idx] = value.(float64)
+	c.Unlock()
 }
 
 // UpdateMany performs a series of updates at once
@@ -129,9 +142,24 @@ func (c *columnFloat64) UpdateMany(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
 
-	for _, u := range updates {
+	// Range over all of the updates, and depending on the operation perform the action
+	for i, u := range updates {
 		c.fill.Set(u.Index)
-		c.data[u.Index] = u.Value.(float64)
+		switch u.Kind {
+		case UpdatePut:
+			c.data[u.Index] = u.Value.(float64)
+
+		// If this is an atomic increment/decrement, we need to change the operation to
+		// the final value, since after this update an index needs to be recalculated.
+		case UpdateAdd:
+			value := c.data[u.Index] + u.Value.(float64)
+			c.data[u.Index] = value
+			updates[i] = Update{
+				Kind:  UpdatePut,
+				Index: u.Index,
+				Value: value,
+			}
+		}
 	}
 }
 
@@ -197,8 +225,6 @@ func makeInts() Column {
 // Update sets a value at a specified index
 func (c *columnInt) Update(idx uint32, value interface{}) {
 	c.Lock()
-	defer c.Unlock()
-
 	size := uint32(len(c.data))
 	for i := size; i <= idx; i++ {
 		c.data = append(c.data, 0)
@@ -207,6 +233,7 @@ func (c *columnInt) Update(idx uint32, value interface{}) {
 	// Set the data at index
 	c.fill.Set(idx)
 	c.data[idx] = value.(int)
+	c.Unlock()
 }
 
 // UpdateMany performs a series of updates at once
@@ -214,9 +241,24 @@ func (c *columnInt) UpdateMany(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
 
-	for _, u := range updates {
+	// Range over all of the updates, and depending on the operation perform the action
+	for i, u := range updates {
 		c.fill.Set(u.Index)
-		c.data[u.Index] = u.Value.(int)
+		switch u.Kind {
+		case UpdatePut:
+			c.data[u.Index] = u.Value.(int)
+
+		// If this is an atomic increment/decrement, we need to change the operation to
+		// the final value, since after this update an index needs to be recalculated.
+		case UpdateAdd:
+			value := c.data[u.Index] + u.Value.(int)
+			c.data[u.Index] = value
+			updates[i] = Update{
+				Kind:  UpdatePut,
+				Index: u.Index,
+				Value: value,
+			}
+		}
 	}
 }
 
@@ -282,8 +324,6 @@ func makeInt16s() Column {
 // Update sets a value at a specified index
 func (c *columnInt16) Update(idx uint32, value interface{}) {
 	c.Lock()
-	defer c.Unlock()
-
 	size := uint32(len(c.data))
 	for i := size; i <= idx; i++ {
 		c.data = append(c.data, 0)
@@ -292,6 +332,7 @@ func (c *columnInt16) Update(idx uint32, value interface{}) {
 	// Set the data at index
 	c.fill.Set(idx)
 	c.data[idx] = value.(int16)
+	c.Unlock()
 }
 
 // UpdateMany performs a series of updates at once
@@ -299,9 +340,24 @@ func (c *columnInt16) UpdateMany(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
 
-	for _, u := range updates {
+	// Range over all of the updates, and depending on the operation perform the action
+	for i, u := range updates {
 		c.fill.Set(u.Index)
-		c.data[u.Index] = u.Value.(int16)
+		switch u.Kind {
+		case UpdatePut:
+			c.data[u.Index] = u.Value.(int16)
+
+		// If this is an atomic increment/decrement, we need to change the operation to
+		// the final value, since after this update an index needs to be recalculated.
+		case UpdateAdd:
+			value := c.data[u.Index] + u.Value.(int16)
+			c.data[u.Index] = value
+			updates[i] = Update{
+				Kind:  UpdatePut,
+				Index: u.Index,
+				Value: value,
+			}
+		}
 	}
 }
 
@@ -367,8 +423,6 @@ func makeInt32s() Column {
 // Update sets a value at a specified index
 func (c *columnInt32) Update(idx uint32, value interface{}) {
 	c.Lock()
-	defer c.Unlock()
-
 	size := uint32(len(c.data))
 	for i := size; i <= idx; i++ {
 		c.data = append(c.data, 0)
@@ -377,6 +431,7 @@ func (c *columnInt32) Update(idx uint32, value interface{}) {
 	// Set the data at index
 	c.fill.Set(idx)
 	c.data[idx] = value.(int32)
+	c.Unlock()
 }
 
 // UpdateMany performs a series of updates at once
@@ -384,9 +439,24 @@ func (c *columnInt32) UpdateMany(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
 
-	for _, u := range updates {
+	// Range over all of the updates, and depending on the operation perform the action
+	for i, u := range updates {
 		c.fill.Set(u.Index)
-		c.data[u.Index] = u.Value.(int32)
+		switch u.Kind {
+		case UpdatePut:
+			c.data[u.Index] = u.Value.(int32)
+
+		// If this is an atomic increment/decrement, we need to change the operation to
+		// the final value, since after this update an index needs to be recalculated.
+		case UpdateAdd:
+			value := c.data[u.Index] + u.Value.(int32)
+			c.data[u.Index] = value
+			updates[i] = Update{
+				Kind:  UpdatePut,
+				Index: u.Index,
+				Value: value,
+			}
+		}
 	}
 }
 
@@ -452,8 +522,6 @@ func makeInt64s() Column {
 // Update sets a value at a specified index
 func (c *columnInt64) Update(idx uint32, value interface{}) {
 	c.Lock()
-	defer c.Unlock()
-
 	size := uint32(len(c.data))
 	for i := size; i <= idx; i++ {
 		c.data = append(c.data, 0)
@@ -462,6 +530,7 @@ func (c *columnInt64) Update(idx uint32, value interface{}) {
 	// Set the data at index
 	c.fill.Set(idx)
 	c.data[idx] = value.(int64)
+	c.Unlock()
 }
 
 // UpdateMany performs a series of updates at once
@@ -469,9 +538,24 @@ func (c *columnInt64) UpdateMany(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
 
-	for _, u := range updates {
+	// Range over all of the updates, and depending on the operation perform the action
+	for i, u := range updates {
 		c.fill.Set(u.Index)
-		c.data[u.Index] = u.Value.(int64)
+		switch u.Kind {
+		case UpdatePut:
+			c.data[u.Index] = u.Value.(int64)
+
+		// If this is an atomic increment/decrement, we need to change the operation to
+		// the final value, since after this update an index needs to be recalculated.
+		case UpdateAdd:
+			value := c.data[u.Index] + u.Value.(int64)
+			c.data[u.Index] = value
+			updates[i] = Update{
+				Kind:  UpdatePut,
+				Index: u.Index,
+				Value: value,
+			}
+		}
 	}
 }
 
@@ -537,8 +621,6 @@ func makeUints() Column {
 // Update sets a value at a specified index
 func (c *columnUint) Update(idx uint32, value interface{}) {
 	c.Lock()
-	defer c.Unlock()
-
 	size := uint32(len(c.data))
 	for i := size; i <= idx; i++ {
 		c.data = append(c.data, 0)
@@ -547,6 +629,7 @@ func (c *columnUint) Update(idx uint32, value interface{}) {
 	// Set the data at index
 	c.fill.Set(idx)
 	c.data[idx] = value.(uint)
+	c.Unlock()
 }
 
 // UpdateMany performs a series of updates at once
@@ -554,9 +637,24 @@ func (c *columnUint) UpdateMany(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
 
-	for _, u := range updates {
+	// Range over all of the updates, and depending on the operation perform the action
+	for i, u := range updates {
 		c.fill.Set(u.Index)
-		c.data[u.Index] = u.Value.(uint)
+		switch u.Kind {
+		case UpdatePut:
+			c.data[u.Index] = u.Value.(uint)
+
+		// If this is an atomic increment/decrement, we need to change the operation to
+		// the final value, since after this update an index needs to be recalculated.
+		case UpdateAdd:
+			value := c.data[u.Index] + u.Value.(uint)
+			c.data[u.Index] = value
+			updates[i] = Update{
+				Kind:  UpdatePut,
+				Index: u.Index,
+				Value: value,
+			}
+		}
 	}
 }
 
@@ -622,8 +720,6 @@ func makeUint16s() Column {
 // Update sets a value at a specified index
 func (c *columnUint16) Update(idx uint32, value interface{}) {
 	c.Lock()
-	defer c.Unlock()
-
 	size := uint32(len(c.data))
 	for i := size; i <= idx; i++ {
 		c.data = append(c.data, 0)
@@ -632,6 +728,7 @@ func (c *columnUint16) Update(idx uint32, value interface{}) {
 	// Set the data at index
 	c.fill.Set(idx)
 	c.data[idx] = value.(uint16)
+	c.Unlock()
 }
 
 // UpdateMany performs a series of updates at once
@@ -639,9 +736,24 @@ func (c *columnUint16) UpdateMany(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
 
-	for _, u := range updates {
+	// Range over all of the updates, and depending on the operation perform the action
+	for i, u := range updates {
 		c.fill.Set(u.Index)
-		c.data[u.Index] = u.Value.(uint16)
+		switch u.Kind {
+		case UpdatePut:
+			c.data[u.Index] = u.Value.(uint16)
+
+		// If this is an atomic increment/decrement, we need to change the operation to
+		// the final value, since after this update an index needs to be recalculated.
+		case UpdateAdd:
+			value := c.data[u.Index] + u.Value.(uint16)
+			c.data[u.Index] = value
+			updates[i] = Update{
+				Kind:  UpdatePut,
+				Index: u.Index,
+				Value: value,
+			}
+		}
 	}
 }
 
@@ -707,8 +819,6 @@ func makeUint32s() Column {
 // Update sets a value at a specified index
 func (c *columnUint32) Update(idx uint32, value interface{}) {
 	c.Lock()
-	defer c.Unlock()
-
 	size := uint32(len(c.data))
 	for i := size; i <= idx; i++ {
 		c.data = append(c.data, 0)
@@ -717,6 +827,7 @@ func (c *columnUint32) Update(idx uint32, value interface{}) {
 	// Set the data at index
 	c.fill.Set(idx)
 	c.data[idx] = value.(uint32)
+	c.Unlock()
 }
 
 // UpdateMany performs a series of updates at once
@@ -724,9 +835,24 @@ func (c *columnUint32) UpdateMany(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
 
-	for _, u := range updates {
+	// Range over all of the updates, and depending on the operation perform the action
+	for i, u := range updates {
 		c.fill.Set(u.Index)
-		c.data[u.Index] = u.Value.(uint32)
+		switch u.Kind {
+		case UpdatePut:
+			c.data[u.Index] = u.Value.(uint32)
+
+		// If this is an atomic increment/decrement, we need to change the operation to
+		// the final value, since after this update an index needs to be recalculated.
+		case UpdateAdd:
+			value := c.data[u.Index] + u.Value.(uint32)
+			c.data[u.Index] = value
+			updates[i] = Update{
+				Kind:  UpdatePut,
+				Index: u.Index,
+				Value: value,
+			}
+		}
 	}
 }
 
@@ -792,8 +918,6 @@ func makeUint64s() Column {
 // Update sets a value at a specified index
 func (c *columnUint64) Update(idx uint32, value interface{}) {
 	c.Lock()
-	defer c.Unlock()
-
 	size := uint32(len(c.data))
 	for i := size; i <= idx; i++ {
 		c.data = append(c.data, 0)
@@ -802,6 +926,7 @@ func (c *columnUint64) Update(idx uint32, value interface{}) {
 	// Set the data at index
 	c.fill.Set(idx)
 	c.data[idx] = value.(uint64)
+	c.Unlock()
 }
 
 // UpdateMany performs a series of updates at once
@@ -809,9 +934,24 @@ func (c *columnUint64) UpdateMany(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
 
-	for _, u := range updates {
+	// Range over all of the updates, and depending on the operation perform the action
+	for i, u := range updates {
 		c.fill.Set(u.Index)
-		c.data[u.Index] = u.Value.(uint64)
+		switch u.Kind {
+		case UpdatePut:
+			c.data[u.Index] = u.Value.(uint64)
+
+		// If this is an atomic increment/decrement, we need to change the operation to
+		// the final value, since after this update an index needs to be recalculated.
+		case UpdateAdd:
+			value := c.data[u.Index] + u.Value.(uint64)
+			c.data[u.Index] = value
+			updates[i] = Update{
+				Kind:  UpdatePut,
+				Index: u.Index,
+				Value: value,
+			}
+		}
 	}
 }
 

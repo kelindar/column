@@ -21,7 +21,7 @@ import (
 // BenchmarkCollection/update-at-8      	27687408	        41.31 ns/op	       0 B/op	       0 allocs/op
 // BenchmarkCollection/update-all-8     	  184694	      6481 ns/op	       0 B/op	       0 allocs/op
 // BenchmarkCollection/delete-at-8      	 2583535	       463.5 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/delete-all-8     	  324331	      3712 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/delete-all-8     	  296901	      3762 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkCollection(b *testing.B) {
 	players := loadPlayers()
 	obj := Object{
@@ -220,6 +220,14 @@ func TestCollection(t *testing.T) {
 		assert.True(t, ok)
 		assert.Equal(t, int64(1000), v.IntAt("wallet"))
 		assert.Equal(t, true, v.BoolAt("rich"))
+	}
+
+	{ // Drop the colun
+		col.DropColumn("rich")
+		col.Query(func(txn *Txn) error {
+			assert.Equal(t, 0, txn.With("rich").Count())
+			return nil
+		})
 	}
 }
 

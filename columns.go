@@ -13,23 +13,6 @@ import (
 	"github.com/kelindar/bitmap"
 )
 
-// Various column constructor functions for a specific types.
-var (
-	ForAny     = makeAny
-	ForString  = makeAny
-	ForFloat32 = makeFloat32s
-	ForFloat64 = makeFloat64s
-	ForInt     = makeInts
-	ForInt16   = makeInt16s
-	ForInt32   = makeInt32s
-	ForInt64   = makeInt64s
-	ForUint    = makeUints
-	ForUint16  = makeUint16s
-	ForUint32  = makeUint32s
-	ForUint64  = makeUint64s
-	ForBool    = makeBools
-)
-
 // Column represents a column implementation
 type Column interface {
 	Update(idx uint32, value interface{})
@@ -49,6 +32,25 @@ type numerical interface {
 	Uint64(uint32) (uint64, bool)
 	Int64(uint32) (int64, bool)
 }
+
+// --------------------------- Constructors ----------------------------
+
+// Various column constructor functions for a specific types.
+var (
+	ForAny     = makeAny
+	ForString  = makeAny
+	ForFloat32 = makeFloat32s
+	ForFloat64 = makeFloat64s
+	ForInt     = makeInts
+	ForInt16   = makeInt16s
+	ForInt32   = makeInt32s
+	ForInt64   = makeInt64s
+	ForUint    = makeUints
+	ForUint16  = makeUint16s
+	ForUint32  = makeUint32s
+	ForUint64  = makeUint64s
+	ForBool    = makeBools
+)
 
 // ForKind creates a new column instance for a specified reflect.Kind
 func ForKind(kind reflect.Kind) Column {
@@ -167,9 +169,13 @@ func (c *columnAny) Update(idx uint32, value interface{}) {
 func (c *columnAny) UpdateMany(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
+
+	// Update the values of the column, for this one we can only process stores
 	for _, u := range updates {
-		c.fill.Set(u.Index)
-		c.data[u.Index] = u.Value
+		if u.Kind == UpdatePut {
+			c.fill.Set(u.Index)
+			c.data[u.Index] = u.Value
+		}
 	}
 }
 
@@ -189,6 +195,17 @@ func (c *columnAny) Delete(idx uint32) {
 	c.fill.Remove(idx)
 	c.data[idx] = nil
 	c.Unlock()
+}
+
+// DeleteMany deletes a set of items from the column.
+func (c *columnAny) DeleteMany(items *bitmap.Bitmap) {
+	c.Lock()
+	defer c.Unlock()
+
+	// Note: we don't clean up the actual data by setting it to nil, which could cause
+	// a leak of memory. However, it should be replaced via an insertion so should not
+	// be too bad.
+	c.fill.AndNot(*items)
 }
 
 // --------------------------- booleans ----------------------------
@@ -338,11 +355,17 @@ func (c *index) Update(idx uint32, value interface{}) {
 func (c *index) UpdateMany(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
+
+	// Index can only be updated based on the final stored value, so we can only work
+	// with put operations here. The trick is to update the final value after applying
+	// on the actual column.
 	for _, u := range updates {
-		if c.rule(u.Value) {
-			c.fill.Set(u.Index)
-		} else {
-			c.fill.Remove(u.Index)
+		if u.Kind == UpdatePut {
+			if c.rule(u.Value) {
+				c.fill.Set(u.Index)
+			} else {
+				c.fill.Remove(u.Index)
+			}
 		}
 	}
 }

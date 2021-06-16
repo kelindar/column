@@ -10,6 +10,22 @@ import (
 	"github.com/kelindar/bitmap"
 )
 
+// UpdateKind represents a type of an update operation.
+type UpdateKind uint8
+
+// Various update operations supported.
+const (
+	UpdatePut UpdateKind = iota // Put stores a value regardless of a previous value
+	UpdateAdd                   // Add increments the current stored value by the amount
+)
+
+// Update represents an update operation
+type Update struct {
+	Kind  UpdateKind  // The type of an update operation
+	Index uint32      // The index to update/delete
+	Value interface{} // The value to update to
+}
+
 // --------------------------- Pool of Transactions ----------------------------
 
 // txns represents a pool of transactions
@@ -292,7 +308,7 @@ func (txn *Txn) updatePending() {
 
 		// Get the column that needs to be updated
 		columns, exists := txn.owner.cols.LoadWithIndex(u.name)
-		if !exists {
+		if !exists || len(columns) == 0 {
 			continue
 		}
 
@@ -395,12 +411,6 @@ func (cur *Selector) BoolAt(column string) bool {
 
 // --------------------------- Update ----------------------------
 
-// Update represents an update operation
-type Update struct {
-	Index uint32      // The index to update/delete
-	Value interface{} // The value to update to
-}
-
 // Delete deletes the current item. The actual operation will be queued and
 // executed once the current the transaction completes.
 func (cur *Selector) Delete() {
@@ -413,6 +423,7 @@ func (cur *Selector) UpdateAt(column string, value interface{}) {
 	for i, c := range cur.txn.updates {
 		if c.name == column {
 			cur.txn.updates[i].update = append(c.update, Update{
+				Kind:  UpdatePut,
 				Index: cur.index,
 				Value: value,
 			})
@@ -424,8 +435,34 @@ func (cur *Selector) UpdateAt(column string, value interface{}) {
 	cur.txn.updates = append(cur.txn.updates, updateQueue{
 		name: column,
 		update: []Update{{
+			Kind:  UpdatePut,
 			Index: cur.index,
 			Value: value,
+		}},
+	})
+}
+
+// Add atomically increments/decrements the column value by the specified amount. Note
+// that this only works for numerical values and the type of the value must match.
+func (cur *Selector) AddAt(column string, amount interface{}) {
+	for i, c := range cur.txn.updates {
+		if c.name == column {
+			cur.txn.updates[i].update = append(c.update, Update{
+				Kind:  UpdateAdd,
+				Index: cur.index,
+				Value: amount,
+			})
+			return
+		}
+	}
+
+	// Create a new update queue
+	cur.txn.updates = append(cur.txn.updates, updateQueue{
+		name: column,
+		update: []Update{{
+			Kind:  UpdateAdd,
+			Index: cur.index,
+			Value: amount,
 		}},
 	})
 }
@@ -486,7 +523,18 @@ func (cur *Cursor) Bool() bool {
 // will be queued and executed once the current the transaction completes.
 func (cur *Cursor) Update(value interface{}) {
 	cur.txn.updates[cur.update].update = append(cur.txn.updates[cur.update].update, Update{
+		Kind:  UpdatePut,
 		Index: cur.index,
 		Value: value,
+	})
+}
+
+// Add atomically increments/decrements the current value by the specified amount. Note
+// that this only works for numerical values and the type of the value must match.
+func (cur *Cursor) Add(amount interface{}) {
+	cur.txn.updates[cur.update].update = append(cur.txn.updates[cur.update].update, Update{
+		Kind:  UpdateAdd,
+		Index: cur.index,
+		Value: amount,
 	})
 }

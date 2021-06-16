@@ -78,9 +78,15 @@ func TestOfFloat32s(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.UpdateMany([]Update{{1, float32(1)}, {2, float32(2)}})
+		c.UpdateMany([]Update{
+			{Kind: UpdatePut, Index: 1, Value: float32(2)},
+			{Kind: UpdatePut, Index: 2, Value: float32(3)},
+			{Kind: UpdateAdd, Index: 1, Value: float32(2)},
+		})
 		assert.True(t, c.Contains(1))
 		assert.True(t, c.Contains(2))
+		v, _ := c.Int64(1)
+		assert.Equal(t, int64(4), v)
 	}
 
 }
@@ -152,9 +158,15 @@ func TestOfFloat64s(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.UpdateMany([]Update{{1, float64(1)}, {2, float64(2)}})
+		c.UpdateMany([]Update{
+			{Kind: UpdatePut, Index: 1, Value: float64(2)},
+			{Kind: UpdatePut, Index: 2, Value: float64(3)},
+			{Kind: UpdateAdd, Index: 1, Value: float64(2)},
+		})
 		assert.True(t, c.Contains(1))
 		assert.True(t, c.Contains(2))
+		v, _ := c.Int64(1)
+		assert.Equal(t, int64(4), v)
 	}
 
 }
@@ -226,9 +238,15 @@ func TestOfInts(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.UpdateMany([]Update{{1, int(1)}, {2, int(2)}})
+		c.UpdateMany([]Update{
+			{Kind: UpdatePut, Index: 1, Value: int(2)},
+			{Kind: UpdatePut, Index: 2, Value: int(3)},
+			{Kind: UpdateAdd, Index: 1, Value: int(2)},
+		})
 		assert.True(t, c.Contains(1))
 		assert.True(t, c.Contains(2))
+		v, _ := c.Int64(1)
+		assert.Equal(t, int64(4), v)
 	}
 
 }
@@ -300,9 +318,15 @@ func TestOfInt16s(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.UpdateMany([]Update{{1, int16(1)}, {2, int16(2)}})
+		c.UpdateMany([]Update{
+			{Kind: UpdatePut, Index: 1, Value: int16(2)},
+			{Kind: UpdatePut, Index: 2, Value: int16(3)},
+			{Kind: UpdateAdd, Index: 1, Value: int16(2)},
+		})
 		assert.True(t, c.Contains(1))
 		assert.True(t, c.Contains(2))
+		v, _ := c.Int64(1)
+		assert.Equal(t, int64(4), v)
 	}
 
 }
@@ -374,9 +398,15 @@ func TestOfInt32s(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.UpdateMany([]Update{{1, int32(1)}, {2, int32(2)}})
+		c.UpdateMany([]Update{
+			{Kind: UpdatePut, Index: 1, Value: int32(2)},
+			{Kind: UpdatePut, Index: 2, Value: int32(3)},
+			{Kind: UpdateAdd, Index: 1, Value: int32(2)},
+		})
 		assert.True(t, c.Contains(1))
 		assert.True(t, c.Contains(2))
+		v, _ := c.Int64(1)
+		assert.Equal(t, int64(4), v)
 	}
 
 }
@@ -448,9 +478,15 @@ func TestOfInt64s(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.UpdateMany([]Update{{1, int64(1)}, {2, int64(2)}})
+		c.UpdateMany([]Update{
+			{Kind: UpdatePut, Index: 1, Value: int64(2)},
+			{Kind: UpdatePut, Index: 2, Value: int64(3)},
+			{Kind: UpdateAdd, Index: 1, Value: int64(2)},
+		})
 		assert.True(t, c.Contains(1))
 		assert.True(t, c.Contains(2))
+		v, _ := c.Int64(1)
+		assert.Equal(t, int64(4), v)
 	}
 
 }
@@ -522,9 +558,15 @@ func TestOfUints(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.UpdateMany([]Update{{1, uint(1)}, {2, uint(2)}})
+		c.UpdateMany([]Update{
+			{Kind: UpdatePut, Index: 1, Value: uint(2)},
+			{Kind: UpdatePut, Index: 2, Value: uint(3)},
+			{Kind: UpdateAdd, Index: 1, Value: uint(2)},
+		})
 		assert.True(t, c.Contains(1))
 		assert.True(t, c.Contains(2))
+		v, _ := c.Int64(1)
+		assert.Equal(t, int64(4), v)
 	}
 
 }
@@ -596,9 +638,15 @@ func TestOfUint16s(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.UpdateMany([]Update{{1, uint16(1)}, {2, uint16(2)}})
+		c.UpdateMany([]Update{
+			{Kind: UpdatePut, Index: 1, Value: uint16(2)},
+			{Kind: UpdatePut, Index: 2, Value: uint16(3)},
+			{Kind: UpdateAdd, Index: 1, Value: uint16(2)},
+		})
 		assert.True(t, c.Contains(1))
 		assert.True(t, c.Contains(2))
+		v, _ := c.Int64(1)
+		assert.Equal(t, int64(4), v)
 	}
 
 }
@@ -670,9 +718,15 @@ func TestOfUint32s(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.UpdateMany([]Update{{1, uint32(1)}, {2, uint32(2)}})
+		c.UpdateMany([]Update{
+			{Kind: UpdatePut, Index: 1, Value: uint32(2)},
+			{Kind: UpdatePut, Index: 2, Value: uint32(3)},
+			{Kind: UpdateAdd, Index: 1, Value: uint32(2)},
+		})
 		assert.True(t, c.Contains(1))
 		assert.True(t, c.Contains(2))
+		v, _ := c.Int64(1)
+		assert.Equal(t, int64(4), v)
 	}
 
 }
@@ -744,9 +798,15 @@ func TestOfUint64s(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.UpdateMany([]Update{{1, uint64(1)}, {2, uint64(2)}})
+		c.UpdateMany([]Update{
+			{Kind: UpdatePut, Index: 1, Value: uint64(2)},
+			{Kind: UpdatePut, Index: 2, Value: uint64(3)},
+			{Kind: UpdateAdd, Index: 1, Value: uint64(2)},
+		})
 		assert.True(t, c.Contains(1))
 		assert.True(t, c.Contains(2))
+		v, _ := c.Int64(1)
+		assert.Equal(t, int64(4), v)
 	}
 
 }

@@ -30,8 +30,6 @@ func makenumbers() Column {
 // Update sets a value at a specified index
 func (c *columnnumber) Update(idx uint32, value interface{}) {
 	c.Lock()
-	defer c.Unlock()
-
 	size := uint32(len(c.data))
 	for i := size; i <= idx; i++ {
 		c.data = append(c.data, 0)
@@ -40,6 +38,7 @@ func (c *columnnumber) Update(idx uint32, value interface{}) {
 	// Set the data at index
 	c.fill.Set(idx)
 	c.data[idx] = value.(number)
+	c.Unlock()
 }
 
 // UpdateMany performs a series of updates at once
@@ -47,9 +46,24 @@ func (c *columnnumber) UpdateMany(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
 
-	for _, u := range updates {
+	// Range over all of the updates, and depending on the operation perform the action
+	for i, u := range updates {
 		c.fill.Set(u.Index)
-		c.data[u.Index] = u.Value.(number)
+		switch u.Kind {
+		case UpdatePut:
+			c.data[u.Index] = u.Value.(number)
+
+		// If this is an atomic increment/decrement, we need to change the operation to
+		// the final value, since after this update an index needs to be recalculated.
+		case UpdateAdd:
+			value := c.data[u.Index] + u.Value.(number)
+			c.data[u.Index] = value
+			updates[i] = Update{
+				Kind:  UpdatePut,
+				Index: u.Index,
+				Value: value,
+			}
+		}
 	}
 }
 

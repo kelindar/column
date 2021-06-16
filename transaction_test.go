@@ -188,7 +188,7 @@ func TestUpdate(t *testing.T) {
 		return v.(float64) < 100
 	})
 	players.CreateIndex("rich", "balance", func(v interface{}) bool {
-		return v.(float64) > 3000
+		return v.(float64) >= 3000
 	})
 
 	// Delete all old people from the collection
@@ -242,7 +242,6 @@ func TestUpdate(t *testing.T) {
 	// Now the index should also be updated
 	players.Query(func(txn *Txn) error {
 		assert.Equal(t, 245, txn.With("rich").Count())
-		assert.Equal(t, 0, txn.With("broke").Count())
 		return nil
 	})
 
@@ -258,8 +257,45 @@ func TestUpdate(t *testing.T) {
 	// Everyone should still be rich
 	players.Query(func(txn *Txn) error {
 		assert.Equal(t, 245, txn.With("rich").Count())
-		assert.Equal(t, 0, txn.With("broke").Count())
 		return nil
 	})
 
+	// Reset balance back to zero
+	println("reset balance")
+	players.Query(func(txn *Txn) error {
+		return txn.Range("balance", func(v Cursor) bool {
+			v.Update(0.0)
+			return true
+		})
+	})
+
+	// Everyone should be poor
+	players.Query(func(txn *Txn) error {
+		assert.Equal(t, 245, txn.With("broke").Count())
+		return nil
+	})
+
+	// Increment balance 30 times by 100+100 = 6000
+	players.Query(func(txn *Txn) error {
+		for i := 0; i < 30; i++ {
+			txn.Range("balance", func(v Cursor) bool {
+				v.Add(100.0)
+				v.AddAt("balance", 100.0)
+				return true
+			})
+			txn.Commit()
+		}
+		return nil
+	})
+
+	// Everyone should now be rich and the indexes updated
+	players.Query(func(txn *Txn) error {
+		txn.Range("balance", func(v Cursor) bool {
+			assert.Equal(t, 6000.0, v.Float())
+			return true
+		})
+
+		assert.Equal(t, 245, txn.With("rich").Count())
+		return nil
+	})
 }

@@ -186,6 +186,19 @@ players.Query(func(txn *Txn) error {
 })
 ```
 
+In certain cases, you might want to atomically increment or decrement numerical values. In order to accomplish this you can use the provided `Add()` or `AddAt()` operations of the `Cursor` or `Selector`. Note that the indexes will also be updated accordingly and the predicates re-evaluated with the most up-to-date values. In the below example we're incrementing the balance of all our rogues by *500* atomically.
+
+```go
+players.Query(func(txn *Txn) error {
+	txn.With("rogue").Range("balance", func(v column.Cursor) bool {
+		v.Add(500.0) // Increment the "balance" by 500
+		return true
+	})
+	return nil
+})
+```
+
+
 ## Transaction Commit & Rollback
 
 Transactions allow for isolation between two concurrent operations. In fact, all of the batch queries must go through a transaction in this library. The `Query` method requires a function which takes in a `column.Txn` pointer which contains various helper methods that support querying. In the example below we're trying to iterate over all of the players and update their balance by setting it to `10.0`. The `Query` method automatically calls `txn.Commit()` if the function returns without any error. On the flip side, if the provided function returns an error, the query will automatically call `txn.Rollback()` so none of the changes will be applied.
@@ -313,7 +326,7 @@ BenchmarkCollection/select-8          1214799      975.8 ns/op      0 B/op     0
 BenchmarkCollection/update-at-8      28573945       41.99 ns/op     0 B/op     0 allocs/op
 BenchmarkCollection/update-all-8       184694      6481 ns/op       0 B/op     0 allocs/op
 BenchmarkCollection/delete-at-8       2613982      459.1 ns/op      0 B/op     0 allocs/op
-BenchmarkCollection/delete-all-8       324321     3730 ns/op        0 B/op     0 allocs/op
+BenchmarkCollection/delete-all-8       296901      3762 ns/op       0 B/op     0 allocs/op
 ```
 
 ## Contributing

@@ -79,14 +79,9 @@ func TestColumn(t *testing.T) {
 		assert.True(t, ok)
 		assert.Equal(t, "roman", v2)
 	}
-
 }
 
-func TestPropertyOrder(t *testing.T) {
-
-	// TODO: not sure if it's all correct, what happens if
-	// we have 2 properties?
-
+func TestColumnOrder(t *testing.T) {
 	p := makeAny()
 	for i := uint32(100); i < 200; i++ {
 		p.Update(i, i)
@@ -155,7 +150,7 @@ func TestColumns(t *testing.T) {
 		}
 
 		{ // Update several items at once
-			c.UpdateMany([]Update{{1, true}, {2, false}})
+			c.UpdateMany([]Update{{Index: 1, Value: true}, {Index: 2, Value: false}})
 			assert.True(t, c.Contains(1))
 			assert.True(t, c.Contains(2))
 		}

@@ -76,9 +76,15 @@ func TestOfnumbers(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.UpdateMany([]Update{{1, number(1)}, {2, number(2)}})
+		c.UpdateMany([]Update{
+			{Kind: UpdatePut, Index: 1, Value: number(2)},
+			{Kind: UpdatePut, Index: 2, Value: number(3)},
+			{Kind: UpdateAdd, Index: 1, Value: number(2)},
+		})
 		assert.True(t, c.Contains(1))
 		assert.True(t, c.Contains(2))
+		v, _ := c.Int64(1)
+		assert.Equal(t, int64(4), v)
 	}
 
 }
