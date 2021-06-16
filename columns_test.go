@@ -4,6 +4,7 @@
 package column
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/kelindar/bitmap"
@@ -44,7 +45,7 @@ func BenchmarkColumn(b *testing.B) {
 	})
 }
 
-func TestProperty(t *testing.T) {
+func TestColumn(t *testing.T) {
 	p := makeAny().(*columnAny)
 
 	{ // Set the value at index
@@ -158,5 +159,13 @@ func TestColumns(t *testing.T) {
 			assert.True(t, c.Contains(1))
 			assert.True(t, c.Contains(2))
 		}
+	}
+}
+
+func TestFromKind(t *testing.T) {
+	for i := 0; i < 26; i++ {
+		column := FromKind(reflect.Kind(i))
+		_, ok := column.Value(100)
+		assert.False(t, ok)
 	}
 }

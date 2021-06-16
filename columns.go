@@ -13,6 +13,23 @@ import (
 	"github.com/kelindar/bitmap"
 )
 
+// Various column constructor functions
+var (
+	Any     = makeAny
+	String  = makeAny
+	Float32 = makeFloat32s
+	Float64 = makeFloat64s
+	Int     = makeInts
+	Int16   = makeInt16s
+	Int32   = makeInt32s
+	Int64   = makeInt64s
+	Uint    = makeUints
+	Uint16  = makeUint16s
+	Uint32  = makeUint32s
+	Uint64  = makeUint64s
+	Bool    = makeBools
+)
+
 // Column represents a column implementation
 type Column interface {
 	Update(idx uint32, value interface{})
@@ -33,8 +50,8 @@ type numerical interface {
 	Int64(uint32) (int64, bool)
 }
 
-// columnFor creates a new column instance for a specified type
-func columnFor(columnName string, kind reflect.Kind) Column {
+// FromKind creates a new column instance for a specified reflect.Kind
+func FromKind(kind reflect.Kind) Column {
 	switch kind {
 	case reflect.Float32:
 		return makeFloat32s()
@@ -181,8 +198,6 @@ type columnBool struct {
 	sync.RWMutex
 	fill bitmap.Bitmap // The fill-list
 	data bitmap.Bitmap // The actual values
-
-	hits uint64 // TEST
 }
 
 // makeBools creates a new boolean column
@@ -323,7 +338,6 @@ func (c *index) Update(idx uint32, value interface{}) {
 func (c *index) UpdateMany(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
-
 	for _, u := range updates {
 		if c.rule(u.Value) {
 			c.fill.Set(u.Index)
@@ -334,12 +348,11 @@ func (c *index) UpdateMany(updates []Update) {
 }
 
 // Value retrieves a value at a specified index.
-func (c *index) Value(idx uint32) (interface{}, bool) {
+func (c *index) Value(idx uint32) (v interface{}, ok bool) {
 	c.RLock()
-	defer c.RUnlock()
-	if idx >= uint32(len(c.fill))*64 {
-		return false, false
+	if idx < uint32(len(c.fill))<<6 {
+		v, ok = c.fill.Contains(idx), true
 	}
-
-	return c.fill.Contains(idx), true
+	c.RUnlock()
+	return
 }

@@ -49,10 +49,10 @@ Now, let's say we only want specific columns to be added. We can do this by call
 ```go
 // Create a new columnar collection with pre-defined columns
 players := column.NewCollection()
-players.CreateColumn("name", reflect.String)
-players.CreateColumn("class", reflect.String)
-players.CreateColumn("balance", reflect.Float64)
-players.CreateColumn("age", reflect.Int8)
+players.CreateColumn("name", column.String())
+players.CreateColumn("class", column.String())
+players.CreateColumn("balance", column.Float64())
+players.CreateColumn("age", column.Int16())
 
 // Insert every item from our loaded data
 for _, v := range loadFromJson("players.json") {
