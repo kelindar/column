@@ -26,7 +26,216 @@ The general idea is to leverage cache-friendly ways of organizing data in [struc
  * Optimized **batch updates/deletes**, an update during a transaction takes around `12ns`.
 
 
-## Example usage
+
+## Collection & Columns
+
+In order to get data into the store, you'll need to first create a `Collection` by calling `NewCollection()` method. Each collection requires a schema, which can be either specified manually by calling `CreateColumn()` multiple times or automatically inferred from an object by calling `CreateColumnsOf()` function. 
+
+In the example below we're loading some `JSON` data by using `json.Unmarshal()` and auto-creating colums based on the first element on the loaded slice. After this is done, we can then load our data by inserting the objects one by one into the collection. This is accomplished by calling `Insert()` method on the collection itself repeatedly.
+
+```go
+data := loadFromJson("players.json")
+
+// Create a new columnar collection
+players := column.NewCollection()
+players.CreateColumnsOf(data[0])
+
+// Insert every item from our loaded data
+for _, v := range data {
+	players.Insert(v)
+}
+```
+
+Now, let's say we only want specific columns to be added. We can do this by calling `CreateColumn()` method on the collection manually to create the required columns.
+
+```go
+// Create a new columnar collection with pre-defined columns
+players := column.NewCollection()
+players.CreateColumn("name", reflect.String)
+players.CreateColumn("class", reflect.String)
+players.CreateColumn("balance", reflect.Float64)
+players.CreateColumn("age", reflect.Int8)
+
+// Insert every item from our loaded data
+for _, v := range loadFromJson("players.json") {
+	players.Insert(v)
+}
+```
+
+## Querying & Indexing
+
+The store allows you to query the data based on a presence of certain attributes or their values. In the example below we are querying our collection and applying a *filtering* operation bu using `WithValue()` method on the transaction. This method scans the values and checks whether a certain predicate evaluates to `true`. In this case, we're scanning through all of the players and looking up their `class`, if their class is equal to "rogue", we'll take it. At the end, we're calling `Count()` method that simply counts the result set.
+
+```go
+// This query performs a full scan of "class" column
+players.Query(func(txn *column.Txn) error {
+	count := txn.WithValue("class", func(v interface{}) bool {
+		return v == "rogue"
+	}).Count()
+	return nil
+})
+```
+
+Now, what if we'll need to do this query very often? It is possible to simply *create an index* with the same predicate and have this computation being applied every time (a) an object is inserted into the collection and (b) an value of the dependent column is updated. Let's look at the example below, we're fist creating a `rogue` index which depends on "class" column. This index applies the same predicate which only returns `true` if a class is "rogue". We then can query this by simply calling `With()` method and providing the index name. 
+
+An index is essentially akin to a boolean column, so you could technically also select it's value when querying it. Now, in this example the query would be around `10-100x` faster to execute as behind the scenes it uses [bitmap indexing](https://github.com/kelindar/bitmap) for the "rogue" index and performs a simple logical `AND` operation on two bitmaps when querying. This avoid the entire scanning and applying of a predicate during the `Query`.
+
+```go
+// Create the index "rogue" in advance
+out.CreateIndex("rogue", "class", func(v interface{}) bool {
+	return v == "rogue"
+})
+
+// This returns the same result as the query before, but much faster
+players.Query(func(txn *column.Txn) error {
+	count := txn.With("rogue").Count()
+	return nil
+})
+```
+
+The query can be further expanded as it allows indexed `intersection`, `difference` and `union` operations. This allows you to ask more complex questions of a collection. In the examples below let's assume we have a bunch of indexes on the `class` column and we want to ask different questions.
+
+First, let's try to merge two queries by applying a `Union()` operation with the method named the same. Here, we first select only rogues but then merge them together with mages, resulting in selection containing both rogues and mages.
+
+```go
+// How many rogues and mages?
+players.Query(func(txn *Txn) error {
+	txn.With("rogue").Union("mage").Count()
+	return nil
+})
+```
+
+Next, let's count everyone who isn't a rogue, for that we can use a `Without()` method which performs a difference (i.e. binary `AND NOT` operation) on the collection. This will result in a count of all players in the collection except the rogues.
+
+```go
+// How many rogues and mages?
+players.Query(func(txn *Txn) error {
+	txn.Without("rogue").Count()
+	return nil
+})
+```
+
+Now, you can combine all of the methods and keep building more complex queries. When querying indexed and non-indexed fields together it is important to know that as every scan will apply to only the selection, speeding up the query. So if you have a filter on a specific index that selects 50% of players and then you perform a scan on that (e.g. `WithValue()`), it will only scan 50% of users and hence will be 2x faster. 
+
+```go
+// How many rogues that are over 30 years old?
+players.Query(func(txn *Txn) error {
+	txn.With("rogue").WithFloat("age", func(v float64) bool {
+		return v >= 30
+	}).Count()
+	return nil
+})
+```
+
+## Iterating over Results
+
+In all of the previous examples, we've only been doing `Count()` operation which counts the number of elements in the result set. In this section we'll look how we can iterate over the result set. In short, there's 2 main methods that allow us to do it:
+
+ 1. `Range()` method which takes in a column name as an argument and allows faster get/set of the values for that column.
+ 2. `Select()` method which doesn't pre-select any specific column, so it's usually a bit slower if you're actually selecting the data. 
+
+Let's first examine the `Range()` method. In the example below we select all of the rogues from our collection and print out their name by using the `Range()` method and providing "name" column to it. The callback containing the `Cursor` allows us to quickly get the value of the column by calling `String()` method to retrieve a string value. It also contains methods such as `Int()`, `Uint()`, `Float()` or more generic `Value()` to pull data of different types.
+
+```go
+players.Query(func(txn *Txn) error {
+	txn.With("rogue").Range(func(v column.Cursor) bool {
+		println("rogue name ", v.String()) // Prints the name
+		return true
+	}, "name")
+	return nil
+})
+```
+
+Now, what if you need two columns? The range only allows you to quickly select a single column, but you can still retrieve other columns by their name during the iteration. This can be accomplished by corresponding `StringAt()`, `FloatAt()`, `IntAt()`, `UintAt()` or `ValueAt()` methods as shown below.
+
+```go
+players.Query(func(txn *Txn) error {
+	txn.With("rogue").Range(func(v column.Cursor) bool {
+		println("rogue name ", v.String())    // Prints the name
+		println("rogue age ", v.IntAt("age")) // Prints the age
+		return true
+	}, "name")
+	return nil
+})
+```
+
+Now, what if you need to quickly delete all of the rogues from the collection? In this case `Select()` method comes in handy specifically because it does not require pre-selected columns and it will be slightly faster to do a batch deletion with it. In the example below we filter all of the rogues and delete them. 
+
+```go
+players.Query(func(txn *Txn) error {
+	txn.With("rogue").Select(func(v column.Selector) bool {
+		v.Delete()
+		return true
+	})
+	return nil
+})
+```
+
+## Updating
+
+In order to update certain items in the collection, you can simply call `Range()` method and the corresponding `Cursor`'s `Update()` or `UpdateAt()` methods that allow to update a value of a certain column atomically. The updates won't be directly reflected given that the store supports transactions and only when transaction is commited, then the update will be applied to the collection. This allows for isolation and rollbacks.
+
+In the example below we're selecting all of the rogues and updating both their balance and age to certain values. The transaction returns `nil`, hence it will be automatically committed when `Query()` method returns.
+
+```go
+players.Query(func(txn *Txn) error {
+	txn.With("rogue").Range(func(v column.Cursor) bool {
+		v.Update(10.0)        // Update the "balance" to 10.0
+		v.UpdateAt("age", 50) // Update the "age" to 50
+		return true
+	}, "balance") // Select the balance
+	return nil
+})
+```
+
+## Transaction Commit & Rollback
+
+Transactions allow for isolation between two concurrent operations. In fact, all of the batch queries must go through a transaction in this library. The `Query` method requires a function which takes in a `column.Txn` pointer which contains various helper methods that support querying. In the example below we're trying to iterate over all of the players and update their balance by setting it to `10.0`. The `Query` method automatically calls `txn.Commit()` if the function returns without any error. On the flip side, if the provided function returns an error, the query will automatically call `txn.Rollback()` so none of the changes will be applied.
+
+```go
+// Range over all of the players and update (successfully their balance)
+players.Query(func(txn *column.Txn) error {
+	txn.Range(func(v column.Cursor) bool {
+		v.Update(10.0) // Update the "balance" to 10.0
+		return true
+	}, "balance")
+
+	// No error, txn.Commit() will be called
+	return nil
+})
+```
+
+Now, in this example, we try to update balance but a query callback returns an error, in which case none of the updates will be actually reflected in the underlying collection.
+
+```go
+// Range over all of the players and update (successfully their balance)
+players.Query(func(txn *column.Txn) error {
+	txn.Range(func(v column.Cursor) bool {
+		v.Update(10.0) // Update the "balance" to 10.0
+		return true
+	}, "balance")
+
+	// Returns an error, txn.Rollback() will be called
+	return fmt.Errorf("bug") 
+})
+```
+
+You can (but probablty won't need to) call `Commit()` or `Rollback()` manually, as many times as required. This could be handy to do partial updates but calling them too often will have a performance hit on your application.
+
+```go
+// Range over all of the players and update (successfully their balance)
+players.Query(func(txn *column.Txn) error {
+	txn.Range(func(v column.Cursor) bool {
+		v.Update(10.0) // Update the "balance" to 10.0
+		return true
+	}, "balance")
+
+	txn.Commit() // Manually commit all of the changes
+	return nil   // This will call txn.Commit() again, but will be a no-op
+})
+```
+
+## Complete Example
 
 ```go
 func main(){
@@ -90,88 +299,6 @@ func main(){
 	})
 }
 ```
-
-## Collection & Columns
-
-In order to get data into the store, you'll need to first create a `Collection` by calling `NewCollection()` method. Each collection requires a schema, which can be either specified manually by calling `CreateColumn()` multiple times or automatically inferred from an object by calling `CreateColumnsOf()` function. 
-
-In the example below we're loading some `JSON` data by using `json.Unmarshal()` and auto-creating colums based on the first element on the loaded slice. After this is done, we can then load our data by inserting the objects one by one into the collection. This is accomplished by calling `Insert()` method on the collection itself repeatedly.
-
-```go
-data := loadFromJson("players.json")
-
-// Create a new columnar collection
-players := column.NewCollection()
-players.CreateColumnsOf(data[0])
-
-// Insert every item from our loaded data
-for _, v := range data {
-	players.Insert(v)
-}
-```
-
-Now, let's say we only want specific columns to be added. We can do this by calling `CreateColumn()` method on the collection manually to create the required columns.
-
-```go
-// Create a new columnar collection with pre-defined columns
-players := column.NewCollection()
-players.CreateColumn("name", reflect.String)
-players.CreateColumn("balance", reflect.Float64)
-players.CreateColumn("age", reflect.Int8)
-
-// Insert every item from our loaded data
-for _, v := range loadFromJson("players.json") {
-	players.Insert(v)
-}
-```
-
-## Transaction Commit & Rollback
-
-Transactions allow for isolation between two concurrent operations. In fact, all of the batch queries must go through a transaction in this library. The `Query` method requires a function which takes in a `column.Txn` pointer which contains various helper methods that support querying. In the example below we're trying to iterate over all of the players and update their balance by setting it to `10.0`. The `Query` method automatically calls `txn.Commit()` if the function returns without any error. On the flip side, if the provided function returns an error, the query will automatically call `txn.Rollback()` so none of the changes will be applied.
-
-```go
-// Range over all of the players and update (successfully their balance)
-players.Query(func(txn *column.Txn) error {
-	txn.Range(func(v column.Cursor) bool {
-		v.Update(10.0) // Update the "balance" to 10.0
-		return true
-	}, "balance")
-
-	// No error, txn.Commit() will be called
-	return nil
-})
-```
-
-Now, in this example, we try to update balance but a query callback returns an error, in which case none of the updates will be actually reflected in the underlying collection.
-
-```go
-// Range over all of the players and update (successfully their balance)
-players.Query(func(txn *column.Txn) error {
-	txn.Range(func(v column.Cursor) bool {
-		v.Update(10.0) // Update the "balance" to 10.0
-		return true
-	}, "balance")
-
-	// Returns an error, txn.Rollback() will be called
-	return fmt.Errorf("bug") 
-})
-```
-
-You can (but probablty won't need to) call `Commit()` or `Rollback()` manually, as many times as required. This could be handy to do partial updates but calling them too often will have a performance hit on your application.
-
-```go
-// Range over all of the players and update (successfully their balance)
-players.Query(func(txn *column.Txn) error {
-	txn.Range(func(v column.Cursor) bool {
-		v.Update(10.0) // Update the "balance" to 10.0
-		return true
-	}, "balance")
-
-	txn.Commit() // Manually commit all of the changes
-	return nil   // This will call txn.Commit() again, but will be a no-op
-})
-```
-
 
 ## Benchmarks
 

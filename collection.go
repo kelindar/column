@@ -18,7 +18,6 @@ type Object = map[string]interface{}
 // Collection represents a collection of objects in a columnar format
 type Collection struct {
 	lock sync.RWMutex  // The lock for fill list
-	sort uint64        // Optimization flag
 	cols columns       // The map of columns
 	fill bitmap.Bitmap // The fill-list
 }
@@ -328,17 +327,3 @@ func (c *columns) DeleteIndex(columnName, indexName string) {
 
 	c.cols.Store(columns)
 }
-
-// Optimize sorts the columns for faster access
-/*func (c *columns) Optimize() {
-	columns := c.cols.Load().([]columnEntry)
-	sort.Slice(columns, func(i, j int) bool {
-		return columns[i].cols[0].Hits() > columns[j].cols[0].Hits()
-	})
-
-	for _, c := range columns {
-		c.cols[0].HitsReset()
-	}
-	c.cols.Store(columns)
-}
-*/
