@@ -10,7 +10,7 @@
 
 ## Columnar In-Memory Store with Bitmap Indexing
 
-This package contains a **hihg-performance, columnar, in-memory storage engine** that supports fast querying, update and iteration with zero-allocations and bitmap indexing.
+This package contains a **high-performance, columnar, in-memory storage engine** that supports fast querying, update and iteration with zero-allocations and bitmap indexing.
 
 ## Features
 
