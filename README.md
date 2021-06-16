@@ -169,7 +169,7 @@ players.Query(func(txn *Txn) error {
 })
 ```
 
-## Updating
+## Updating Values
 
 In order to update certain items in the collection, you can simply call `Range()` method and the corresponding `Cursor`'s `Update()` or `UpdateAt()` methods that allow to update a value of a certain column atomically. The updates won't be directly reflected given that the store supports transactions and only when transaction is commited, then the update will be applied to the collection. This allows for isolation and rollbacks.
 
@@ -198,6 +198,33 @@ players.Query(func(txn *Txn) error {
 })
 ```
 
+## Expiring Values
+
+Sometimes, it is useful to automatically delete certain rows when you do not need them anymore. In order to do this, the library automatically adds an `expire` column to each new collection and starts a cleanup goroutine aynchronously that runs periodically and cleans up the expired objects. In order to set this, you can simply use `InsertWithTTL()` method on the collection that allows to insert an object with a time-to-live duration defined.
+
+In the example below we are inserting an object to the collection and setting the time-to-live to *5 seconds* from the current time. After this time, the object will be automatically evicted from the collection and its space can be reclaimed.
+
+```go
+players.InsertWithTTL(map[string]interface{}{
+	"name": "Merlin",
+	"class": "mage",
+	"age": 55,
+	"balance": 500,
+}, 5 * time.Second) // The time-to-live of 5 seconds
+```
+
+On an interestig node, since `expire` column which is automatically added to each collection is an actual normal column, you can query and even update it. In the example below we query and conditionally update the expiration column. The example loads a time, adds one hour and updates it, but in practice if you want to do it you should use `Add()` method which can perform this atomically.
+
+```go
+players.Query(func(txn *column.Txn) error {
+	return txn.Range("expire", func(v column.Cursor) bool {
+		oldExpire := time.Unix(0, v.Int()) // Convert expiration to time.Time
+		newExpire := expireAt.Add(1 * time.Hour).UnixNano()  // Add some time
+		v.Update(newExpire)
+		return true
+	})
+})
+```
 
 ## Transaction Commit & Rollback
 

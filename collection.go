@@ -4,10 +4,12 @@
 package column
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/kelindar/bitmap"
 )
@@ -15,23 +17,46 @@ import (
 // Object represents a single object
 type Object = map[string]interface{}
 
+const (
+	expireColumn = "expire"
+)
+
 // Collection represents a collection of objects in a columnar format
 type Collection struct {
-	lock sync.RWMutex  // The lock for fill list
-	cols columns       // The map of columns
-	fill bitmap.Bitmap // The fill-list
+	lock sync.RWMutex       // The lock for fill list
+	cols columns            // The map of columns
+	fill bitmap.Bitmap      // The fill-list
+	stop context.CancelFunc // The cancellation function
 }
 
 // NewCollection creates a new columnar collection.
 func NewCollection() *Collection {
-	return &Collection{
+	ctx, cancel := context.WithCancel(context.Background())
+	store := &Collection{
 		cols: makeColumns(8),
 		fill: make(bitmap.Bitmap, 0, 4),
+		stop: cancel,
 	}
+
+	// Create an expiration column and start the cleanup goroutine
+	store.CreateColumn(expireColumn, ForInt64())
+	go store.vacuum(ctx, time.Second)
+	return store
 }
 
-// Insert adds an object to a collection and returns the allocated index
+// Insert adds an object to a collection and returns the allocated index.
 func (c *Collection) Insert(obj Object) uint32 {
+	return c.insert(obj, 0)
+}
+
+// InsertWithTTL adds an object to a collection, sets the expiration time
+// based on the specified time-to-live and returns the allocated index.
+func (c *Collection) InsertWithTTL(obj Object, ttl time.Duration) uint32 {
+	return c.insert(obj, time.Now().Add(ttl).UnixNano())
+}
+
+// insert adds an object to a collection and returns the allocated index
+func (c *Collection) insert(obj Object, expireAt int64) uint32 {
 	c.lock.Lock()
 
 	// Find the index for the add
@@ -53,6 +78,10 @@ func (c *Collection) Insert(obj Object) uint32 {
 
 		if v, ok := obj[columnName]; ok {
 			column.Update(idx, v)
+		}
+
+		if columnName == expireColumn && expireAt != 0 {
+			column.Update(idx, expireAt)
 		}
 	})
 
@@ -192,6 +221,34 @@ func (c *Collection) Fetch(idx uint32) (Selector, bool) {
 		index: idx,
 		owner: c,
 	}, true
+}
+
+// Close closes the collection and clears up all of the resources.
+func (c *Collection) Close() error {
+	c.stop()
+	return nil
+}
+
+// vacuum cleans up the expired objects on a specified interval.
+func (c *Collection) vacuum(ctx context.Context, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	for {
+		select {
+		case <-ctx.Done():
+			ticker.Stop()
+			return
+		case <-ticker.C:
+			now := time.Now().UnixNano()
+			c.Query(func(txn *Txn) error {
+				return txn.Range(expireColumn, func(v Cursor) bool {
+					if now >= v.Int() {
+						v.Delete()
+					}
+					return true
+				})
+			})
+		}
+	}
 }
 
 // --------------------------- column registry ---------------------------

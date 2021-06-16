@@ -4,9 +4,11 @@
 package column
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/kelindar/bitmap"
 	"github.com/stretchr/testify/assert"
@@ -229,6 +231,40 @@ func TestCollection(t *testing.T) {
 			return nil
 		})
 	}
+}
+
+func TestExpire(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	obj := Object{
+		"name":   "Roman",
+		"age":    35,
+		"wallet": 50.99,
+		"health": 100,
+		"mana":   200,
+	}
+
+	col := NewCollection()
+	col.CreateColumnsOf(obj)
+	defer col.Close()
+
+	// Insert an object
+	col.InsertWithTTL(obj, time.Microsecond)
+	col.Query(func(txn *Txn) error {
+		return txn.Range(expireColumn, func(v Cursor) bool {
+			expireAt := time.Unix(0, v.Int())
+			v.Update(expireAt.Add(1 * time.Microsecond).UnixNano())
+			return true
+		})
+	})
+	assert.Equal(t, 1, col.Count())
+
+	// Perform a cleanup every microsecond for tests
+	go col.vacuum(ctx, time.Microsecond)
+
+	// Wait a bit, should be cleaned up
+	time.Sleep(100 * time.Millisecond)
+	assert.Equal(t, 0, col.Count())
 }
 
 // loadPlayers loads a list of players from the fixture
