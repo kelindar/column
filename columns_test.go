@@ -164,7 +164,7 @@ func TestColumns(t *testing.T) {
 
 func TestFromKind(t *testing.T) {
 	for i := 0; i < 26; i++ {
-		column := FromKind(reflect.Kind(i))
+		column := ForKind(reflect.Kind(i))
 		_, ok := column.Value(100)
 		assert.False(t, ok)
 	}

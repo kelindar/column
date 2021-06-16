@@ -13,21 +13,21 @@ import (
 	"github.com/kelindar/bitmap"
 )
 
-// Various column constructor functions
+// Various column constructor functions for a specific types.
 var (
-	Any     = makeAny
-	String  = makeAny
-	Float32 = makeFloat32s
-	Float64 = makeFloat64s
-	Int     = makeInts
-	Int16   = makeInt16s
-	Int32   = makeInt32s
-	Int64   = makeInt64s
-	Uint    = makeUints
-	Uint16  = makeUint16s
-	Uint32  = makeUint32s
-	Uint64  = makeUint64s
-	Bool    = makeBools
+	ForAny     = makeAny
+	ForString  = makeAny
+	ForFloat32 = makeFloat32s
+	ForFloat64 = makeFloat64s
+	ForInt     = makeInts
+	ForInt16   = makeInt16s
+	ForInt32   = makeInt32s
+	ForInt64   = makeInt64s
+	ForUint    = makeUints
+	ForUint16  = makeUint16s
+	ForUint32  = makeUint32s
+	ForUint64  = makeUint64s
+	ForBool    = makeBools
 )
 
 // Column represents a column implementation
@@ -50,8 +50,8 @@ type numerical interface {
 	Int64(uint32) (int64, bool)
 }
 
-// FromKind creates a new column instance for a specified reflect.Kind
-func FromKind(kind reflect.Kind) Column {
+// ForKind creates a new column instance for a specified reflect.Kind
+func ForKind(kind reflect.Kind) Column {
 	switch kind {
 	case reflect.Float32:
 		return makeFloat32s()
