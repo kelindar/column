@@ -10,22 +10,36 @@
 
 ## Columnar In-Memory Store with Bitmap Indexing
 
-This package contains a **hihg-performance, columnar, in-memory storage engine** that supports fast querying and iteration with zero-allocations and bitmap indexing. 
-
-The general idea is to leverage cache-friendly ways of organizing data in [structures of arrays (SoA)](https://en.wikipedia.org/wiki/AoS_and_SoA) otherwise known "columnar" storage in database design. This, in turn allows us to iterate and filter over columns very efficiently. On top of that, this package also adds [bitmap indexing](https://en.wikipedia.org/wiki/Bitmap_index) to the columnar storage, allowing to build filter queries using binary `and`, `and not`, `or` and `xor` (see [kelindar/bitmap](https://github.com/kelindar/bitmap) with SIMD support). 
+This package contains a **hihg-performance, columnar, in-memory storage engine** that supports fast querying, update and iteration with zero-allocations and bitmap indexing.
 
 ## Features
 
- * Cache-friendly **columnar data layout** that minimizes cache-misses.
- * **Zero heap allocation** (or close to it) inside the library (see benchmarks below).
+ * Optimized, cache-friendly **columnar data layout** that minimizes cache-misses.
+ * Optimized for **zero heap allocation** during querying (see benchmarks below).
+ * Optimized **batch updates/deletes**, an update during a transaction takes around `12ns`.
  * Support for **SIMD-enabled filtering** (i.e. "where" clause) by leveraging [bitmap indexing](https://github.com/kelindar/bitmap).
  * Support for **columnar projection**  (i.e. "select" clause) for fast retrieval.
  * Support for **computed indexes** that are dynamically calculated based on provided predicate.
- * Support for **concurrent updates** on a per-column basis (e.g. 2 goroutines can update 2 columns at the same time).
+ * Support for **concurrent updates** per-column (e.g. 2 goroutines can update 2 columns concurrently).
  * Support for **transaction isolation**, allowing you to create transactions and commit/rollback.
- * Optimized **batch updates/deletes**, an update during a transaction takes around `12ns`.
+ * Support for **expiration** of rows based on time-to-live or expiration column.
+ * Support for **atomic increment/decrement** of numerical values, transactionally.
 
-## Collection & Columns
+## Documentation
+
+The general idea is to leverage cache-friendly ways of organizing data in [structures of arrays (SoA)](https://en.wikipedia.org/wiki/AoS_and_SoA) otherwise known "columnar" storage in database design. This, in turn allows us to iterate and filter over columns very efficiently. On top of that, this package also adds [bitmap indexing](https://en.wikipedia.org/wiki/Bitmap_index) to the columnar storage, allowing to build filter queries using binary `and`, `and not`, `or` and `xor` (see [kelindar/bitmap](https://github.com/kelindar/bitmap) with SIMD support). 
+
+- [Collection and Columns](#collection-and-columns)
+- [Querying and Indexing](#querying-and-indexing)
+- [Iterating over Results](#iterating-over-results)
+- [Updating Values](#updating-values)
+- [Expiring Values](#expiring-values)
+- [Transaction Commit and Rollback](#transaction-commit-and-rollback)
+- [Complete Example](#complete-example)
+- [Benchmarks](#benchmarks)
+- [Contributing](#contributing)
+
+## Collection and Columns
 
 In order to get data into the store, you'll need to first create a `Collection` by calling `NewCollection()` method. Each collection requires a schema, which can be either specified manually by calling `CreateColumn()` multiple times or automatically inferred from an object by calling `CreateColumnsOf()` function. 
 
@@ -60,7 +74,7 @@ for _, v := range loadFromJson("players.json") {
 }
 ```
 
-## Querying & Indexing
+## Querying and Indexing
 
 The store allows you to query the data based on a presence of certain attributes or their values. In the example below we are querying our collection and applying a *filtering* operation bu using `WithValue()` method on the transaction. This method scans the values and checks whether a certain predicate evaluates to `true`. In this case, we're scanning through all of the players and looking up their `class`, if their class is equal to "rogue", we'll take it. At the end, we're calling `Count()` method that simply counts the result set.
 
@@ -226,7 +240,7 @@ players.Query(func(txn *column.Txn) error {
 })
 ```
 
-## Transaction Commit & Rollback
+## Transaction Commit and Rollback
 
 Transactions allow for isolation between two concurrent operations. In fact, all of the batch queries must go through a transaction in this library. The `Query` method requires a function which takes in a `column.Txn` pointer which contains various helper methods that support querying. In the example below we're trying to iterate over all of the players and update their balance by setting it to `10.0`. The `Query` method automatically calls `txn.Commit()` if the function returns without any error. On the flip side, if the provided function returns an error, the query will automatically call `txn.Rollback()` so none of the changes will be applied.
 
