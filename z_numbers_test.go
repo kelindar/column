@@ -57,7 +57,7 @@ func TestOfFloat32s(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.Delete(9)
+		c.DeleteMany(&bitmap.Bitmap{0b1000000000})
 		c.DeleteMany(&bitmap.Bitmap{0xffffffffffffffff})
 
 		v, ok := c.Value(9)
@@ -137,7 +137,7 @@ func TestOfFloat64s(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.Delete(9)
+		c.DeleteMany(&bitmap.Bitmap{0b1000000000})
 		c.DeleteMany(&bitmap.Bitmap{0xffffffffffffffff})
 
 		v, ok := c.Value(9)
@@ -217,7 +217,7 @@ func TestOfInts(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.Delete(9)
+		c.DeleteMany(&bitmap.Bitmap{0b1000000000})
 		c.DeleteMany(&bitmap.Bitmap{0xffffffffffffffff})
 
 		v, ok := c.Value(9)
@@ -297,7 +297,7 @@ func TestOfInt16s(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.Delete(9)
+		c.DeleteMany(&bitmap.Bitmap{0b1000000000})
 		c.DeleteMany(&bitmap.Bitmap{0xffffffffffffffff})
 
 		v, ok := c.Value(9)
@@ -377,7 +377,7 @@ func TestOfInt32s(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.Delete(9)
+		c.DeleteMany(&bitmap.Bitmap{0b1000000000})
 		c.DeleteMany(&bitmap.Bitmap{0xffffffffffffffff})
 
 		v, ok := c.Value(9)
@@ -457,7 +457,7 @@ func TestOfInt64s(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.Delete(9)
+		c.DeleteMany(&bitmap.Bitmap{0b1000000000})
 		c.DeleteMany(&bitmap.Bitmap{0xffffffffffffffff})
 
 		v, ok := c.Value(9)
@@ -537,7 +537,7 @@ func TestOfUints(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.Delete(9)
+		c.DeleteMany(&bitmap.Bitmap{0b1000000000})
 		c.DeleteMany(&bitmap.Bitmap{0xffffffffffffffff})
 
 		v, ok := c.Value(9)
@@ -617,7 +617,7 @@ func TestOfUint16s(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.Delete(9)
+		c.DeleteMany(&bitmap.Bitmap{0b1000000000})
 		c.DeleteMany(&bitmap.Bitmap{0xffffffffffffffff})
 
 		v, ok := c.Value(9)
@@ -697,7 +697,7 @@ func TestOfUint32s(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.Delete(9)
+		c.DeleteMany(&bitmap.Bitmap{0b1000000000})
 		c.DeleteMany(&bitmap.Bitmap{0xffffffffffffffff})
 
 		v, ok := c.Value(9)
@@ -777,7 +777,7 @@ func TestOfUint64s(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.Delete(9)
+		c.DeleteMany(&bitmap.Bitmap{0b1000000000})
 		c.DeleteMany(&bitmap.Bitmap{0xffffffffffffffff})
 
 		v, ok := c.Value(9)

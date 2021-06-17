@@ -69,6 +69,8 @@ func (c *Collection) insert(obj Object, expireAt int64) uint32 {
 	c.fill.Set(idx)
 	c.lock.Unlock()
 
+	//	TODO: this should be in a transaction
+
 	// For each registered column, assign the appropriate object property. If the
 	// column is actually an indirect index, use that column.
 	c.cols.RangeName(func(columnName string, column Column) {

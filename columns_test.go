@@ -13,7 +13,6 @@ import (
 
 // BenchmarkColumn/update-8         	51225134	        23.17 ns/op	       0 B/op	       0 allocs/op
 // BenchmarkColumn/fetch-8          	100000000	        11.01 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkColumn/replace-8        	23745964	        45.09 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkColumn(b *testing.B) {
 	b.Run("update", func(b *testing.B) {
 		p := makeAny()
@@ -34,15 +33,6 @@ func BenchmarkColumn(b *testing.B) {
 		}
 	})
 
-	b.Run("replace", func(b *testing.B) {
-		p := makeAny()
-		b.ReportAllocs()
-		b.ResetTimer()
-		for n := 0; n < b.N; n++ {
-			p.Update(5, "hello")
-			p.Delete(5)
-		}
-	})
 }
 
 func TestColumn(t *testing.T) {
@@ -60,7 +50,7 @@ func TestColumn(t *testing.T) {
 	}
 
 	{ // Remove the value
-		p.Delete(9)
+		p.DeleteMany(&bitmap.Bitmap{0b1000000000})
 		v, ok := p.Value(9)
 		assert.Equal(t, nil, v)
 		assert.False(t, ok)
@@ -94,7 +84,9 @@ func TestColumnOrder(t *testing.T) {
 	}
 
 	for i := uint32(150); i < 180; i++ {
-		p.Delete(i)
+		var deletes bitmap.Bitmap
+		deletes.Set(i)
+		p.DeleteMany(&deletes)
 		p.Update(i, i)
 	}
 
@@ -142,7 +134,6 @@ func TestColumns(t *testing.T) {
 		}
 
 		{ // Remove the value
-			c.Delete(9)
 			c.DeleteMany(&bitmap.Bitmap{0xffffffffffffffff})
 
 			_, ok := c.Value(9)

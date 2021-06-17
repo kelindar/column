@@ -224,6 +224,8 @@ func (txn *Txn) Count() int {
 	return int(txn.index.Count())
 }
 
+// At returns a selector for a specified index together with a boolean value that indicates
+// whether an element is present at the specified index or not.
 func (txn *Txn) At(index uint32) (Selector, bool) {
 	if !txn.index.Contains(index) {
 		return Selector{}, false

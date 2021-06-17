@@ -17,7 +17,6 @@ import (
 type Column interface {
 	Update(idx uint32, value interface{})
 	UpdateMany(updates []Update)
-	Delete(idx uint32)
 	DeleteMany(items *bitmap.Bitmap)
 	Value(idx uint32) (interface{}, bool)
 	Contains(idx uint32) bool
@@ -88,13 +87,6 @@ func ForKind(kind reflect.Kind) Column {
 type column struct {
 	sync.RWMutex
 	fill bitmap.Bitmap
-}
-
-// Delete removes a value at a specified index
-func (c *column) Delete(idx uint32) {
-	c.Lock()
-	c.fill.Remove(idx)
-	c.Unlock()
 }
 
 // DeleteMany deletes a set of items from the column.
@@ -189,14 +181,6 @@ func (c *columnAny) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
-// Delete removes a value at a specified index
-func (c *columnAny) Delete(idx uint32) {
-	c.Lock()
-	c.fill.Remove(idx)
-	c.data[idx] = nil
-	c.Unlock()
-}
-
 // DeleteMany deletes a set of items from the column.
 func (c *columnAny) DeleteMany(items *bitmap.Bitmap) {
 	c.Lock()
@@ -262,14 +246,6 @@ func (c *columnBool) Value(idx uint32) (interface{}, bool) {
 	}
 
 	return c.data.Contains(idx), true
-}
-
-// Delete removes a value at a specified index
-func (c *columnBool) Delete(idx uint32) {
-	c.Lock()
-	c.fill.Remove(idx)
-	c.data.Remove(idx)
-	c.Unlock()
 }
 
 // DeleteMany deletes a set of items from the column.

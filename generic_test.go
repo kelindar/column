@@ -55,9 +55,7 @@ func TestOfnumbers(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.Delete(9)
-		c.DeleteMany(&bitmap.Bitmap{0xffffffffffffffff})
-
+		c.DeleteMany(&bitmap.Bitmap{0b1000000000})
 		v, ok := c.Value(9)
 		assert.Equal(t, number(0), v)
 		assert.False(t, ok)
