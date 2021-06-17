@@ -331,10 +331,12 @@ func loadPlayers() *Collection {
 	// Load the items into the collection
 	players := loadFixture("players.json")
 	out.CreateColumnsOf(players[0])
-	for _, p := range players {
-		out.Insert(p)
-	}
-
+	out.Query(func(txn *Txn) error {
+		for _, p := range players {
+			txn.Insert(p)
+		}
+		return nil
+	})
 	return out
 }
 
