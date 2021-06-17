@@ -1,5 +1,3 @@
-// +build ignore
-
 package column
 
 import (
@@ -27,17 +25,14 @@ func makenumbers() Column {
 	}
 }
 
-// Update sets a value at a specified index
-func (c *columnnumber) Update(idx uint32, value interface{}) {
+// Grow grows the size of the column until we have enough to store
+func (c *columnnumber) Grow(idx uint32) {
 	c.Lock()
+	// TODO: also grow the bitmap
 	size := uint32(len(c.data))
 	for i := size; i <= idx; i++ {
 		c.data = append(c.data, 0)
 	}
-
-	// Set the data at index
-	c.fill.Set(idx)
-	c.data[idx] = value.(number)
 	c.Unlock()
 }
 

@@ -1,5 +1,3 @@
-// +build ignore
-
 package column
 
 import (
@@ -11,10 +9,11 @@ import (
 
 func TestOfnumbers(t *testing.T) {
 	c := makenumbers().(*columnnumber)
+	c.Grow(99)
+	assert.Equal(t, 100, len(c.data))
 
 	{ // Set the value at index
-		c.Update(9, number(99))
-		assert.Equal(t, 10, len(c.data))
+		c.UpdateMany([]Update{{UpdatePut, 9, number(99)}})
 		assert.True(t, c.Contains(9))
 	}
 

@@ -11,36 +11,26 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// BenchmarkColumn/update-8         	51225134	        23.17 ns/op	       0 B/op	       0 allocs/op
 // BenchmarkColumn/fetch-8          	100000000	        11.01 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkColumn(b *testing.B) {
-	b.Run("update", func(b *testing.B) {
-		p := makeAny()
-		b.ReportAllocs()
-		b.ResetTimer()
-		for n := 0; n < b.N; n++ {
-			p.Update(5, "hello")
-		}
-	})
-
 	b.Run("fetch", func(b *testing.B) {
 		p := makeAny()
-		p.Update(5, "hello")
+		p.UpdateMany([]Update{{UpdatePut, 5, "hello"}})
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
 			p.Value(5)
 		}
 	})
-
 }
 
 func TestColumn(t *testing.T) {
 	p := makeAny().(*columnAny)
+	p.Grow(1000)
 
 	{ // Set the value at index
-		p.Update(9, 99.5)
-		assert.Equal(t, 10, len(p.data))
+		p.UpdateMany([]Update{{UpdatePut, 9, 99.5}})
+		assert.Equal(t, 1001, len(p.data))
 	}
 
 	{ // Get the value
@@ -57,9 +47,10 @@ func TestColumn(t *testing.T) {
 	}
 
 	{ // Set a couple of values, should only take 2 slots
-		p.Update(5, "hi")
-		p.Update(1000, "roman")
-		assert.Equal(t, 1001, len(p.data))
+		p.UpdateMany([]Update{
+			{UpdatePut, 5, "hi"},
+			{UpdatePut, 1000, "roman"},
+		})
 
 		v1, ok := p.Value(5)
 		assert.True(t, ok)
@@ -73,8 +64,9 @@ func TestColumn(t *testing.T) {
 
 func TestColumnOrder(t *testing.T) {
 	p := makeAny()
+	p.Grow(199)
 	for i := uint32(100); i < 200; i++ {
-		p.Update(i, i)
+		p.UpdateMany([]Update{{UpdatePut, i, i}})
 	}
 
 	for i := uint32(100); i < 200; i++ {
@@ -87,7 +79,7 @@ func TestColumnOrder(t *testing.T) {
 		var deletes bitmap.Bitmap
 		deletes.Set(i)
 		p.DeleteMany(&deletes)
-		p.Update(i, i)
+		p.UpdateMany([]Update{{UpdatePut, i, i}})
 	}
 
 	for i := uint32(100); i < 200; i++ {
@@ -105,7 +97,8 @@ func TestColumns(t *testing.T) {
 	for _, c := range cols {
 
 		{ // Set the value at index
-			c.Update(9, true)
+			c.Grow(9)
+			c.UpdateMany([]Update{{UpdatePut, 9, true}})
 			assert.True(t, c.Contains(9))
 		}
 

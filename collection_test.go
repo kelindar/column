@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// BenchmarkCollection/insert-8         	19002735	        68.47 ns/op	       3 B/op	       0 allocs/op
+// BenchmarkCollection/insert-8         	 5648034	       214.7 ns/op	       3 B/op	       0 allocs/op
 // BenchmarkCollection/fetch-8          	19700874	        61.83 ns/op	       0 B/op	       0 allocs/op
 // BenchmarkCollection/count-slow-8     	  107548	     11178 ns/op	       0 B/op	       0 allocs/op
 // BenchmarkCollection/count-8          	 9503278	       133.0 ns/op	       0 B/op	       0 allocs/op
@@ -265,6 +266,29 @@ func TestExpire(t *testing.T) {
 	// Wait a bit, should be cleaned up
 	time.Sleep(100 * time.Millisecond)
 	assert.Equal(t, 0, col.Count())
+}
+
+func TestInsertParallel(t *testing.T) {
+	obj := Object{
+		"name":   "Roman",
+		"age":    35,
+		"wallet": 50.99,
+		"health": 100,
+		"mana":   200,
+	}
+
+	col := NewCollection()
+	var wg sync.WaitGroup
+	for i := 0; i < 500; i++ {
+		wg.Add(1)
+		go func() {
+			col.Insert(obj)
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
+	assert.Equal(t, 500, col.Count())
 }
 
 // loadPlayers loads a list of players from the fixture

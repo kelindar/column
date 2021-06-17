@@ -109,6 +109,25 @@ func TestIndexInvalid(t *testing.T) {
 		assert.Equal(t, 0, txn.With("human", "invalid-index").Count())
 		return nil
 	})
+
+	assert.Error(t, players.Query(func(txn *Txn) error {
+		return txn.Range("invalid-column", func(v Cursor) bool {
+			return true
+		})
+	}))
+
+	players.Query(func(txn *Txn) error {
+		_, ok := txn.At(999999)
+		assert.False(t, ok)
+		return nil
+	})
+
+	assert.NoError(t, players.Query(func(txn *Txn) error {
+		return txn.Range("balance", func(v Cursor) bool {
+			v.AddAt("invalid-column", 1)
+			return true
+		})
+	}))
 }
 
 func TestIndexed(t *testing.T) {

@@ -24,17 +24,14 @@ func makeFloat32s() Column {
 	}
 }
 
-// Update sets a value at a specified index
-func (c *columnFloat32) Update(idx uint32, value interface{}) {
+// Grow grows the size of the column until we have enough to store
+func (c *columnFloat32) Grow(idx uint32) {
 	c.Lock()
+	// TODO: also grow the bitmap
 	size := uint32(len(c.data))
 	for i := size; i <= idx; i++ {
 		c.data = append(c.data, 0)
 	}
-
-	// Set the data at index
-	c.fill.Set(idx)
-	c.data[idx] = value.(float32)
 	c.Unlock()
 }
 
@@ -123,17 +120,14 @@ func makeFloat64s() Column {
 	}
 }
 
-// Update sets a value at a specified index
-func (c *columnFloat64) Update(idx uint32, value interface{}) {
+// Grow grows the size of the column until we have enough to store
+func (c *columnFloat64) Grow(idx uint32) {
 	c.Lock()
+	// TODO: also grow the bitmap
 	size := uint32(len(c.data))
 	for i := size; i <= idx; i++ {
 		c.data = append(c.data, 0)
 	}
-
-	// Set the data at index
-	c.fill.Set(idx)
-	c.data[idx] = value.(float64)
 	c.Unlock()
 }
 
@@ -222,17 +216,14 @@ func makeInts() Column {
 	}
 }
 
-// Update sets a value at a specified index
-func (c *columnInt) Update(idx uint32, value interface{}) {
+// Grow grows the size of the column until we have enough to store
+func (c *columnInt) Grow(idx uint32) {
 	c.Lock()
+	// TODO: also grow the bitmap
 	size := uint32(len(c.data))
 	for i := size; i <= idx; i++ {
 		c.data = append(c.data, 0)
 	}
-
-	// Set the data at index
-	c.fill.Set(idx)
-	c.data[idx] = value.(int)
 	c.Unlock()
 }
 
@@ -321,17 +312,14 @@ func makeInt16s() Column {
 	}
 }
 
-// Update sets a value at a specified index
-func (c *columnInt16) Update(idx uint32, value interface{}) {
+// Grow grows the size of the column until we have enough to store
+func (c *columnInt16) Grow(idx uint32) {
 	c.Lock()
+	// TODO: also grow the bitmap
 	size := uint32(len(c.data))
 	for i := size; i <= idx; i++ {
 		c.data = append(c.data, 0)
 	}
-
-	// Set the data at index
-	c.fill.Set(idx)
-	c.data[idx] = value.(int16)
 	c.Unlock()
 }
 
@@ -420,17 +408,14 @@ func makeInt32s() Column {
 	}
 }
 
-// Update sets a value at a specified index
-func (c *columnInt32) Update(idx uint32, value interface{}) {
+// Grow grows the size of the column until we have enough to store
+func (c *columnInt32) Grow(idx uint32) {
 	c.Lock()
+	// TODO: also grow the bitmap
 	size := uint32(len(c.data))
 	for i := size; i <= idx; i++ {
 		c.data = append(c.data, 0)
 	}
-
-	// Set the data at index
-	c.fill.Set(idx)
-	c.data[idx] = value.(int32)
 	c.Unlock()
 }
 
@@ -519,17 +504,14 @@ func makeInt64s() Column {
 	}
 }
 
-// Update sets a value at a specified index
-func (c *columnInt64) Update(idx uint32, value interface{}) {
+// Grow grows the size of the column until we have enough to store
+func (c *columnInt64) Grow(idx uint32) {
 	c.Lock()
+	// TODO: also grow the bitmap
 	size := uint32(len(c.data))
 	for i := size; i <= idx; i++ {
 		c.data = append(c.data, 0)
 	}
-
-	// Set the data at index
-	c.fill.Set(idx)
-	c.data[idx] = value.(int64)
 	c.Unlock()
 }
 
@@ -618,17 +600,14 @@ func makeUints() Column {
 	}
 }
 
-// Update sets a value at a specified index
-func (c *columnUint) Update(idx uint32, value interface{}) {
+// Grow grows the size of the column until we have enough to store
+func (c *columnUint) Grow(idx uint32) {
 	c.Lock()
+	// TODO: also grow the bitmap
 	size := uint32(len(c.data))
 	for i := size; i <= idx; i++ {
 		c.data = append(c.data, 0)
 	}
-
-	// Set the data at index
-	c.fill.Set(idx)
-	c.data[idx] = value.(uint)
 	c.Unlock()
 }
 
@@ -717,17 +696,14 @@ func makeUint16s() Column {
 	}
 }
 
-// Update sets a value at a specified index
-func (c *columnUint16) Update(idx uint32, value interface{}) {
+// Grow grows the size of the column until we have enough to store
+func (c *columnUint16) Grow(idx uint32) {
 	c.Lock()
+	// TODO: also grow the bitmap
 	size := uint32(len(c.data))
 	for i := size; i <= idx; i++ {
 		c.data = append(c.data, 0)
 	}
-
-	// Set the data at index
-	c.fill.Set(idx)
-	c.data[idx] = value.(uint16)
 	c.Unlock()
 }
 
@@ -816,17 +792,14 @@ func makeUint32s() Column {
 	}
 }
 
-// Update sets a value at a specified index
-func (c *columnUint32) Update(idx uint32, value interface{}) {
+// Grow grows the size of the column until we have enough to store
+func (c *columnUint32) Grow(idx uint32) {
 	c.Lock()
+	// TODO: also grow the bitmap
 	size := uint32(len(c.data))
 	for i := size; i <= idx; i++ {
 		c.data = append(c.data, 0)
 	}
-
-	// Set the data at index
-	c.fill.Set(idx)
-	c.data[idx] = value.(uint32)
 	c.Unlock()
 }
 
@@ -915,17 +888,14 @@ func makeUint64s() Column {
 	}
 }
 
-// Update sets a value at a specified index
-func (c *columnUint64) Update(idx uint32, value interface{}) {
+// Grow grows the size of the column until we have enough to store
+func (c *columnUint64) Grow(idx uint32) {
 	c.Lock()
+	// TODO: also grow the bitmap
 	size := uint32(len(c.data))
 	for i := size; i <= idx; i++ {
 		c.data = append(c.data, 0)
 	}
-
-	// Set the data at index
-	c.fill.Set(idx)
-	c.data[idx] = value.(uint64)
 	c.Unlock()
 }
 

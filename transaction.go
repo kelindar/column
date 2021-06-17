@@ -6,6 +6,7 @@ package column
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/kelindar/bitmap"
 )
@@ -34,6 +35,7 @@ var txns = &sync.Pool{
 		return &Txn{
 			index:   make(bitmap.Bitmap, 0, 64),
 			deletes: make(bitmap.Bitmap, 0, 64),
+			inserts: make(bitmap.Bitmap, 0, 64),
 			updates: make([]updateQueue, 0, 16),
 			columns: make([]columnCache, 0, 16),
 		}
@@ -61,6 +63,7 @@ type Txn struct {
 	owner   *Collection   // The target collection
 	index   bitmap.Bitmap // The filtering index
 	deletes bitmap.Bitmap // The delete queue
+	inserts bitmap.Bitmap // The insert queue
 	updates []updateQueue // The update queue
 	columns []columnCache // The column mapping
 }
@@ -238,6 +241,43 @@ func (txn *Txn) At(index uint32) (Selector, bool) {
 	}, true
 }
 
+// Insert inserts an object at a new index and returns the index for this object. This is
+// done transactionally and the object will only be visible after the transaction is committed.
+func (txn *Txn) Insert(object Object) uint32 {
+	return txn.insert(object, 0)
+}
+
+// InsertWithTTL inserts an object at a new index and returns the index for this object. In
+// addition, it also sets the time-to-live of an object to the specified time. This is done
+// transactionally and the object will only be visible after the transaction is committed.
+func (txn *Txn) InsertWithTTL(object Object, ttl time.Duration) uint32 {
+	return txn.insert(object, time.Now().Add(ttl).UnixNano())
+}
+
+// Insert inserts an object at a new index and returns the index for this object. This is
+// done transactionally and the object will only be visible after the transaction is committed.
+func (txn *Txn) insert(object Object, expireAt int64) uint32 {
+	slot := Selector{
+		index: txn.owner.next(),
+		owner: txn.owner,
+		txn:   txn,
+	}
+
+	// Set the insert bit and generate the updates
+	txn.inserts.Set(slot.index)
+	for k, v := range object {
+		if _, ok := txn.columnAt(k); ok {
+			slot.UpdateAt(k, v)
+		}
+	}
+
+	// Add expiration if specified
+	if expireAt != 0 {
+		slot.UpdateAt(expireColumn, expireAt)
+	}
+	return slot.index
+}
+
 // Select iterates over the result set and allows to query or update any column. While
 // this is flexible, it is not the most efficient way, consider Range() as an alternative
 // iteration method over a specific column.
@@ -300,6 +340,7 @@ func (txn *Txn) Range(column string, fn func(v Cursor) bool) error {
 // operation will result in a no-op.
 func (txn *Txn) Commit() {
 	txn.updatePending()
+	txn.insertPending()
 	txn.deletePending()
 }
 
@@ -329,6 +370,9 @@ func (txn *Txn) updatePending() {
 		// Range through all of the pending updates and apply them to the column
 		// and its associated computed columns.
 		for _, v := range columns {
+			if max, ok := txn.inserts.Max(); ok {
+				v.Grow(max)
+			}
 			v.UpdateMany(u.update)
 		}
 
@@ -353,6 +397,17 @@ func (txn *Txn) deletePending() {
 	txn.owner.fill.AndNot(txn.deletes)
 	txn.owner.lock.Unlock()
 	txn.deletes.Clear()
+}
+
+// insertPending inserts all of the entries marked as to be inserted. This just makes them
+// visible by setting the fill list atomically in the collection.
+func (txn *Txn) insertPending() {
+	if len(txn.inserts) > 0 {
+		txn.owner.lock.Lock()
+		txn.owner.fill.Or(txn.inserts)
+		txn.owner.lock.Unlock()
+		txn.inserts.Clear()
+	}
 }
 
 // --------------------------- Selector ---------------------------

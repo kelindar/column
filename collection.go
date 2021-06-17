@@ -44,50 +44,36 @@ func NewCollection() *Collection {
 	return store
 }
 
-// Insert adds an object to a collection and returns the allocated index.
-func (c *Collection) Insert(obj Object) uint32 {
-	return c.insert(obj, 0)
-}
-
-// InsertWithTTL adds an object to a collection, sets the expiration time
-// based on the specified time-to-live and returns the allocated index.
-func (c *Collection) InsertWithTTL(obj Object, ttl time.Duration) uint32 {
-	return c.insert(obj, time.Now().Add(ttl).UnixNano())
-}
-
-// insert adds an object to a collection and returns the allocated index
-func (c *Collection) insert(obj Object, expireAt int64) uint32 {
+// next finds the next free index in the collection, atomically.
+func (c *Collection) next() uint32 {
 	c.lock.Lock()
-
-	// Find the index for the add
 	idx, ok := c.fill.FirstZero()
 	if !ok {
 		idx = uint32(len(c.fill)) * 64
 	}
 
-	// Mark the current index in the fill list
 	c.fill.Set(idx)
 	c.lock.Unlock()
-
-	//	TODO: this should be in a transaction
-
-	// For each registered column, assign the appropriate object property. If the
-	// column is actually an indirect index, use that column.
-	c.cols.RangeName(func(columnName string, column Column) {
-		if i, ok := column.(computed); ok {
-			columnName = i.Column()
-		}
-
-		if v, ok := obj[columnName]; ok {
-			column.Update(idx, v)
-		}
-
-		if columnName == expireColumn && expireAt != 0 {
-			column.Update(idx, expireAt)
-		}
-	})
-
 	return idx
+}
+
+// Insert adds an object to a collection and returns the allocated index.
+func (c *Collection) Insert(obj Object) (index uint32) {
+	c.Query(func(txn *Txn) error {
+		index = txn.Insert(obj)
+		return nil
+	})
+	return
+}
+
+// InsertWithTTL adds an object to a collection, sets the expiration time
+// based on the specified time-to-live and returns the allocated index.
+func (c *Collection) InsertWithTTL(obj Object, ttl time.Duration) (index uint32) {
+	c.Query(func(txn *Txn) error {
+		index = txn.InsertWithTTL(obj, ttl)
+		return nil
+	})
+	return
 }
 
 // UpdateAt updates a specific row/column combination and sets the value. It is also

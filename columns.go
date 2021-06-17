@@ -15,7 +15,7 @@ import (
 
 // Column represents a column implementation
 type Column interface {
-	Update(idx uint32, value interface{})
+	Grow(idx uint32)
 	UpdateMany(updates []Update)
 	DeleteMany(items *bitmap.Bitmap)
 	Value(idx uint32) (interface{}, bool)
@@ -143,17 +143,14 @@ func makeAny() Column {
 	}
 }
 
-// Update sets a value at a specified index
-func (c *columnAny) Update(idx uint32, value interface{}) {
+// Grow grows the size of the column until we have enough to store
+func (c *columnAny) Grow(idx uint32) {
 	c.Lock()
+	// TODO: also grow the bitmap
 	size := uint32(len(c.data))
 	for i := size; i <= idx; i++ {
 		c.data = append(c.data, nil)
 	}
-
-	// Set the data at index
-	c.fill.Set(idx)
-	c.data[idx] = value
 	c.Unlock()
 }
 
@@ -209,16 +206,9 @@ func makeBools() Column {
 	}
 }
 
-// Update sets a value at a specified index
-func (c *columnBool) Update(idx uint32, value interface{}) {
-	c.Lock()
-	c.fill.Set(idx)
-	if value.(bool) {
-		c.data.Set(idx)
-	} else {
-		c.data.Remove(idx)
-	}
-	c.Unlock()
+// Grow grows the size of the column until we have enough to store
+func (c *columnBool) Grow(idx uint32) {
+	// TODO
 }
 
 // UpdateMany performs a series of updates at once
@@ -311,20 +301,14 @@ func newIndex(prop string, rule func(v interface{}) bool) *index {
 	}
 }
 
+// Grow grows the size of the column until we have enough to store
+func (c *index) Grow(idx uint32) {
+	// TODO
+}
+
 // Column returns the target name of the column on which this index should apply.
 func (c *index) Column() string {
 	return c.prop
-}
-
-// Update keeps the index up-to-date when a new value is added.
-func (c *index) Update(idx uint32, value interface{}) {
-	c.Lock()
-	if c.rule(value) {
-		c.fill.Set(idx)
-	} else {
-		c.fill.Remove(idx)
-	}
-	c.Unlock()
 }
 
 // UpdateMany performs a series of updates at once
