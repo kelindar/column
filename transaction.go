@@ -224,6 +224,18 @@ func (txn *Txn) Count() int {
 	return int(txn.index.Count())
 }
 
+func (txn *Txn) At(index uint32) (Selector, bool) {
+	if !txn.index.Contains(index) {
+		return Selector{}, false
+	}
+
+	return Selector{
+		index: index,
+		txn:   txn,
+		owner: txn.owner,
+	}, true
+}
+
 // Select iterates over the result set and allows to query or update any column. While
 // this is flexible, it is not the most efficient way, consider Range() as an alternative
 // iteration method over a specific column.
@@ -256,7 +268,7 @@ func (txn *Txn) Range(column string, fn func(v Cursor) bool) error {
 
 	// Create a new update queue for the selected column
 	if updateQueueIndex == -1 {
-		updateQueueIndex = 0
+		updateQueueIndex = len(txn.updates)
 		txn.updates = append(txn.updates, updateQueue{
 			name:   column,
 			update: make([]Update, 0, 64),

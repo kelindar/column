@@ -91,24 +91,21 @@ func (c *Collection) insert(obj Object, expireAt int64) uint32 {
 // UpdateAt updates a specific row/column combination and sets the value. It is also
 // possible to update during the query, which is much more convenient to use.
 func (c *Collection) UpdateAt(idx uint32, columnName string, value interface{}) {
-	if columns, ok := c.cols.LoadWithIndex(columnName); ok {
-		for _, v := range columns {
-			v.Update(idx, value)
+	c.Query(func(txn *Txn) error {
+		if at, ok := txn.At(idx); ok {
+			at.UpdateAt(columnName, value)
 		}
-	}
+		return nil
+	})
 }
 
 // DeleteAt removes the object at the specified index.
 func (c *Collection) DeleteAt(idx uint32) {
-
-	// Remove from global index
-	c.lock.Lock()
-	c.fill.Remove(idx)
-	c.lock.Unlock()
-
-	// Remove the data for this element
-	c.cols.Range(func(column Column) {
-		column.Delete(idx)
+	c.Query(func(txn *Txn) error {
+		if at, ok := txn.At(idx); ok {
+			at.Delete()
+		}
+		return nil
 	})
 }
 
@@ -241,7 +238,7 @@ func (c *Collection) vacuum(ctx context.Context, interval time.Duration) {
 			now := time.Now().UnixNano()
 			c.Query(func(txn *Txn) error {
 				return txn.With(expireColumn).Range(expireColumn, func(v Cursor) bool {
-					if now >= v.Int() {
+					if expirateAt := v.Int(); expirateAt != 0 && now >= v.Int() {
 						v.Delete()
 					}
 					return true

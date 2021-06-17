@@ -14,16 +14,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// BenchmarkCollection/insert-8         	27327879	        42.93 ns/op	       1 B/op	       0 allocs/op
-// BenchmarkCollection/fetch-8          	21438984	        55.84 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/count-slow-8     	  111388	     10835 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/count-8          	 9427291	       128.9 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/range-8          	 1870438	       649.2 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/select-8         	 1238320	       972.2 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/update-at-8      	27687408	        41.31 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/update-all-8     	  184694	      6481 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/delete-at-8      	 2583535	       463.5 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/delete-all-8     	  296901	      3762 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/insert-8         	19002735	        68.47 ns/op	       3 B/op	       0 allocs/op
+// BenchmarkCollection/fetch-8          	19700874	        61.83 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/count-slow-8     	  107548	     11178 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/count-8          	 9503278	       133.0 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/range-8          	 1862108	       671.0 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/select-8         	 1000000	      1076 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/update-at-8      	13209966	        92.18 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/update-all-8     	  168684	      6733 ns/op	       3 B/op	       0 allocs/op
+// BenchmarkCollection/delete-at-8      	 2197222	       543.8 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/delete-all-8     	  395937	      3873 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkCollection(b *testing.B) {
 	players := loadPlayers()
 	obj := Object{
@@ -131,7 +131,7 @@ func BenchmarkCollection(b *testing.B) {
 	b.Run("update-all", func(b *testing.B) {
 		var columns []string
 		players.cols.RangeName(func(columnName string, c Column) {
-			if _, ok := c.(numerical); ok {
+			if _, ok := c.(numerical); ok && columnName != expireColumn {
 				columns = append(columns, columnName)
 			}
 		})
