@@ -131,11 +131,11 @@ func BenchmarkCollection(b *testing.B) {
 
 	b.Run("update-all", func(b *testing.B) {
 		var columns []string
-		players.cols.RangeName(func(columnName string, c Column) {
-			if _, ok := c.(numerical); ok && columnName != expireColumn {
-				columns = append(columns, columnName)
+		for _, c := range players.cols.cols.Load().([]columnEntry) {
+			if _, ok := c.cols[0].(numerical); ok && c.name != expireColumn {
+				columns = append(columns, c.name)
 			}
-		})
+		}
 
 		b.ReportAllocs()
 		b.ResetTimer()

@@ -266,14 +266,6 @@ func (c *columns) Range(fn func(column Column)) {
 	}
 }
 
-// RangeName iterates over columns in the registry together with their names.
-func (c *columns) RangeName(fn func(columnName string, column Column)) {
-	cols := c.cols.Load().([]columnEntry)
-	for _, v := range cols {
-		fn(v.name, v.cols[0])
-	}
-}
-
 // Load loads a column by its name.
 func (c *columns) Load(columnName string) (Column, bool) {
 	cols := c.cols.Load().([]columnEntry)
