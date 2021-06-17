@@ -142,11 +142,11 @@ func (c *Collection) CreateIndex(indexName, columnName string, fn func(v interfa
 	// that we have in the collection and apply the filter.
 	if column, ok := c.cols.Load(columnName); ok {
 		c.fill.Clone(&index.fill)
-		index.fill.Filter(func(x uint32) bool {
+		index.fill.Filter(func(x uint32) (match bool) {
 			if v, ok := column.Value(x); ok {
-				return fn(v)
+				match = fn(v)
 			}
-			return false
+			return
 		})
 	}
 	return nil

@@ -192,6 +192,9 @@ func TestCollection(t *testing.T) {
 	col.CreateColumnsOf(obj)
 	idx := col.Insert(obj)
 
+	// Should not drop, since it's not an index
+	col.DropIndex("name")
+
 	// Create a coupe of indices
 	assert.Error(t, col.CreateIndex("", "", nil))
 	assert.NoError(t, col.CreateIndex("rich", "wallet", func(v interface{}) bool {

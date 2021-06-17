@@ -156,11 +156,11 @@ func (txn *Txn) Union(column string, extra ...string) *Txn {
 // down the items in the query.
 func (txn *Txn) WithValue(column string, predicate func(v interface{}) bool) *Txn {
 	if p, ok := txn.columnAt(column); ok {
-		txn.index.Filter(func(x uint32) bool {
+		txn.index.Filter(func(x uint32) (match bool) {
 			if v, ok := p.Value(x); ok {
-				return predicate(v)
+				match = predicate(v)
 			}
-			return false
+			return
 		})
 	}
 	return txn
@@ -171,11 +171,11 @@ func (txn *Txn) WithValue(column string, predicate func(v interface{}) bool) *Tx
 func (txn *Txn) WithFloat(column string, predicate func(v float64) bool) *Txn {
 	if p, ok := txn.columnAt(column); ok {
 		if n, ok := p.(numerical); ok {
-			txn.index.Filter(func(x uint32) bool {
+			txn.index.Filter(func(x uint32) (match bool) {
 				if v, ok := n.Float64(x); ok {
-					return predicate(v)
+					match = predicate(v)
 				}
-				return false
+				return
 			})
 		}
 	}
@@ -187,11 +187,11 @@ func (txn *Txn) WithFloat(column string, predicate func(v float64) bool) *Txn {
 func (txn *Txn) WithInt(column string, predicate func(v int64) bool) *Txn {
 	if p, ok := txn.columnAt(column); ok {
 		if n, ok := p.(numerical); ok {
-			txn.index.Filter(func(x uint32) bool {
+			txn.index.Filter(func(x uint32) (match bool) {
 				if v, ok := n.Int64(x); ok {
-					return predicate(v)
+					match = predicate(v)
 				}
-				return false
+				return
 			})
 		}
 	}
@@ -203,11 +203,11 @@ func (txn *Txn) WithInt(column string, predicate func(v int64) bool) *Txn {
 func (txn *Txn) WithUint(column string, predicate func(v uint64) bool) *Txn {
 	if p, ok := txn.columnAt(column); ok {
 		if n, ok := p.(numerical); ok {
-			txn.index.Filter(func(x uint32) bool {
+			txn.index.Filter(func(x uint32) (match bool) {
 				if v, ok := n.Uint64(x); ok {
-					return predicate(v)
+					match = predicate(v)
 				}
-				return false
+				return
 			})
 		}
 	}
