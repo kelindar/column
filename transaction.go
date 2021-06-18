@@ -339,9 +339,9 @@ func (txn *Txn) Range(column string, fn func(v Cursor) bool) error {
 // in order to perform partial commits. If there's no pending updates/deletes, this
 // operation will result in a no-op.
 func (txn *Txn) Commit() {
+	txn.deletePending()
 	txn.updatePending()
 	txn.insertPending()
-	txn.deletePending()
 }
 
 // Rollback empties the pending update and delete queues and does not apply any of
@@ -349,6 +349,7 @@ func (txn *Txn) Commit() {
 // a transaction in order to perform partial rollbacks.
 func (txn *Txn) Rollback() {
 	txn.deletes.Clear()
+	txn.inserts.Clear()
 	for i := range txn.updates {
 		txn.updates[i].update = txn.updates[i].update[:0]
 	}
