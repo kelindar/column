@@ -42,3 +42,10 @@ func TestCommits(t *testing.T) {
 	assert.NotEqual(t, unsafe.Pointer(&commit2.Updates), unsafe.Pointer(&clone2.Updates))
 	assert.NotEqual(t, unsafe.Pointer(&commit3.Inserts), unsafe.Pointer(&clone3.Inserts))
 }
+
+func TestType(t *testing.T) {
+	assert.Equal(t, "store", TypeStore.String())
+	assert.Equal(t, "delete", TypeDelete.String())
+	assert.Equal(t, "insert", TypeInsert.String())
+	assert.Equal(t, "invalid", Type(10).String())
+}

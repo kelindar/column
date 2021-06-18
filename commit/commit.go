@@ -38,6 +38,20 @@ const (
 	TypeDelete             // Delete deletes a set of entries in the collection
 )
 
+// String returns the string representation of the type
+func (t Type) String() string {
+	switch t {
+	case TypeStore:
+		return "store"
+	case TypeDelete:
+		return "delete"
+	case TypeInsert:
+		return "insert"
+	default:
+		return "invalid"
+	}
+}
+
 // --------------------------- Commit ----------------------------
 
 // Commit represents an individual transaction commit. If multiple columns are committed

@@ -24,6 +24,7 @@ This package contains a **high-performance, columnar, in-memory storage engine**
  * Support for **transaction isolation**, allowing you to create transactions and commit/rollback.
  * Support for **expiration** of rows based on time-to-live or expiration column.
  * Support for **atomic increment/decrement** of numerical values, transactionally.
+ * Support for **change data stream** that streams all commits consistently.
 
 ## Documentation
 
@@ -35,6 +36,7 @@ The general idea is to leverage cache-friendly ways of organizing data in [struc
 - [Updating Values](#updating-values)
 - [Expiring Values](#expiring-values)
 - [Transaction Commit and Rollback](#transaction-commit-and-rollback)
+- [Streaming Changes](#streaming-changes)
 - [Complete Example](#complete-example)
 - [Benchmarks](#benchmarks)
 - [Contributing](#contributing)
@@ -307,6 +309,52 @@ players.Query(func(txn *column.Txn) error {
 	return nil   // This will call txn.Commit() again, but will be a no-op
 })
 ```
+
+## Streaming Changes
+
+This library also supports streaming out all transaction commits consistently, as they happen. This allows you to implement your own change data capture (CDC) listeners, stream data into kafka or into a remote database for durability. In order to enable it, you can simply provide an implementation of a `commit.Writer` interface during the creation of the collection.
+
+In the example below we take advantage of the `commit.Channel` implementation of a `commit.Writer` which simply publishes the commits into a go channel. Here we create a buffered channel and keep consuming the commits with a separate goroutine, allowing us to view transactions as they happen in the store.
+
+```go
+// Create a new commit writer (simple channel) and a new collection
+writer  := make(commit.Channel, 1024)
+players := NewCollection(column.Options{
+	Writer: writer,
+})
+
+// Read the changes from the channel
+go func(){
+	for commit := writer{
+		println("commit", commit.Type.String())
+	}
+}()
+
+// ... insert, update or delete
+```
+
+On a separate note, this change stream is guaranteed to be consistent and serialized. This means that you can also replicate those changes on another database and synchronize both. In fact, this library also provides `Replay()` method on the collection that allows to do just that. In the example below we create two collections `primary` and `replica` and asychronously replicating all of the commits from the `primary` to the `replica` using the `Replay()` method together with the change stream.
+
+```go
+// Create a p rimary collection
+writer  := make(commit.Channel, 1024)
+primary := column.NewCollection(column.Options{
+	Writer: &writer,
+})
+primary.CreateColumnsOf(object)
+
+// Replica with the same schema
+replica := column.NewCollection()
+replica.CreateColumnsOf(object)
+
+// Keep 2 collections in sync
+go func() {
+	for change := range writer {
+		replica.Replay(change)
+	}
+}()
+```
+
 
 ## Complete Example
 
