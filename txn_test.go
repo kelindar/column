@@ -140,6 +140,22 @@ func TestIndexInvalid(t *testing.T) {
 	}))
 
 	assert.Equal(t, 321, players.Count())
+
+	// Invalid index search
+	players.Query(func(txn *Txn) error {
+		txn.WithFloat("x", func(v float64) bool { return true }).
+			WithInt("x", func(v int64) bool { return true }).
+			WithUint("x", func(v uint64) bool { return true }).
+			WithValue("x", func(v interface{}) bool { return true })
+		assert.Equal(t, 0, txn.Count())
+		return nil
+	})
+
+	// Invalid delete at
+	players.Query(func(txn *Txn) error {
+		assert.False(t, txn.DeleteAt(9999))
+		return nil
+	})
 }
 
 func TestIndexed(t *testing.T) {

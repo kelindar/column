@@ -6,6 +6,7 @@ package column
 
 import (
 	"github.com/kelindar/bitmap"
+	"github.com/kelindar/column/commit"
 )
 
 // --------------------------- float32s ----------------------------
@@ -34,22 +35,22 @@ func (c *columnFloat32) Grow(idx uint32) {
 }
 
 // Update performs a series of updates at once
-func (c *columnFloat32) Update(updates []Update) {
+func (c *columnFloat32) Update(updates []commit.Update) {
 
 	// Range over all of the updates, and depending on the operation perform the action
 	for i, u := range updates {
 		c.fill.Set(u.Index)
-		switch u.Kind {
-		case UpdatePut:
+		switch u.Type {
+		case commit.Put:
 			c.data[u.Index] = u.Value.(float32)
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
-		case UpdateAdd:
+		case commit.Add:
 			value := c.data[u.Index] + u.Value.(float32)
 			c.data[u.Index] = value
-			updates[i] = Update{
-				Kind:  UpdatePut,
+			updates[i] = commit.Update{
+				Type:  commit.Put,
 				Index: u.Index,
 				Value: value,
 			}
@@ -131,22 +132,22 @@ func (c *columnFloat64) Grow(idx uint32) {
 }
 
 // Update performs a series of updates at once
-func (c *columnFloat64) Update(updates []Update) {
+func (c *columnFloat64) Update(updates []commit.Update) {
 
 	// Range over all of the updates, and depending on the operation perform the action
 	for i, u := range updates {
 		c.fill.Set(u.Index)
-		switch u.Kind {
-		case UpdatePut:
+		switch u.Type {
+		case commit.Put:
 			c.data[u.Index] = u.Value.(float64)
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
-		case UpdateAdd:
+		case commit.Add:
 			value := c.data[u.Index] + u.Value.(float64)
 			c.data[u.Index] = value
-			updates[i] = Update{
-				Kind:  UpdatePut,
+			updates[i] = commit.Update{
+				Type:  commit.Put,
 				Index: u.Index,
 				Value: value,
 			}
@@ -228,22 +229,22 @@ func (c *columnInt) Grow(idx uint32) {
 }
 
 // Update performs a series of updates at once
-func (c *columnInt) Update(updates []Update) {
+func (c *columnInt) Update(updates []commit.Update) {
 
 	// Range over all of the updates, and depending on the operation perform the action
 	for i, u := range updates {
 		c.fill.Set(u.Index)
-		switch u.Kind {
-		case UpdatePut:
+		switch u.Type {
+		case commit.Put:
 			c.data[u.Index] = u.Value.(int)
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
-		case UpdateAdd:
+		case commit.Add:
 			value := c.data[u.Index] + u.Value.(int)
 			c.data[u.Index] = value
-			updates[i] = Update{
-				Kind:  UpdatePut,
+			updates[i] = commit.Update{
+				Type:  commit.Put,
 				Index: u.Index,
 				Value: value,
 			}
@@ -325,22 +326,22 @@ func (c *columnInt16) Grow(idx uint32) {
 }
 
 // Update performs a series of updates at once
-func (c *columnInt16) Update(updates []Update) {
+func (c *columnInt16) Update(updates []commit.Update) {
 
 	// Range over all of the updates, and depending on the operation perform the action
 	for i, u := range updates {
 		c.fill.Set(u.Index)
-		switch u.Kind {
-		case UpdatePut:
+		switch u.Type {
+		case commit.Put:
 			c.data[u.Index] = u.Value.(int16)
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
-		case UpdateAdd:
+		case commit.Add:
 			value := c.data[u.Index] + u.Value.(int16)
 			c.data[u.Index] = value
-			updates[i] = Update{
-				Kind:  UpdatePut,
+			updates[i] = commit.Update{
+				Type:  commit.Put,
 				Index: u.Index,
 				Value: value,
 			}
@@ -422,22 +423,22 @@ func (c *columnInt32) Grow(idx uint32) {
 }
 
 // Update performs a series of updates at once
-func (c *columnInt32) Update(updates []Update) {
+func (c *columnInt32) Update(updates []commit.Update) {
 
 	// Range over all of the updates, and depending on the operation perform the action
 	for i, u := range updates {
 		c.fill.Set(u.Index)
-		switch u.Kind {
-		case UpdatePut:
+		switch u.Type {
+		case commit.Put:
 			c.data[u.Index] = u.Value.(int32)
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
-		case UpdateAdd:
+		case commit.Add:
 			value := c.data[u.Index] + u.Value.(int32)
 			c.data[u.Index] = value
-			updates[i] = Update{
-				Kind:  UpdatePut,
+			updates[i] = commit.Update{
+				Type:  commit.Put,
 				Index: u.Index,
 				Value: value,
 			}
@@ -519,22 +520,22 @@ func (c *columnInt64) Grow(idx uint32) {
 }
 
 // Update performs a series of updates at once
-func (c *columnInt64) Update(updates []Update) {
+func (c *columnInt64) Update(updates []commit.Update) {
 
 	// Range over all of the updates, and depending on the operation perform the action
 	for i, u := range updates {
 		c.fill.Set(u.Index)
-		switch u.Kind {
-		case UpdatePut:
+		switch u.Type {
+		case commit.Put:
 			c.data[u.Index] = u.Value.(int64)
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
-		case UpdateAdd:
+		case commit.Add:
 			value := c.data[u.Index] + u.Value.(int64)
 			c.data[u.Index] = value
-			updates[i] = Update{
-				Kind:  UpdatePut,
+			updates[i] = commit.Update{
+				Type:  commit.Put,
 				Index: u.Index,
 				Value: value,
 			}
@@ -616,22 +617,22 @@ func (c *columnUint) Grow(idx uint32) {
 }
 
 // Update performs a series of updates at once
-func (c *columnUint) Update(updates []Update) {
+func (c *columnUint) Update(updates []commit.Update) {
 
 	// Range over all of the updates, and depending on the operation perform the action
 	for i, u := range updates {
 		c.fill.Set(u.Index)
-		switch u.Kind {
-		case UpdatePut:
+		switch u.Type {
+		case commit.Put:
 			c.data[u.Index] = u.Value.(uint)
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
-		case UpdateAdd:
+		case commit.Add:
 			value := c.data[u.Index] + u.Value.(uint)
 			c.data[u.Index] = value
-			updates[i] = Update{
-				Kind:  UpdatePut,
+			updates[i] = commit.Update{
+				Type:  commit.Put,
 				Index: u.Index,
 				Value: value,
 			}
@@ -713,22 +714,22 @@ func (c *columnUint16) Grow(idx uint32) {
 }
 
 // Update performs a series of updates at once
-func (c *columnUint16) Update(updates []Update) {
+func (c *columnUint16) Update(updates []commit.Update) {
 
 	// Range over all of the updates, and depending on the operation perform the action
 	for i, u := range updates {
 		c.fill.Set(u.Index)
-		switch u.Kind {
-		case UpdatePut:
+		switch u.Type {
+		case commit.Put:
 			c.data[u.Index] = u.Value.(uint16)
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
-		case UpdateAdd:
+		case commit.Add:
 			value := c.data[u.Index] + u.Value.(uint16)
 			c.data[u.Index] = value
-			updates[i] = Update{
-				Kind:  UpdatePut,
+			updates[i] = commit.Update{
+				Type:  commit.Put,
 				Index: u.Index,
 				Value: value,
 			}
@@ -810,22 +811,22 @@ func (c *columnUint32) Grow(idx uint32) {
 }
 
 // Update performs a series of updates at once
-func (c *columnUint32) Update(updates []Update) {
+func (c *columnUint32) Update(updates []commit.Update) {
 
 	// Range over all of the updates, and depending on the operation perform the action
 	for i, u := range updates {
 		c.fill.Set(u.Index)
-		switch u.Kind {
-		case UpdatePut:
+		switch u.Type {
+		case commit.Put:
 			c.data[u.Index] = u.Value.(uint32)
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
-		case UpdateAdd:
+		case commit.Add:
 			value := c.data[u.Index] + u.Value.(uint32)
 			c.data[u.Index] = value
-			updates[i] = Update{
-				Kind:  UpdatePut,
+			updates[i] = commit.Update{
+				Type:  commit.Put,
 				Index: u.Index,
 				Value: value,
 			}
@@ -907,22 +908,22 @@ func (c *columnUint64) Grow(idx uint32) {
 }
 
 // Update performs a series of updates at once
-func (c *columnUint64) Update(updates []Update) {
+func (c *columnUint64) Update(updates []commit.Update) {
 
 	// Range over all of the updates, and depending on the operation perform the action
 	for i, u := range updates {
 		c.fill.Set(u.Index)
-		switch u.Kind {
-		case UpdatePut:
+		switch u.Type {
+		case commit.Put:
 			c.data[u.Index] = u.Value.(uint64)
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
-		case UpdateAdd:
+		case commit.Add:
 			value := c.data[u.Index] + u.Value.(uint64)
 			c.data[u.Index] = value
-			updates[i] = Update{
-				Kind:  UpdatePut,
+			updates[i] = commit.Update{
+				Type:  commit.Put,
 				Index: u.Index,
 				Value: value,
 			}

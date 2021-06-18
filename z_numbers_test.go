@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/kelindar/bitmap"
+	"github.com/kelindar/column/commit"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -17,7 +18,11 @@ func TestOfFloat32s(t *testing.T) {
 	assert.Equal(t, 100, len(c.data))
 
 	{ // Set the value at index
-		c.Update([]Update{{UpdatePut, 9, float32(99)}})
+		c.Update([]commit.Update{{
+			Type:  commit.Put,
+			Index: 9,
+			Value: float32(99)},
+		})
 		assert.True(t, c.Contains(9))
 		assert.Equal(t, 1, c.Index().Count())
 	}
@@ -60,10 +65,10 @@ func TestOfFloat32s(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.Update([]Update{
-			{Kind: UpdatePut, Index: 1, Value: float32(2)},
-			{Kind: UpdatePut, Index: 2, Value: float32(3)},
-			{Kind: UpdateAdd, Index: 1, Value: float32(2)},
+		c.Update([]commit.Update{
+			{Type: commit.Put, Index: 1, Value: float32(2)},
+			{Type: commit.Put, Index: 2, Value: float32(3)},
+			{Type: commit.Add, Index: 1, Value: float32(2)},
 		})
 		assert.True(t, c.Contains(1))
 		assert.True(t, c.Contains(2))
@@ -79,7 +84,11 @@ func TestOfFloat64s(t *testing.T) {
 	assert.Equal(t, 100, len(c.data))
 
 	{ // Set the value at index
-		c.Update([]Update{{UpdatePut, 9, float64(99)}})
+		c.Update([]commit.Update{{
+			Type:  commit.Put,
+			Index: 9,
+			Value: float64(99)},
+		})
 		assert.True(t, c.Contains(9))
 		assert.Equal(t, 1, c.Index().Count())
 	}
@@ -122,10 +131,10 @@ func TestOfFloat64s(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.Update([]Update{
-			{Kind: UpdatePut, Index: 1, Value: float64(2)},
-			{Kind: UpdatePut, Index: 2, Value: float64(3)},
-			{Kind: UpdateAdd, Index: 1, Value: float64(2)},
+		c.Update([]commit.Update{
+			{Type: commit.Put, Index: 1, Value: float64(2)},
+			{Type: commit.Put, Index: 2, Value: float64(3)},
+			{Type: commit.Add, Index: 1, Value: float64(2)},
 		})
 		assert.True(t, c.Contains(1))
 		assert.True(t, c.Contains(2))
@@ -141,7 +150,11 @@ func TestOfInts(t *testing.T) {
 	assert.Equal(t, 100, len(c.data))
 
 	{ // Set the value at index
-		c.Update([]Update{{UpdatePut, 9, int(99)}})
+		c.Update([]commit.Update{{
+			Type:  commit.Put,
+			Index: 9,
+			Value: int(99)},
+		})
 		assert.True(t, c.Contains(9))
 		assert.Equal(t, 1, c.Index().Count())
 	}
@@ -184,10 +197,10 @@ func TestOfInts(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.Update([]Update{
-			{Kind: UpdatePut, Index: 1, Value: int(2)},
-			{Kind: UpdatePut, Index: 2, Value: int(3)},
-			{Kind: UpdateAdd, Index: 1, Value: int(2)},
+		c.Update([]commit.Update{
+			{Type: commit.Put, Index: 1, Value: int(2)},
+			{Type: commit.Put, Index: 2, Value: int(3)},
+			{Type: commit.Add, Index: 1, Value: int(2)},
 		})
 		assert.True(t, c.Contains(1))
 		assert.True(t, c.Contains(2))
@@ -203,7 +216,11 @@ func TestOfInt16s(t *testing.T) {
 	assert.Equal(t, 100, len(c.data))
 
 	{ // Set the value at index
-		c.Update([]Update{{UpdatePut, 9, int16(99)}})
+		c.Update([]commit.Update{{
+			Type:  commit.Put,
+			Index: 9,
+			Value: int16(99)},
+		})
 		assert.True(t, c.Contains(9))
 		assert.Equal(t, 1, c.Index().Count())
 	}
@@ -246,10 +263,10 @@ func TestOfInt16s(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.Update([]Update{
-			{Kind: UpdatePut, Index: 1, Value: int16(2)},
-			{Kind: UpdatePut, Index: 2, Value: int16(3)},
-			{Kind: UpdateAdd, Index: 1, Value: int16(2)},
+		c.Update([]commit.Update{
+			{Type: commit.Put, Index: 1, Value: int16(2)},
+			{Type: commit.Put, Index: 2, Value: int16(3)},
+			{Type: commit.Add, Index: 1, Value: int16(2)},
 		})
 		assert.True(t, c.Contains(1))
 		assert.True(t, c.Contains(2))
@@ -265,7 +282,11 @@ func TestOfInt32s(t *testing.T) {
 	assert.Equal(t, 100, len(c.data))
 
 	{ // Set the value at index
-		c.Update([]Update{{UpdatePut, 9, int32(99)}})
+		c.Update([]commit.Update{{
+			Type:  commit.Put,
+			Index: 9,
+			Value: int32(99)},
+		})
 		assert.True(t, c.Contains(9))
 		assert.Equal(t, 1, c.Index().Count())
 	}
@@ -308,10 +329,10 @@ func TestOfInt32s(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.Update([]Update{
-			{Kind: UpdatePut, Index: 1, Value: int32(2)},
-			{Kind: UpdatePut, Index: 2, Value: int32(3)},
-			{Kind: UpdateAdd, Index: 1, Value: int32(2)},
+		c.Update([]commit.Update{
+			{Type: commit.Put, Index: 1, Value: int32(2)},
+			{Type: commit.Put, Index: 2, Value: int32(3)},
+			{Type: commit.Add, Index: 1, Value: int32(2)},
 		})
 		assert.True(t, c.Contains(1))
 		assert.True(t, c.Contains(2))
@@ -327,7 +348,11 @@ func TestOfInt64s(t *testing.T) {
 	assert.Equal(t, 100, len(c.data))
 
 	{ // Set the value at index
-		c.Update([]Update{{UpdatePut, 9, int64(99)}})
+		c.Update([]commit.Update{{
+			Type:  commit.Put,
+			Index: 9,
+			Value: int64(99)},
+		})
 		assert.True(t, c.Contains(9))
 		assert.Equal(t, 1, c.Index().Count())
 	}
@@ -370,10 +395,10 @@ func TestOfInt64s(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.Update([]Update{
-			{Kind: UpdatePut, Index: 1, Value: int64(2)},
-			{Kind: UpdatePut, Index: 2, Value: int64(3)},
-			{Kind: UpdateAdd, Index: 1, Value: int64(2)},
+		c.Update([]commit.Update{
+			{Type: commit.Put, Index: 1, Value: int64(2)},
+			{Type: commit.Put, Index: 2, Value: int64(3)},
+			{Type: commit.Add, Index: 1, Value: int64(2)},
 		})
 		assert.True(t, c.Contains(1))
 		assert.True(t, c.Contains(2))
@@ -389,7 +414,11 @@ func TestOfUints(t *testing.T) {
 	assert.Equal(t, 100, len(c.data))
 
 	{ // Set the value at index
-		c.Update([]Update{{UpdatePut, 9, uint(99)}})
+		c.Update([]commit.Update{{
+			Type:  commit.Put,
+			Index: 9,
+			Value: uint(99)},
+		})
 		assert.True(t, c.Contains(9))
 		assert.Equal(t, 1, c.Index().Count())
 	}
@@ -432,10 +461,10 @@ func TestOfUints(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.Update([]Update{
-			{Kind: UpdatePut, Index: 1, Value: uint(2)},
-			{Kind: UpdatePut, Index: 2, Value: uint(3)},
-			{Kind: UpdateAdd, Index: 1, Value: uint(2)},
+		c.Update([]commit.Update{
+			{Type: commit.Put, Index: 1, Value: uint(2)},
+			{Type: commit.Put, Index: 2, Value: uint(3)},
+			{Type: commit.Add, Index: 1, Value: uint(2)},
 		})
 		assert.True(t, c.Contains(1))
 		assert.True(t, c.Contains(2))
@@ -451,7 +480,11 @@ func TestOfUint16s(t *testing.T) {
 	assert.Equal(t, 100, len(c.data))
 
 	{ // Set the value at index
-		c.Update([]Update{{UpdatePut, 9, uint16(99)}})
+		c.Update([]commit.Update{{
+			Type:  commit.Put,
+			Index: 9,
+			Value: uint16(99)},
+		})
 		assert.True(t, c.Contains(9))
 		assert.Equal(t, 1, c.Index().Count())
 	}
@@ -494,10 +527,10 @@ func TestOfUint16s(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.Update([]Update{
-			{Kind: UpdatePut, Index: 1, Value: uint16(2)},
-			{Kind: UpdatePut, Index: 2, Value: uint16(3)},
-			{Kind: UpdateAdd, Index: 1, Value: uint16(2)},
+		c.Update([]commit.Update{
+			{Type: commit.Put, Index: 1, Value: uint16(2)},
+			{Type: commit.Put, Index: 2, Value: uint16(3)},
+			{Type: commit.Add, Index: 1, Value: uint16(2)},
 		})
 		assert.True(t, c.Contains(1))
 		assert.True(t, c.Contains(2))
@@ -513,7 +546,11 @@ func TestOfUint32s(t *testing.T) {
 	assert.Equal(t, 100, len(c.data))
 
 	{ // Set the value at index
-		c.Update([]Update{{UpdatePut, 9, uint32(99)}})
+		c.Update([]commit.Update{{
+			Type:  commit.Put,
+			Index: 9,
+			Value: uint32(99)},
+		})
 		assert.True(t, c.Contains(9))
 		assert.Equal(t, 1, c.Index().Count())
 	}
@@ -556,10 +593,10 @@ func TestOfUint32s(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.Update([]Update{
-			{Kind: UpdatePut, Index: 1, Value: uint32(2)},
-			{Kind: UpdatePut, Index: 2, Value: uint32(3)},
-			{Kind: UpdateAdd, Index: 1, Value: uint32(2)},
+		c.Update([]commit.Update{
+			{Type: commit.Put, Index: 1, Value: uint32(2)},
+			{Type: commit.Put, Index: 2, Value: uint32(3)},
+			{Type: commit.Add, Index: 1, Value: uint32(2)},
 		})
 		assert.True(t, c.Contains(1))
 		assert.True(t, c.Contains(2))
@@ -575,7 +612,11 @@ func TestOfUint64s(t *testing.T) {
 	assert.Equal(t, 100, len(c.data))
 
 	{ // Set the value at index
-		c.Update([]Update{{UpdatePut, 9, uint64(99)}})
+		c.Update([]commit.Update{{
+			Type:  commit.Put,
+			Index: 9,
+			Value: uint64(99)},
+		})
 		assert.True(t, c.Contains(9))
 		assert.Equal(t, 1, c.Index().Count())
 	}
@@ -618,10 +659,10 @@ func TestOfUint64s(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.Update([]Update{
-			{Kind: UpdatePut, Index: 1, Value: uint64(2)},
-			{Kind: UpdatePut, Index: 2, Value: uint64(3)},
-			{Kind: UpdateAdd, Index: 1, Value: uint64(2)},
+		c.Update([]commit.Update{
+			{Type: commit.Put, Index: 1, Value: uint64(2)},
+			{Type: commit.Put, Index: 2, Value: uint64(3)},
+			{Type: commit.Add, Index: 1, Value: uint64(2)},
 		})
 		assert.True(t, c.Contains(1))
 		assert.True(t, c.Contains(2))

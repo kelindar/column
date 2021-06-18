@@ -9,23 +9,8 @@ import (
 	"time"
 
 	"github.com/kelindar/bitmap"
+	"github.com/kelindar/column/commit"
 )
-
-// UpdateKind represents a type of an update operation.
-type UpdateKind uint8
-
-// Various update operations supported.
-const (
-	UpdatePut UpdateKind = iota // Put stores a value regardless of a previous value
-	UpdateAdd                   // Add increments the current stored value by the amount
-)
-
-// Update represents an update operation
-type Update struct {
-	Kind  UpdateKind  // The type of an update operation
-	Index uint32      // The index to update/delete
-	Value interface{} // The value to update to
-}
 
 // --------------------------- Pool of Transactions ----------------------------
 
@@ -33,10 +18,10 @@ type Update struct {
 var txns = &sync.Pool{
 	New: func() interface{} {
 		return &Txn{
-			index:   make(bitmap.Bitmap, 0, 64),
-			deletes: make(bitmap.Bitmap, 0, 64),
-			inserts: make(bitmap.Bitmap, 0, 64),
-			updates: make([]updateQueue, 0, 16),
+			index:   make(bitmap.Bitmap, 0, 4),
+			deletes: make(bitmap.Bitmap, 0, 4),
+			inserts: make(bitmap.Bitmap, 0, 4),
+			updates: make([]updateQueue, 0, 256),
 			columns: make([]columnCache, 0, 16),
 		}
 	},
@@ -47,6 +32,7 @@ func aquireTxn(owner *Collection) *Txn {
 	txn := txns.Get().(*Txn)
 	txn.owner = owner
 	txn.columns = txn.columns[:0]
+	txn.writer = owner.writer
 	owner.fill.Clone(&txn.index)
 	return txn
 }
@@ -66,12 +52,13 @@ type Txn struct {
 	inserts bitmap.Bitmap // The insert queue
 	updates []updateQueue // The update queue
 	columns []columnCache // The column mapping
+	writer  commit.Writer // The optional commit writer
 }
 
 // Update queue represents a queue per column that contains the pending updates.
 type updateQueue struct {
-	name   string   // The column name
-	update []Update // The update queue
+	name   string          // The column name
+	update []commit.Update // The update queue
 }
 
 // columnCache caches a column by its name. This speeds things up since it's a very
@@ -150,6 +137,7 @@ func (txn *Txn) Union(columns ...string) *Txn {
 func (txn *Txn) WithValue(column string, predicate func(v interface{}) bool) *Txn {
 	c, ok := txn.columnAt(column)
 	if !ok {
+		txn.index.Clear()
 		return txn
 	}
 
@@ -169,6 +157,7 @@ func (txn *Txn) WithValue(column string, predicate func(v interface{}) bool) *Tx
 func (txn *Txn) WithFloat(column string, predicate func(v float64) bool) *Txn {
 	c, ok := txn.numericalAt(column)
 	if !ok {
+		txn.index.Clear()
 		return txn
 	}
 
@@ -188,6 +177,7 @@ func (txn *Txn) WithFloat(column string, predicate func(v float64) bool) *Txn {
 func (txn *Txn) WithInt(column string, predicate func(v int64) bool) *Txn {
 	c, ok := txn.numericalAt(column)
 	if !ok {
+		txn.index.Clear()
 		return txn
 	}
 
@@ -207,6 +197,7 @@ func (txn *Txn) WithInt(column string, predicate func(v int64) bool) *Txn {
 func (txn *Txn) WithUint(column string, predicate func(v uint64) bool) *Txn {
 	c, ok := txn.numericalAt(column)
 	if !ok {
+		txn.index.Clear()
 		return txn
 	}
 
@@ -363,7 +354,7 @@ func (txn *Txn) cursorFor(columnName string) (Cursor, error) {
 		updateQueueIndex = len(txn.updates)
 		txn.updates = append(txn.updates, updateQueue{
 			name:   columnName,
-			update: make([]Update, 0, 64),
+			update: make([]commit.Update, 0, 64),
 		})
 	}
 
@@ -414,10 +405,14 @@ func (txn *Txn) updatePending() {
 		// Range through all of the pending updates and apply them to the column
 		// and its associated computed columns.
 		for _, v := range columns {
-			if max, ok := txn.inserts.Max(); ok {
-				v.Grow(max)
-			}
-			v.Update(u.update)
+			max, _ := txn.inserts.Max()
+			v.Update(u.update, max)
+		}
+
+		// If there's a writer, write before we unlock the column so that the transactions
+		// are seiralized in the writer as well, making everything consistent.
+		if txn.writer != nil {
+			txn.writer.Write(commit.ForStore(u.name, txn.updates[i].update))
 		}
 
 		// Reset the queue
@@ -439,6 +434,13 @@ func (txn *Txn) deletePending() {
 	// Clear the items in the collection and reinitialize the purge list
 	txn.owner.lock.Lock()
 	txn.owner.fill.AndNot(txn.deletes)
+
+	// If there's an associated writer, write into it
+	if txn.writer != nil {
+		txn.writer.Write(commit.ForDelete(txn.deletes))
+	}
+
+	// Now that we're done with the deletion and the commit has been written, clear
 	txn.owner.lock.Unlock()
 	txn.deletes.Clear()
 }
@@ -452,198 +454,4 @@ func (txn *Txn) insertPending() {
 		txn.owner.lock.Unlock()
 		txn.inserts.Clear()
 	}
-}
-
-// --------------------------- Selector ---------------------------
-
-// Selector represents a iteration Selector that supports both retrieval of column values
-// for the specified row and modification (update, delete).
-type Selector struct {
-	idx uint32      // The current index
-	txn *Txn        // The (optional) transaction, but one of them is required
-	col *Collection // The (optional) collection, but one of them is required
-}
-
-// columnAt loads the column based on whether the selector has a transaction or not.
-func (cur *Selector) columnAt(column string) (*column, bool) {
-	if cur.txn != nil {
-		return cur.txn.columnAt(column)
-	}
-
-	// Load directly from the collection
-	return cur.col.cols.Load(column)
-}
-
-// ValueAt reads a value for a current row at a given column.
-func (cur *Selector) ValueAt(column string) (out interface{}) {
-	if c, ok := cur.columnAt(column); ok {
-		out, _ = c.Value(cur.idx)
-	}
-	return
-}
-
-// StringAt reads a string value for a current row at a given column.
-func (cur *Selector) StringAt(column string) (out string) {
-	if c, ok := cur.columnAt(column); ok {
-		if v, ok := c.Value(cur.idx); ok {
-			out, _ = v.(string)
-		}
-	}
-	return
-}
-
-// FloatAt reads a float64 value for a current row at a given column.
-func (cur *Selector) FloatAt(column string) (out float64) {
-	if c, ok := cur.columnAt(column); ok {
-		out, _ = c.Float64(cur.idx)
-	}
-	return
-}
-
-// IntAt reads an int64 value for a current row at a given column.
-func (cur *Selector) IntAt(columnName string) (out int64) {
-	if c, ok := cur.columnAt(columnName); ok {
-		out, _ = c.Int64(cur.idx)
-	}
-	return
-}
-
-// UintAt reads a uint64 value for a current row at a given column.
-func (cur *Selector) UintAt(column string) (out uint64) {
-	if c, ok := cur.columnAt(column); ok {
-		out, _ = c.Uint64(cur.idx)
-	}
-	return
-}
-
-// BoolAt reads a boolean value for a current row at a given column.
-func (cur *Selector) BoolAt(column string) bool {
-	if c, ok := cur.columnAt(column); ok {
-		return c.Contains(cur.idx)
-	}
-	return false
-}
-
-// --------------------------- Cursor ---------------------------
-
-// Cursor represents a iteration Selector that is bound to a specific column.
-type Cursor struct {
-	Selector
-	update int16   // The index of the update queue
-	column *column // The selected column
-}
-
-// Value reads a value for a current row at a given column.
-func (cur *Cursor) Value() (out interface{}) {
-	out, _ = cur.column.Value(cur.idx)
-	return
-}
-
-// String reads a string value for a current row at a given column.
-func (cur *Cursor) String() (out string) {
-	if v, ok := cur.column.Value(cur.idx); ok {
-		out, _ = v.(string)
-	}
-	return
-}
-
-// Float reads a float64 value for a current row at a given column.
-func (cur *Cursor) Float() (out float64) {
-	out, _ = cur.column.Float64(cur.idx)
-	return
-}
-
-// Int reads an int64 value for a current row at a given column.
-func (cur *Cursor) Int() (out int64) {
-	out, _ = cur.column.Int64(cur.idx)
-	return
-}
-
-// Uint reads a uint64 value for a current row at a given column.
-func (cur *Cursor) Uint() (out uint64) {
-	out, _ = cur.column.Uint64(cur.idx)
-	return
-}
-
-// Bool reads a boolean value for a current row at a given column.
-func (cur *Cursor) Bool() bool {
-	return cur.column.Contains(cur.idx)
-}
-
-// --------------------------- Update/Delete ----------------------------
-
-// Delete deletes the current item. The actual operation will be queued and
-// executed once the current the transaction completes.
-func (cur *Cursor) Delete() {
-	cur.txn.deletes.Set(cur.idx)
-}
-
-// Update updates a column value for the current item. The actual operation
-// will be queued and executed once the current the transaction completes.
-func (cur *Cursor) Update(value interface{}) {
-	cur.txn.updates[cur.update].update = append(cur.txn.updates[cur.update].update, Update{
-		Kind:  UpdatePut,
-		Index: cur.idx,
-		Value: value,
-	})
-}
-
-// Add atomically increments/decrements the current value by the specified amount. Note
-// that this only works for numerical values and the type of the value must match.
-func (cur *Cursor) Add(amount interface{}) {
-	cur.txn.updates[cur.update].update = append(cur.txn.updates[cur.update].update, Update{
-		Kind:  UpdateAdd,
-		Index: cur.idx,
-		Value: amount,
-	})
-}
-
-// UpdateAt updates a specified column value for the current item. The actual operation
-// will be queued and executed once the current the transaction completes.
-func (cur *Cursor) UpdateAt(column string, value interface{}) {
-	for i, c := range cur.txn.updates {
-		if c.name == column {
-			cur.txn.updates[i].update = append(c.update, Update{
-				Kind:  UpdatePut,
-				Index: cur.idx,
-				Value: value,
-			})
-			return
-		}
-	}
-
-	// Create a new update queue
-	cur.txn.updates = append(cur.txn.updates, updateQueue{
-		name: column,
-		update: []Update{{
-			Kind:  UpdatePut,
-			Index: cur.idx,
-			Value: value,
-		}},
-	})
-}
-
-// Add atomically increments/decrements the column value by the specified amount. Note
-// that this only works for numerical values and the type of the value must match.
-func (cur *Cursor) AddAt(column string, amount interface{}) {
-	for i, c := range cur.txn.updates {
-		if c.name == column {
-			cur.txn.updates[i].update = append(c.update, Update{
-				Kind:  UpdateAdd,
-				Index: cur.idx,
-				Value: amount,
-			})
-			return
-		}
-	}
-
-	// Create a new update queue
-	cur.txn.updates = append(cur.txn.updates, updateQueue{
-		name: column,
-		update: []Update{{
-			Kind:  UpdateAdd,
-			Index: cur.idx,
-			Value: amount,
-		}},
-	})
 }

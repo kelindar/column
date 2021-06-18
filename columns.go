@@ -11,12 +11,13 @@ import (
 	"sync"
 
 	"github.com/kelindar/bitmap"
+	"github.com/kelindar/column/commit"
 )
 
 // Column represents a column implementation
 type Column interface {
 	Grow(idx uint32)
-	Update(updates []Update)
+	Update(updates []commit.Update)
 	Delete(items *bitmap.Bitmap)
 	Value(idx uint32) (interface{}, bool)
 	Contains(idx uint32) bool
@@ -84,12 +85,14 @@ func ForKind(kind reflect.Kind) Column {
 // column represents a column wrapper that synchronizes operations
 type column struct {
 	sync.RWMutex
+	name string
 	Column
 }
 
 // columnFor creates a synchronized column for a column implementation
-func columnFor(v Column) *column {
+func columnFor(name string, v Column) *column {
 	return &column{
+		name:   name,
 		Column: v,
 	}
 }
@@ -115,16 +118,10 @@ func (c *column) Union(dst *bitmap.Bitmap) {
 	c.RUnlock()
 }
 
-// Grow grows the size of the column until we have enough to store
-func (c *column) Grow(idx uint32) {
-	c.Lock()
-	c.Column.Grow(idx)
-	c.Unlock()
-}
-
 // Update performs a series of updates at once
-func (c *column) Update(updates []Update) {
+func (c *column) Update(updates []commit.Update, growUntil uint32) {
 	c.Lock()
+	c.Column.Grow(growUntil)
 	c.Column.Update(updates)
 	c.Unlock()
 }
@@ -176,13 +173,13 @@ func (c *column) Uint64(idx uint32) (v uint64, ok bool) {
 	return
 }
 
-// Value retrieves a value at a specified index
+// loadValue (unlocked) retrieves a value at a specified index
 func (c *column) loadValue(idx uint32) (v interface{}, ok bool) {
 	v, ok = c.Column.Value(idx)
 	return
 }
 
-// Float64 retrieves a float64 value at a specified index
+// loadFloat64 (unlocked)  retrieves a float64 value at a specified index
 func (c *column) loadFloat64(idx uint32) (v float64, ok bool) {
 	if n, contains := c.Column.(numerical); contains {
 		v, ok = n.Float64(idx)
@@ -190,7 +187,7 @@ func (c *column) loadFloat64(idx uint32) (v float64, ok bool) {
 	return
 }
 
-// Int64 retrieves an int64 value at a specified index
+// loadInt64 (unlocked)  retrieves an int64 value at a specified index
 func (c *column) loadInt64(idx uint32) (v int64, ok bool) {
 	if n, contains := c.Column.(numerical); contains {
 		v, ok = n.Int64(idx)
@@ -198,7 +195,7 @@ func (c *column) loadInt64(idx uint32) (v int64, ok bool) {
 	return
 }
 
-// Uint64 retrieves an uint64 value at a specified index
+// loadUint64 (unlocked)  retrieves an uint64 value at a specified index
 func (c *column) loadUint64(idx uint32) (v uint64, ok bool) {
 	if n, contains := c.Column.(numerical); contains {
 		v, ok = n.Uint64(idx)
@@ -232,11 +229,11 @@ func (c *columnAny) Grow(idx uint32) {
 }
 
 // Update performs a series of updates at once
-func (c *columnAny) Update(updates []Update) {
+func (c *columnAny) Update(updates []commit.Update) {
 
 	// Update the values of the column, for this one we can only process stores
 	for _, u := range updates {
-		if u.Kind == UpdatePut {
+		if u.Type == commit.Put {
 			c.fill.Set(u.Index)
 			c.data[u.Index] = u.Value
 		}
@@ -288,7 +285,7 @@ func (c *columnBool) Grow(idx uint32) {
 }
 
 // Update performs a series of updates at once
-func (c *columnBool) Update(updates []Update) {
+func (c *columnBool) Update(updates []commit.Update) {
 	for _, u := range updates {
 		c.fill.Set(u.Index)
 		if u.Value.(bool) {
@@ -335,10 +332,10 @@ type index struct {
 }
 
 // newIndex creates a new indexer
-func newIndex(prop string, rule func(v interface{}) bool) *column {
-	return columnFor(&index{
+func newIndex(indexName, columnName string, rule func(v interface{}) bool) *column {
+	return columnFor(indexName, &index{
 		fill: make(bitmap.Bitmap, 0, 4),
-		prop: prop,
+		prop: columnName,
 		rule: rule,
 	})
 }
@@ -354,13 +351,13 @@ func (c *index) Column() string {
 }
 
 // Update performs a series of updates at once
-func (c *index) Update(updates []Update) {
+func (c *index) Update(updates []commit.Update) {
 
 	// Index can only be updated based on the final stored value, so we can only work
 	// with put operations here. The trick is to update the final value after applying
 	// on the actual column.
 	for _, u := range updates {
-		if u.Kind == UpdatePut {
+		if u.Type == commit.Put {
 			if c.rule(u.Value) {
 				c.fill.Set(u.Index)
 			} else {

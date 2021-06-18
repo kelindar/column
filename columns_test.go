@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/kelindar/bitmap"
+	"github.com/kelindar/column/commit"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -15,7 +16,7 @@ import (
 func BenchmarkColumn(b *testing.B) {
 	b.Run("fetch", func(b *testing.B) {
 		p := makeAny()
-		p.Update([]Update{{UpdatePut, 5, "hello"}})
+		p.Update([]commit.Update{{commit.Put, 5, "hello"}})
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
@@ -29,7 +30,7 @@ func TestColumn(t *testing.T) {
 	p.Grow(1000)
 
 	{ // Set the value at index
-		p.Update([]Update{{UpdatePut, 9, 99.5}})
+		p.Update([]commit.Update{{commit.Put, 9, 99.5}})
 		assert.Equal(t, 1001, len(p.data))
 	}
 
@@ -47,9 +48,9 @@ func TestColumn(t *testing.T) {
 	}
 
 	{ // Set a couple of values, should only take 2 slots
-		p.Update([]Update{
-			{UpdatePut, 5, "hi"},
-			{UpdatePut, 1000, "roman"},
+		p.Update([]commit.Update{
+			{commit.Put, 5, "hi"},
+			{commit.Put, 1000, "roman"},
 		})
 
 		v1, ok := p.Value(5)
@@ -66,7 +67,7 @@ func TestColumnOrder(t *testing.T) {
 	p := makeAny()
 	p.Grow(199)
 	for i := uint32(100); i < 200; i++ {
-		p.Update([]Update{{UpdatePut, i, i}})
+		p.Update([]commit.Update{{commit.Put, i, i}})
 	}
 
 	for i := uint32(100); i < 200; i++ {
@@ -79,7 +80,7 @@ func TestColumnOrder(t *testing.T) {
 		var deletes bitmap.Bitmap
 		deletes.Set(i)
 		p.Delete(&deletes)
-		p.Update([]Update{{UpdatePut, i, i}})
+		p.Update([]commit.Update{{commit.Put, i, i}})
 	}
 
 	for i := uint32(100); i < 200; i++ {
@@ -98,7 +99,7 @@ func TestColumns(t *testing.T) {
 
 		{ // Set the value at index
 			c.Grow(9)
-			c.Update([]Update{{UpdatePut, 9, true}})
+			c.Update([]commit.Update{{commit.Put, 9, true}})
 			assert.True(t, c.Contains(9))
 		}
 
@@ -116,7 +117,7 @@ func TestColumns(t *testing.T) {
 		}
 
 		{ // Update several items at once
-			c.Update([]Update{{Index: 1, Value: true}, {Index: 2, Value: false}})
+			c.Update([]commit.Update{{Index: 1, Value: true}, {Index: 2, Value: false}})
 			assert.True(t, c.Contains(1))
 			assert.True(t, c.Contains(2))
 		}

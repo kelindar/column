@@ -5,6 +5,7 @@ package column
 import (
 	"github.com/cheekybits/genny/generic"
 	"github.com/kelindar/bitmap"
+	"github.com/kelindar/column/commit"
 )
 
 type number generic.Number
@@ -35,22 +36,22 @@ func (c *columnnumber) Grow(idx uint32) {
 }
 
 // Update performs a series of updates at once
-func (c *columnnumber) Update(updates []Update) {
+func (c *columnnumber) Update(updates []commit.Update) {
 
 	// Range over all of the updates, and depending on the operation perform the action
 	for i, u := range updates {
 		c.fill.Set(u.Index)
-		switch u.Kind {
-		case UpdatePut:
+		switch u.Type {
+		case commit.Put:
 			c.data[u.Index] = u.Value.(number)
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
-		case UpdateAdd:
+		case commit.Add:
 			value := c.data[u.Index] + u.Value.(number)
 			c.data[u.Index] = value
-			updates[i] = Update{
-				Kind:  UpdatePut,
+			updates[i] = commit.Update{
+				Type:  commit.Put,
 				Index: u.Index,
 				Value: value,
 			}

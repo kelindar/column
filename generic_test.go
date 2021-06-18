@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/kelindar/bitmap"
+	"github.com/kelindar/column/commit"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -15,7 +16,11 @@ func TestOfnumbers(t *testing.T) {
 	assert.Equal(t, 100, len(c.data))
 
 	{ // Set the value at index
-		c.Update([]Update{{UpdatePut, 9, number(99)}})
+		c.Update([]commit.Update{{
+			Type:  commit.Put,
+			Index: 9,
+			Value: number(99)},
+		})
 		assert.True(t, c.Contains(9))
 		assert.Equal(t, 1, c.Index().Count())
 	}
@@ -58,10 +63,10 @@ func TestOfnumbers(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.Update([]Update{
-			{Kind: UpdatePut, Index: 1, Value: number(2)},
-			{Kind: UpdatePut, Index: 2, Value: number(3)},
-			{Kind: UpdateAdd, Index: 1, Value: number(2)},
+		c.Update([]commit.Update{
+			{Type: commit.Put, Index: 1, Value: number(2)},
+			{Type: commit.Put, Index: 2, Value: number(3)},
+			{Type: commit.Add, Index: 1, Value: number(2)},
 		})
 		assert.True(t, c.Contains(1))
 		assert.True(t, c.Contains(2))

@@ -8,9 +8,11 @@ import (
 	"encoding/json"
 	"os"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/kelindar/column/commit"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -262,7 +264,11 @@ func TestInsertParallel(t *testing.T) {
 
 // loadPlayers loads a list of players from the fixture
 func loadPlayers() *Collection {
-	out := NewCollection()
+	out := NewCollection(Options{
+		Capacity: 512,
+		Vacuum:   500 * time.Millisecond,
+		Writer:   new(noopWriter),
+	})
 
 	// index on humans
 	out.CreateIndex("human", "race", func(v interface{}) bool {
@@ -319,4 +325,15 @@ func loadFixture(name string) []Object {
 	}
 
 	return data
+}
+
+// noopWriter is a writer that simply counts the commits
+type noopWriter struct {
+	commits uint64
+}
+
+// Write clones the commit and writes it into the writer
+func (w *noopWriter) Write(commit *commit.Commit) error {
+	atomic.AddUint64(&w.commits, 1)
+	return commit.Close()
 }

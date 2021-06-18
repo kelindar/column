@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/kelindar/bitmap"
+	"github.com/kelindar/column/commit"
 )
 
 // Object represents a single object
@@ -23,24 +24,55 @@ const (
 
 // Collection represents a collection of objects in a columnar format
 type Collection struct {
-	lock sync.RWMutex       // The lock for fill list
-	cols columns            // The map of columns
-	fill bitmap.Bitmap      // The fill-list
-	stop context.CancelFunc // The cancellation function
+	lock   sync.RWMutex       // The lock for fill list
+	cols   columns            // The map of columns
+	fill   bitmap.Bitmap      // The fill-list
+	size   int                // The initial size for new columns
+	writer commit.Writer      // The commit writer
+	cancel context.CancelFunc // The cancellation function for the context
+}
+
+// Options represents the options for a collection.
+type Options struct {
+	Capacity int           // The initial capacity when creating columns
+	Writer   commit.Writer // The writer for the commit log (optional)
+	Vacuum   time.Duration // The interval at which the vacuum of expired entries will be done
 }
 
 // NewCollection creates a new columnar collection.
-func NewCollection() *Collection {
+func NewCollection(opts ...Options) *Collection {
+	options := Options{
+		Capacity: 1024,
+		Vacuum:   1 * time.Second,
+		Writer:   nil,
+	}
+
+	// Merge options together
+	for _, o := range opts {
+		if o.Capacity > 0 {
+			options.Capacity = o.Capacity
+		}
+		if o.Vacuum > 0 {
+			options.Vacuum = o.Vacuum
+		}
+		if o.Writer != nil {
+			options.Writer = o.Writer
+		}
+	}
+
+	// Create a new collection
 	ctx, cancel := context.WithCancel(context.Background())
 	store := &Collection{
-		cols: makeColumns(8),
-		fill: make(bitmap.Bitmap, 0, 4),
-		stop: cancel,
+		cols:   makeColumns(8),
+		size:   options.Capacity,
+		fill:   make(bitmap.Bitmap, 0, options.Capacity>>6),
+		writer: options.Writer,
+		cancel: cancel,
 	}
 
 	// Create an expiration column and start the cleanup goroutine
 	store.CreateColumn(expireColumn, ForInt64())
-	go store.vacuum(ctx, time.Second)
+	go store.vacuum(ctx, options.Vacuum)
 	return store
 }
 
@@ -115,7 +147,8 @@ func (c *Collection) CreateColumnsOf(object Object) {
 
 // CreateColumn creates a column of a specified type and adds it to the collection.
 func (c *Collection) CreateColumn(columnName string, column Column) {
-	c.cols.Store(columnName, columnFor(column))
+	column.Grow(uint32(c.size))
+	c.cols.Store(columnName, columnFor(columnName, column))
 }
 
 // DropColumn removes the column (or an index) with the specified name. If the column with this
@@ -135,7 +168,8 @@ func (c *Collection) CreateIndex(indexName, columnName string, fn func(v interfa
 	}
 
 	// Create and add the index column,
-	index := newIndex(columnName, fn)
+	index := newIndex(indexName, columnName, fn)
+	index.Grow(uint32(c.size))
 	c.cols.Store(indexName, index)
 	c.cols.Store(columnName, nil, index)
 
@@ -212,7 +246,7 @@ func (c *Collection) Query(fn func(txn *Txn) error) error {
 
 // Close closes the collection and clears up all of the resources.
 func (c *Collection) Close() error {
-	c.stop()
+	c.cancel()
 	return nil
 }
 
