@@ -155,7 +155,7 @@ players.Query(func(txn *Txn) error {
 In all of the previous examples, we've only been doing `Count()` operation which counts the number of elements in the result set. In this section we'll look how we can iterate over the result set. In short, there's 2 main methods that allow us to do it:
 
  1. `Range()` method which takes in a column name as an argument and allows faster get/set of the values for that column.
- 2. `Select()` method which doesn't pre-select any specific column, so it's usually a bit slower if you're actually selecting the data. 
+ 2. `Select()` method which doesn't pre-select any specific column, so it's usually a bit slower and it also does not allow any updates. 
 
 Let's first examine the `Range()` method. In the example below we select all of the rogues from our collection and print out their name by using the `Range()` method and providing "name" column to it. The callback containing the `Cursor` allows us to quickly get the value of the column by calling `String()` method to retrieve a string value. It also contains methods such as `Int()`, `Uint()`, `Float()` or more generic `Value()` to pull data of different types.
 
@@ -182,14 +182,24 @@ players.Query(func(txn *Txn) error {
 })
 ```
 
-Now, what if you need to quickly delete all of the rogues from the collection? In this case `Select()` method comes in handy specifically because it does not require pre-selected columns and it will be slightly faster to do a batch deletion with it. In the example below we filter all of the rogues and delete them. 
+On the other hand, `Select()` allows you to do a read-only selection which provides a `Selector` cursor. This cursor does not allow any updates, deletes or inserts and is also not pre-select any particular column. In the example below we print out names of all of the rogues using a selector.
 
 ```go
 players.Query(func(txn *Txn) error {
 	txn.With("rogue").Select(func(v column.Selector) bool {
-		v.Delete()
+		println("rogue name ", v.StringAt("name")) // Prints the name
 		return true
 	})
+	return nil
+})
+```
+
+
+Now, what if you need to quickly delete all some of the data in the collection? In this case `DeleteAll()` or `DeleteIf()` methosd come in handy. These methods are very fast (especially `DeleteAll()`) and allow you to quickly delete the appropriate results, transactionally. In the example below we delete all of the rogues from the collection by simply selecting them in the transaction and calling the `DeleteAll()` method.
+
+```go
+players.Query(func(txn *Txn) error {
+	txn.With("rogue").DeleteAll()
 	return nil
 })
 ```

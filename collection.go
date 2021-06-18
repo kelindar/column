@@ -80,21 +80,22 @@ func (c *Collection) InsertWithTTL(obj Object, ttl time.Duration) (index uint32)
 // possible to update during the query, which is much more convenient to use.
 func (c *Collection) UpdateAt(idx uint32, columnName string, value interface{}) {
 	c.Query(func(txn *Txn) error {
-		if at, ok := txn.At(idx); ok {
-			at.UpdateAt(columnName, value)
+		if cursor, err := txn.cursorFor(columnName); err == nil {
+			cursor.idx = idx
+			cursor.Update(value)
 		}
 		return nil
 	})
 }
 
-// DeleteAt removes the object at the specified index.
-func (c *Collection) DeleteAt(idx uint32) {
+// DeleteAt attempts to delete an item at the specified index for this collection. If the item
+// exists, it marks at as deleted and returns true, otherwise it returns false.
+func (c *Collection) DeleteAt(idx uint32) (deleted bool) {
 	c.Query(func(txn *Txn) error {
-		if at, ok := txn.At(idx); ok {
-			at.Delete()
-		}
+		deleted = txn.DeleteAt(idx)
 		return nil
 	})
+	return
 }
 
 // Count returns the total number of elements in the collection.
@@ -168,6 +169,23 @@ func (c *Collection) DropIndex(indexName string) {
 	c.cols.DeleteColumn(indexName)
 }
 
+// Fetch retrieves an object by its handle and returns a Selector for it.
+func (c *Collection) Fetch(idx uint32) (Selector, bool) {
+	c.lock.RLock()
+	contains := c.fill.Contains(idx)
+	c.lock.RUnlock()
+
+	// If it's empty or over the sequence, not found
+	if idx >= uint32(len(c.fill))<<6 || !contains {
+		return Selector{}, false
+	}
+
+	return Selector{
+		idx: idx,
+		col: c,
+	}, true
+}
+
 // Query creates a transaction which allows for filtering and iteration over the
 // columns in this collection. It also allows for individual rows to be modified or
 // deleted during iteration (range), but the actual operations will be queued and
@@ -189,23 +207,6 @@ func (c *Collection) Query(fn func(txn *Txn) error) error {
 	txn.Commit()
 	releaseTxn(txn)
 	return nil
-}
-
-// Fetch retrieves an object by its handle and returns a Selector for it.
-func (c *Collection) Fetch(idx uint32) (Selector, bool) {
-	c.lock.RLock()
-	contains := c.fill.Contains(idx)
-	c.lock.RUnlock()
-
-	// If it's empty or over the sequence, not found
-	if idx >= uint32(len(c.fill))*64 || !contains {
-		return Selector{}, false
-	}
-
-	return Selector{
-		index: idx,
-		owner: c,
-	}, true
 }
 
 // Close closes the collection and clears up all of the resources.

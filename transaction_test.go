@@ -117,8 +117,11 @@ func TestIndexInvalid(t *testing.T) {
 	}))
 
 	players.Query(func(txn *Txn) error {
-		_, ok := txn.At(999999)
+		_, ok := txn.ReadAt(999999)
 		assert.False(t, ok)
+
+		_, ok = txn.ReadAt(0)
+		assert.True(t, ok)
 		return nil
 	})
 
@@ -128,6 +131,15 @@ func TestIndexInvalid(t *testing.T) {
 			return true
 		})
 	}))
+
+	assert.NoError(t, players.Query(func(txn *Txn) error {
+		txn.DeleteIf(func(v Selector) bool {
+			return v.StringAt("class") == "rogue"
+		})
+		return nil
+	}))
+
+	assert.Equal(t, 321, players.Count())
 }
 
 func TestIndexed(t *testing.T) {
@@ -212,10 +224,7 @@ func TestUpdate(t *testing.T) {
 
 	// Delete all old people from the collection
 	players.Query(func(txn *Txn) error {
-		txn.With("old").Select(func(v Selector) bool {
-			v.Delete()
-			return true
-		})
+		txn.With("old").DeleteAll()
 		return nil
 	})
 
@@ -227,8 +236,8 @@ func TestUpdate(t *testing.T) {
 
 	// Make everyone poor
 	players.Query(func(txn *Txn) error {
-		txn.Select(func(v Selector) bool {
-			v.UpdateAt("balance", 1.0)
+		txn.Range("balance", func(v Cursor) bool {
+			v.Update(1.0)
 			return true
 		})
 		return nil
@@ -266,8 +275,8 @@ func TestUpdate(t *testing.T) {
 
 	// Try out the rollback
 	players.Query(func(txn *Txn) error {
-		txn.Select(func(v Selector) bool {
-			v.UpdateAt("balance", 1.0)
+		txn.Range("balance", func(v Cursor) bool {
+			v.Update(1.0)
 			return true
 		})
 		return fmt.Errorf("trigger rollback")

@@ -11,20 +11,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kelindar/bitmap"
 	"github.com/stretchr/testify/assert"
 )
 
-// BenchmarkCollection/insert-8         	 5648034	       214.7 ns/op	       3 B/op	       0 allocs/op
-// BenchmarkCollection/fetch-8          	19700874	        61.83 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/count-slow-8     	  107548	     11178 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/count-8          	 9503278	       133.0 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/range-8          	 1862108	       671.0 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/select-8         	 1000000	      1076 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/update-at-8      	13209966	        92.18 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/update-all-8     	  168684	      6733 ns/op	       3 B/op	       0 allocs/op
-// BenchmarkCollection/delete-at-8      	 2197222	       543.8 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/delete-all-8     	  395937	      3873 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/insert-8         	 5853918	       212.2 ns/op	       3 B/op	       0 allocs/op
+// BenchmarkCollection/unindexed-8      	  102012	     11425 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/count-8          	 9809371	       130.6 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/range-8          	 1891096	       648.2 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/update-at-8      	16961682	        71.77 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/update-all-8     	  196418	      6512 ns/op	       2 B/op	       0 allocs/op
+// BenchmarkCollection/delete-at-8      	 2226390	       534.4 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/delete-all-8     	 2045902	       592.7 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkCollection(b *testing.B) {
 	players := loadPlayers()
 	obj := Object{
@@ -59,7 +56,7 @@ func BenchmarkCollection(b *testing.B) {
 		assert.NotEmpty(b, name)
 	})
 
-	b.Run("count-slow", func(b *testing.B) {
+	b.Run("unindexed", func(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
@@ -104,23 +101,6 @@ func BenchmarkCollection(b *testing.B) {
 		assert.NotEmpty(b, name)
 	})
 
-	b.Run("select", func(b *testing.B) {
-		count, name := 0, ""
-		b.ReportAllocs()
-		b.ResetTimer()
-		for n := 0; n < b.N; n++ {
-			players.Query(func(txn *Txn) error {
-				txn.With("human", "mage", "old").Select(func(v Selector) bool {
-					count++
-					name = v.StringAt("name")
-					return true
-				})
-				return nil
-			})
-		}
-		assert.NotEmpty(b, name)
-	})
-
 	b.Run("update-at", func(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
@@ -130,19 +110,11 @@ func BenchmarkCollection(b *testing.B) {
 	})
 
 	b.Run("update-all", func(b *testing.B) {
-		var columns []string
-		for _, c := range players.cols.cols.Load().([]columnEntry) {
-			if _, ok := c.cols[0].(numerical); ok && c.name != expireColumn {
-				columns = append(columns, c.name)
-			}
-		}
-
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			columnName := columns[n%len(columns)]
 			players.Query(func(txn *Txn) error {
-				txn.Range(columnName, func(v Cursor) bool {
+				txn.Range("balance", func(v Cursor) bool {
 					v.Update(1.0)
 					return true
 				})
@@ -160,19 +132,12 @@ func BenchmarkCollection(b *testing.B) {
 	})
 
 	b.Run("delete-all", func(b *testing.B) {
-		var fill bitmap.Bitmap
-		c := loadPlayers()  // Clone since we're deleting here
-		c.fill.Clone(&fill) // Save the state
-
+		temp := loadPlayers()
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			fill.Clone(&c.fill) // Restore
-			c.Query(func(txn *Txn) error {
-				txn.Select(func(v Selector) bool {
-					v.Delete()
-					return true
-				})
+			temp.Query(func(txn *Txn) error {
+				txn.DeleteAll()
 				return nil
 			})
 		}
