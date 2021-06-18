@@ -20,9 +20,7 @@ type Column interface {
 	Delete(items *bitmap.Bitmap)
 	Value(idx uint32) (interface{}, bool)
 	Contains(idx uint32) bool
-	Intersect(*bitmap.Bitmap)
-	Difference(*bitmap.Bitmap)
-	Union(*bitmap.Bitmap)
+	Index() *bitmap.Bitmap
 }
 
 // Numerical represents a numerical column implementation
@@ -81,83 +79,160 @@ func ForKind(kind reflect.Kind) Column {
 	}
 }
 
-// --------------------------- Base ----------------------------
+// --------------------------- Column ----------------------------
 
-// column represents a base column implementation with a lock and a fill list
+// column represents a column wrapper that synchronizes operations
 type column struct {
 	sync.RWMutex
-	fill bitmap.Bitmap
+	Column
 }
 
-// Delete deletes a set of items from the column.
-func (c *column) Delete(items *bitmap.Bitmap) {
-	c.Lock()
-	c.fill.AndNot(*items)
-	c.Unlock()
-}
-
-// Contains checks whether the column has a value at a specified index.
-func (c *column) Contains(idx uint32) (exists bool) {
-	c.RLock()
-	exists = c.fill.Contains(idx)
-	c.RUnlock()
-	return
+// columnFor creates a synchronized column for a column implementation
+func columnFor(v Column) *column {
+	return &column{
+		Column: v,
+	}
 }
 
 // Intersect performs a logical and operation and updates the destination bitmap.
 func (c *column) Intersect(dst *bitmap.Bitmap) {
 	c.RLock()
-	dst.And(c.fill)
+	dst.And(*c.Index())
 	c.RUnlock()
 }
 
 // Difference performs a logical and not operation and updates the destination bitmap.
 func (c *column) Difference(dst *bitmap.Bitmap) {
 	c.RLock()
-	dst.AndNot(c.fill)
+	dst.AndNot(*c.Index())
 	c.RUnlock()
 }
 
 // Union performs a logical or operation and updates the destination bitmap.
 func (c *column) Union(dst *bitmap.Bitmap) {
 	c.RLock()
-	dst.Or(c.fill)
+	dst.Or(*c.Index())
 	c.RUnlock()
+}
+
+// Grow grows the size of the column until we have enough to store
+func (c *column) Grow(idx uint32) {
+	c.Lock()
+	c.Column.Grow(idx)
+	c.Unlock()
+}
+
+// Update performs a series of updates at once
+func (c *column) Update(updates []Update) {
+	c.Lock()
+	c.Column.Update(updates)
+	c.Unlock()
+}
+
+// Delete deletes a set of items from the column.
+func (c *column) Delete(items *bitmap.Bitmap) {
+	c.Lock()
+	c.Column.Delete(items)
+	c.Unlock()
+}
+
+// Contains checks whether the column has a value at a specified index.
+func (c *column) Contains(idx uint32) (exists bool) {
+	c.RLock()
+	exists = c.Column.Contains(idx)
+	c.RUnlock()
+	return
+}
+
+// Value retrieves a value at a specified index
+func (c *column) Value(idx uint32) (v interface{}, ok bool) {
+	c.RLock()
+	v, ok = c.loadValue(idx)
+	c.RUnlock()
+	return
+}
+
+// Float64 retrieves a float64 value at a specified index
+func (c *column) Float64(idx uint32) (v float64, ok bool) {
+	c.RLock()
+	v, ok = c.loadFloat64(idx)
+	c.RUnlock()
+	return
+}
+
+// Int64 retrieves an int64 value at a specified index
+func (c *column) Int64(idx uint32) (v int64, ok bool) {
+	c.RLock()
+	v, ok = c.loadInt64(idx)
+	c.RUnlock()
+	return
+}
+
+// Uint64 retrieves an uint64 value at a specified index
+func (c *column) Uint64(idx uint32) (v uint64, ok bool) {
+	c.RLock()
+	v, ok = c.loadUint64(idx)
+	c.RUnlock()
+	return
+}
+
+// Value retrieves a value at a specified index
+func (c *column) loadValue(idx uint32) (v interface{}, ok bool) {
+	v, ok = c.Column.Value(idx)
+	return
+}
+
+// Float64 retrieves a float64 value at a specified index
+func (c *column) loadFloat64(idx uint32) (v float64, ok bool) {
+	if n, contains := c.Column.(numerical); contains {
+		v, ok = n.Float64(idx)
+	}
+	return
+}
+
+// Int64 retrieves an int64 value at a specified index
+func (c *column) loadInt64(idx uint32) (v int64, ok bool) {
+	if n, contains := c.Column.(numerical); contains {
+		v, ok = n.Int64(idx)
+	}
+	return
+}
+
+// Uint64 retrieves an uint64 value at a specified index
+func (c *column) loadUint64(idx uint32) (v uint64, ok bool) {
+	if n, contains := c.Column.(numerical); contains {
+		v, ok = n.Uint64(idx)
+	}
+	return
 }
 
 // --------------------------- Any ----------------------------
 
 // columnAny represents a generic column
 type columnAny struct {
-	column
+	fill bitmap.Bitmap // The fill-list
 	data []interface{} // The actual values
 }
 
 // makeAny creates a new generic column
 func makeAny() Column {
 	return &columnAny{
+		fill: make(bitmap.Bitmap, 0, 4),
 		data: make([]interface{}, 0, 64),
-		column: column{
-			fill: make(bitmap.Bitmap, 0, 4),
-		},
 	}
 }
 
 // Grow grows the size of the column until we have enough to store
 func (c *columnAny) Grow(idx uint32) {
-	c.Lock()
 	// TODO: also grow the bitmap
 	size := uint32(len(c.data))
 	for i := size; i <= idx; i++ {
 		c.data = append(c.data, nil)
 	}
-	c.Unlock()
 }
 
 // Update performs a series of updates at once
 func (c *columnAny) Update(updates []Update) {
-	c.Lock()
-	defer c.Unlock()
 
 	// Update the values of the column, for this one we can only process stores
 	for _, u := range updates {
@@ -168,32 +243,33 @@ func (c *columnAny) Update(updates []Update) {
 	}
 }
 
+// Delete deletes a set of items from the column.
+func (c *columnAny) Delete(items *bitmap.Bitmap) {
+	c.fill.AndNot(*items)
+}
+
 // Value retrieves a value at a specified index
 func (c *columnAny) Value(idx uint32) (v interface{}, ok bool) {
-	c.RLock()
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = c.data[idx], true
 	}
-	c.RUnlock()
 	return
 }
 
-// Delete deletes a set of items from the column.
-func (c *columnAny) Delete(items *bitmap.Bitmap) {
-	c.Lock()
-	defer c.Unlock()
+// Contains checks whether the column has a value at a specified index.
+func (c *columnAny) Contains(idx uint32) bool {
+	return c.fill.Contains(idx)
+}
 
-	// Note: we don't clean up the actual data by setting it to nil, which could cause
-	// a leak of memory. However, it should be replaced via an insertion so should not
-	// be too bad.
-	c.fill.AndNot(*items)
+// Index returns the fill list for the column
+func (c *columnAny) Index() *bitmap.Bitmap {
+	return &c.fill
 }
 
 // --------------------------- booleans ----------------------------
 
 // columnBool represents a boolean column
 type columnBool struct {
-	sync.RWMutex
 	fill bitmap.Bitmap // The fill-list
 	data bitmap.Bitmap // The actual values
 }
@@ -213,9 +289,6 @@ func (c *columnBool) Grow(idx uint32) {
 
 // Update performs a series of updates at once
 func (c *columnBool) Update(updates []Update) {
-	c.Lock()
-	defer c.Unlock()
-
 	for _, u := range updates {
 		c.fill.Set(u.Index)
 		if u.Value.(bool) {
@@ -228,77 +301,46 @@ func (c *columnBool) Update(updates []Update) {
 
 // Value retrieves a value at a specified index
 func (c *columnBool) Value(idx uint32) (interface{}, bool) {
-	c.RLock()
-	defer c.RUnlock()
-
-	if !c.fill.Contains(idx) {
-		return false, false
-	}
-
-	return c.data.Contains(idx), true
+	return c.data.Contains(idx), c.fill.Contains(idx)
 }
 
 // Delete deletes a set of items from the column.
 func (c *columnBool) Delete(items *bitmap.Bitmap) {
-	c.Lock()
 	c.fill.AndNot(*items)
 	c.data.AndNot(*items)
-	c.Unlock()
 }
 
 // Contains checks whether the column has a value at a specified index.
-func (c *columnBool) Contains(idx uint32) (exists bool) {
-	c.RLock()
-	exists = c.fill.Contains(idx)
-	c.RUnlock()
-	return
+func (c *columnBool) Contains(idx uint32) bool {
+	return c.fill.Contains(idx)
 }
 
-// Intersect performs a logical and operation and updates the destination bitmap.
-func (c *columnBool) Intersect(dst *bitmap.Bitmap) {
-	c.RLock()
-	dst.And(c.data)
-	c.RUnlock()
-}
-
-// Difference performs a logical and not operation and updates the destination bitmap.
-func (c *columnBool) Difference(dst *bitmap.Bitmap) {
-	c.RLock()
-	dst.AndNot(c.data)
-	c.RUnlock()
-}
-
-// Union performs a logical or operation and updates the destination bitmap.
-func (c *columnBool) Union(dst *bitmap.Bitmap) {
-	c.RLock()
-	dst.Or(c.data)
-	c.RUnlock()
+// Index returns the fill list for the column
+func (c *columnBool) Index() *bitmap.Bitmap {
+	return &c.data
 }
 
 // --------------------------- computed index ----------------------------
 
 // computed represents a computed column
 type computed interface {
-	Column
 	Column() string
 }
 
 // Index represents the index implementation
 type index struct {
-	column
+	fill bitmap.Bitmap
 	prop string
 	rule func(v interface{}) bool
 }
 
 // newIndex creates a new indexer
-func newIndex(prop string, rule func(v interface{}) bool) *index {
-	return &index{
+func newIndex(prop string, rule func(v interface{}) bool) *column {
+	return columnFor(&index{
+		fill: make(bitmap.Bitmap, 0, 4),
 		prop: prop,
 		rule: rule,
-		column: column{
-			fill: make(bitmap.Bitmap, 0, 4),
-		},
-	}
+	})
 }
 
 // Grow grows the size of the column until we have enough to store
@@ -313,8 +355,6 @@ func (c *index) Column() string {
 
 // Update performs a series of updates at once
 func (c *index) Update(updates []Update) {
-	c.Lock()
-	defer c.Unlock()
 
 	// Index can only be updated based on the final stored value, so we can only work
 	// with put operations here. The trick is to update the final value after applying
@@ -330,12 +370,25 @@ func (c *index) Update(updates []Update) {
 	}
 }
 
+// Delete deletes a set of items from the column.
+func (c *index) Delete(items *bitmap.Bitmap) {
+	c.fill.AndNot(*items)
+}
+
 // Value retrieves a value at a specified index.
 func (c *index) Value(idx uint32) (v interface{}, ok bool) {
-	c.RLock()
 	if idx < uint32(len(c.fill))<<6 {
 		v, ok = c.fill.Contains(idx), true
 	}
-	c.RUnlock()
 	return
+}
+
+// Contains checks whether the column has a value at a specified index.
+func (c *index) Contains(idx uint32) bool {
+	return c.fill.Contains(idx)
+}
+
+// Index returns the fill list for the column
+func (c *index) Index() *bitmap.Bitmap {
+	return &c.fill
 }

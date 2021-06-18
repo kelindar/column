@@ -19,6 +19,7 @@ func TestOfFloat32s(t *testing.T) {
 	{ // Set the value at index
 		c.Update([]Update{{UpdatePut, 9, float32(99)}})
 		assert.True(t, c.Contains(9))
+		assert.Equal(t, 1, c.Index().Count())
 	}
 
 	{ // Get the values
@@ -37,24 +38,6 @@ func TestOfFloat32s(t *testing.T) {
 		u, ok := c.Uint64(9)
 		assert.Equal(t, uint64(99), u)
 		assert.True(t, ok)
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Intersect(&other)
-		assert.Equal(t, uint64(0b1000000000), other[0])
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Difference(&other)
-		assert.Equal(t, uint64(0xfffffffffffffdff), other[0])
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Union(&other)
-		assert.Equal(t, uint64(0xffffffffffffffff), other[0])
 	}
 
 	{ // Remove the value
@@ -98,6 +81,7 @@ func TestOfFloat64s(t *testing.T) {
 	{ // Set the value at index
 		c.Update([]Update{{UpdatePut, 9, float64(99)}})
 		assert.True(t, c.Contains(9))
+		assert.Equal(t, 1, c.Index().Count())
 	}
 
 	{ // Get the values
@@ -116,24 +100,6 @@ func TestOfFloat64s(t *testing.T) {
 		u, ok := c.Uint64(9)
 		assert.Equal(t, uint64(99), u)
 		assert.True(t, ok)
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Intersect(&other)
-		assert.Equal(t, uint64(0b1000000000), other[0])
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Difference(&other)
-		assert.Equal(t, uint64(0xfffffffffffffdff), other[0])
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Union(&other)
-		assert.Equal(t, uint64(0xffffffffffffffff), other[0])
 	}
 
 	{ // Remove the value
@@ -177,6 +143,7 @@ func TestOfInts(t *testing.T) {
 	{ // Set the value at index
 		c.Update([]Update{{UpdatePut, 9, int(99)}})
 		assert.True(t, c.Contains(9))
+		assert.Equal(t, 1, c.Index().Count())
 	}
 
 	{ // Get the values
@@ -195,24 +162,6 @@ func TestOfInts(t *testing.T) {
 		u, ok := c.Uint64(9)
 		assert.Equal(t, uint64(99), u)
 		assert.True(t, ok)
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Intersect(&other)
-		assert.Equal(t, uint64(0b1000000000), other[0])
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Difference(&other)
-		assert.Equal(t, uint64(0xfffffffffffffdff), other[0])
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Union(&other)
-		assert.Equal(t, uint64(0xffffffffffffffff), other[0])
 	}
 
 	{ // Remove the value
@@ -256,6 +205,7 @@ func TestOfInt16s(t *testing.T) {
 	{ // Set the value at index
 		c.Update([]Update{{UpdatePut, 9, int16(99)}})
 		assert.True(t, c.Contains(9))
+		assert.Equal(t, 1, c.Index().Count())
 	}
 
 	{ // Get the values
@@ -274,24 +224,6 @@ func TestOfInt16s(t *testing.T) {
 		u, ok := c.Uint64(9)
 		assert.Equal(t, uint64(99), u)
 		assert.True(t, ok)
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Intersect(&other)
-		assert.Equal(t, uint64(0b1000000000), other[0])
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Difference(&other)
-		assert.Equal(t, uint64(0xfffffffffffffdff), other[0])
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Union(&other)
-		assert.Equal(t, uint64(0xffffffffffffffff), other[0])
 	}
 
 	{ // Remove the value
@@ -335,6 +267,7 @@ func TestOfInt32s(t *testing.T) {
 	{ // Set the value at index
 		c.Update([]Update{{UpdatePut, 9, int32(99)}})
 		assert.True(t, c.Contains(9))
+		assert.Equal(t, 1, c.Index().Count())
 	}
 
 	{ // Get the values
@@ -353,24 +286,6 @@ func TestOfInt32s(t *testing.T) {
 		u, ok := c.Uint64(9)
 		assert.Equal(t, uint64(99), u)
 		assert.True(t, ok)
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Intersect(&other)
-		assert.Equal(t, uint64(0b1000000000), other[0])
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Difference(&other)
-		assert.Equal(t, uint64(0xfffffffffffffdff), other[0])
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Union(&other)
-		assert.Equal(t, uint64(0xffffffffffffffff), other[0])
 	}
 
 	{ // Remove the value
@@ -414,6 +329,7 @@ func TestOfInt64s(t *testing.T) {
 	{ // Set the value at index
 		c.Update([]Update{{UpdatePut, 9, int64(99)}})
 		assert.True(t, c.Contains(9))
+		assert.Equal(t, 1, c.Index().Count())
 	}
 
 	{ // Get the values
@@ -432,24 +348,6 @@ func TestOfInt64s(t *testing.T) {
 		u, ok := c.Uint64(9)
 		assert.Equal(t, uint64(99), u)
 		assert.True(t, ok)
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Intersect(&other)
-		assert.Equal(t, uint64(0b1000000000), other[0])
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Difference(&other)
-		assert.Equal(t, uint64(0xfffffffffffffdff), other[0])
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Union(&other)
-		assert.Equal(t, uint64(0xffffffffffffffff), other[0])
 	}
 
 	{ // Remove the value
@@ -493,6 +391,7 @@ func TestOfUints(t *testing.T) {
 	{ // Set the value at index
 		c.Update([]Update{{UpdatePut, 9, uint(99)}})
 		assert.True(t, c.Contains(9))
+		assert.Equal(t, 1, c.Index().Count())
 	}
 
 	{ // Get the values
@@ -511,24 +410,6 @@ func TestOfUints(t *testing.T) {
 		u, ok := c.Uint64(9)
 		assert.Equal(t, uint64(99), u)
 		assert.True(t, ok)
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Intersect(&other)
-		assert.Equal(t, uint64(0b1000000000), other[0])
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Difference(&other)
-		assert.Equal(t, uint64(0xfffffffffffffdff), other[0])
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Union(&other)
-		assert.Equal(t, uint64(0xffffffffffffffff), other[0])
 	}
 
 	{ // Remove the value
@@ -572,6 +453,7 @@ func TestOfUint16s(t *testing.T) {
 	{ // Set the value at index
 		c.Update([]Update{{UpdatePut, 9, uint16(99)}})
 		assert.True(t, c.Contains(9))
+		assert.Equal(t, 1, c.Index().Count())
 	}
 
 	{ // Get the values
@@ -590,24 +472,6 @@ func TestOfUint16s(t *testing.T) {
 		u, ok := c.Uint64(9)
 		assert.Equal(t, uint64(99), u)
 		assert.True(t, ok)
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Intersect(&other)
-		assert.Equal(t, uint64(0b1000000000), other[0])
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Difference(&other)
-		assert.Equal(t, uint64(0xfffffffffffffdff), other[0])
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Union(&other)
-		assert.Equal(t, uint64(0xffffffffffffffff), other[0])
 	}
 
 	{ // Remove the value
@@ -651,6 +515,7 @@ func TestOfUint32s(t *testing.T) {
 	{ // Set the value at index
 		c.Update([]Update{{UpdatePut, 9, uint32(99)}})
 		assert.True(t, c.Contains(9))
+		assert.Equal(t, 1, c.Index().Count())
 	}
 
 	{ // Get the values
@@ -669,24 +534,6 @@ func TestOfUint32s(t *testing.T) {
 		u, ok := c.Uint64(9)
 		assert.Equal(t, uint64(99), u)
 		assert.True(t, ok)
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Intersect(&other)
-		assert.Equal(t, uint64(0b1000000000), other[0])
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Difference(&other)
-		assert.Equal(t, uint64(0xfffffffffffffdff), other[0])
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Union(&other)
-		assert.Equal(t, uint64(0xffffffffffffffff), other[0])
 	}
 
 	{ // Remove the value
@@ -730,6 +577,7 @@ func TestOfUint64s(t *testing.T) {
 	{ // Set the value at index
 		c.Update([]Update{{UpdatePut, 9, uint64(99)}})
 		assert.True(t, c.Contains(9))
+		assert.Equal(t, 1, c.Index().Count())
 	}
 
 	{ // Get the values
@@ -748,24 +596,6 @@ func TestOfUint64s(t *testing.T) {
 		u, ok := c.Uint64(9)
 		assert.Equal(t, uint64(99), u)
 		assert.True(t, ok)
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Intersect(&other)
-		assert.Equal(t, uint64(0b1000000000), other[0])
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Difference(&other)
-		assert.Equal(t, uint64(0xfffffffffffffdff), other[0])
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Union(&other)
-		assert.Equal(t, uint64(0xffffffffffffffff), other[0])
 	}
 
 	{ // Remove the value

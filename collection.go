@@ -115,7 +115,7 @@ func (c *Collection) CreateColumnsOf(object Object) {
 
 // CreateColumn creates a column of a specified type and adds it to the collection.
 func (c *Collection) CreateColumn(columnName string, column Column) {
-	c.cols.Store(columnName, column)
+	c.cols.Store(columnName, columnFor(column))
 }
 
 // DropColumn removes the column (or an index) with the specified name. If the column with this
@@ -142,8 +142,9 @@ func (c *Collection) CreateIndex(indexName, columnName string, fn func(v interfa
 	// If a column with this name already exists, iterate through all of the values
 	// that we have in the collection and apply the filter.
 	if column, ok := c.cols.Load(columnName); ok {
-		c.fill.Clone(&index.fill)
-		index.fill.Filter(func(x uint32) (match bool) {
+		fill := index.Index()
+		c.fill.Clone(fill)
+		fill.Filter(func(x uint32) (match bool) {
 			if v, ok := column.Value(x); ok {
 				match = fn(v)
 			}
@@ -159,12 +160,12 @@ func (c *Collection) DropIndex(indexName string) {
 
 	// Get the specified index to drop
 	column, _ := c.cols.Load(indexName)
-	if _, ok := column.(computed); !ok {
+	if _, ok := column.Column.(computed); !ok {
 		return
 	}
 
 	// Figure out the associated column and delete the index from that
-	columnName := column.(computed).Column()
+	columnName := column.Column.(computed).Column()
 	c.cols.DeleteIndex(columnName, indexName)
 	c.cols.DeleteColumn(indexName)
 }
@@ -255,12 +256,12 @@ func makeColumns(capacity int) columns {
 
 // columnEntry represents a column entry in the registry.
 type columnEntry struct {
-	name string   // The column name
-	cols []Column // The columns and its computed
+	name string    // The column name
+	cols []*column // The columns and its computed
 }
 
 // Range iterates over columns in the registry.
-func (c *columns) Range(fn func(column Column)) {
+func (c *columns) Range(fn func(column *column)) {
 	cols := c.cols.Load().([]columnEntry)
 	for _, v := range cols {
 		fn(v.cols[0])
@@ -268,7 +269,7 @@ func (c *columns) Range(fn func(column Column)) {
 }
 
 // Load loads a column by its name.
-func (c *columns) Load(columnName string) (Column, bool) {
+func (c *columns) Load(columnName string) (*column, bool) {
 	cols := c.cols.Load().([]columnEntry)
 	for _, v := range cols {
 		if v.name == columnName {
@@ -280,7 +281,7 @@ func (c *columns) Load(columnName string) (Column, bool) {
 }
 
 // LoadWithIndex loads a column by its name along with their computed indices.
-func (c *columns) LoadWithIndex(columnName string) ([]Column, bool) {
+func (c *columns) LoadWithIndex(columnName string) ([]*column, bool) {
 	cols := c.cols.Load().([]columnEntry)
 	for _, v := range cols {
 		if v.name == columnName {
@@ -291,7 +292,7 @@ func (c *columns) LoadWithIndex(columnName string) ([]Column, bool) {
 }
 
 // Store stores a column into the registry.
-func (c *columns) Store(columnName string, column Column, index ...Column) {
+func (c *columns) Store(columnName string, main *column, index ...*column) {
 
 	// Try to update an existing entry
 	columns := c.cols.Load().([]columnEntry)
@@ -301,8 +302,8 @@ func (c *columns) Store(columnName string, column Column, index ...Column) {
 		}
 
 		// If we found an existing entry, update it and we're done
-		if column != nil {
-			columns[i].cols[0] = column
+		if main != nil {
+			columns[i].cols[0] = main
 		}
 		if index != nil {
 			columns[i].cols = append(columns[i].cols, index...)
@@ -313,7 +314,7 @@ func (c *columns) Store(columnName string, column Column, index ...Column) {
 	}
 
 	// No entry found, create a new one
-	value := []Column{column}
+	value := []*column{main}
 	value = append(value, index...)
 	columns = append(columns, columnEntry{
 		name: columnName,
@@ -349,7 +350,7 @@ func (c *columns) DeleteIndex(columnName, indexName string) {
 		}
 
 		// If this is the target column, update its computed columns
-		filtered := make([]Column, 0, cap(columns[i].cols))
+		filtered := make([]*column, 0, cap(columns[i].cols))
 		filtered = append(filtered, columns[i].cols[0])
 		for _, idx := range v.cols[1:] {
 			if idx != index {

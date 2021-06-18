@@ -77,12 +77,12 @@ type updateQueue struct {
 // columnCache caches a column by its name. This speeds things up since it's a very
 // common operation.
 type columnCache struct {
-	name string // The column name
-	col  Column // The columns and its computed
+	name string  // The column name
+	col  *column // The columns and its computed
 }
 
 // columnAt loads and caches the column for the transaction
-func (txn *Txn) columnAt(columnName string) (Column, bool) {
+func (txn *Txn) columnAt(columnName string) (*column, bool) {
 	for _, v := range txn.columns {
 		if v.name == columnName {
 			return v.col, true
@@ -103,17 +103,20 @@ func (txn *Txn) columnAt(columnName string) (Column, bool) {
 	return column, true
 }
 
-// With applies a logical AND operation to the current query and the specified index.
-func (txn *Txn) With(column string, extra ...string) *Txn {
-	if idx, ok := txn.columnAt(column); ok {
-		idx.Intersect(&txn.index)
-	} else {
-		txn.index.Clear()
+// numericalAt returns a numerical column
+func (txn *Txn) numericalAt(columnName string) (*column, bool) {
+	if c, ok := txn.columnAt(columnName); ok {
+		if _, ok := c.Column.(numerical); ok {
+			return c, true
+		}
 	}
+	return nil, false
+}
 
-	// go through extra indexes
-	for _, e := range extra {
-		if idx, ok := txn.columnAt(e); ok {
+// With applies a logical AND operation to the current query and the specified index.
+func (txn *Txn) With(columns ...string) *Txn {
+	for _, columnName := range columns {
+		if idx, ok := txn.columnAt(columnName); ok {
 			idx.Intersect(&txn.index)
 		} else {
 			txn.index.Clear()
@@ -123,14 +126,9 @@ func (txn *Txn) With(column string, extra ...string) *Txn {
 }
 
 // Without applies a logical AND NOT operation to the current query and the specified index.
-func (txn *Txn) Without(column string, extra ...string) *Txn {
-	if idx, ok := txn.columnAt(column); ok {
-		idx.Difference(&txn.index)
-	}
-
-	// go through extra indexes
-	for _, e := range extra {
-		if idx, ok := txn.columnAt(e); ok {
+func (txn *Txn) Without(columns ...string) *Txn {
+	for _, columnName := range columns {
+		if idx, ok := txn.columnAt(columnName); ok {
 			idx.Difference(&txn.index)
 		}
 	}
@@ -138,14 +136,9 @@ func (txn *Txn) Without(column string, extra ...string) *Txn {
 }
 
 // Union computes a union between the current query and the specified index.
-func (txn *Txn) Union(column string, extra ...string) *Txn {
-	if idx, ok := txn.columnAt(column); ok {
-		idx.Union(&txn.index)
-	}
-
-	// go through extra indexes
-	for _, e := range extra {
-		if idx, ok := txn.columnAt(e); ok {
+func (txn *Txn) Union(columns ...string) *Txn {
+	for _, columnName := range columns {
+		if idx, ok := txn.columnAt(columnName); ok {
 			idx.Union(&txn.index)
 		}
 	}
@@ -155,62 +148,76 @@ func (txn *Txn) Union(column string, extra ...string) *Txn {
 // WithValue applies a filter predicate over values for a specific properties. It filters
 // down the items in the query.
 func (txn *Txn) WithValue(column string, predicate func(v interface{}) bool) *Txn {
-	if p, ok := txn.columnAt(column); ok {
-		txn.index.Filter(func(x uint32) (match bool) {
-			if v, ok := p.Value(x); ok {
-				match = predicate(v)
-			}
-			return
-		})
+	c, ok := txn.columnAt(column)
+	if !ok {
+		return txn
 	}
+
+	c.RLock()
+	defer c.RUnlock()
+	txn.index.Filter(func(x uint32) (match bool) {
+		if v, ok := c.loadValue(x); ok {
+			match = predicate(v)
+		}
+		return
+	})
 	return txn
 }
 
 // WithFloat filters down the values based on the specified predicate. The column for
 // this filter must be numerical and convertible to float64.
 func (txn *Txn) WithFloat(column string, predicate func(v float64) bool) *Txn {
-	if p, ok := txn.columnAt(column); ok {
-		if n, ok := p.(numerical); ok {
-			txn.index.Filter(func(x uint32) (match bool) {
-				if v, ok := n.Float64(x); ok {
-					match = predicate(v)
-				}
-				return
-			})
-		}
+	c, ok := txn.numericalAt(column)
+	if !ok {
+		return txn
 	}
+
+	c.RLock()
+	defer c.RUnlock()
+	txn.index.Filter(func(x uint32) (match bool) {
+		if v, ok := c.loadFloat64(x); ok {
+			match = predicate(v)
+		}
+		return
+	})
 	return txn
 }
 
 // WithInt filters down the values based on the specified predicate. The column for
 // this filter must be numerical and convertible to int64.
 func (txn *Txn) WithInt(column string, predicate func(v int64) bool) *Txn {
-	if p, ok := txn.columnAt(column); ok {
-		if n, ok := p.(numerical); ok {
-			txn.index.Filter(func(x uint32) (match bool) {
-				if v, ok := n.Int64(x); ok {
-					match = predicate(v)
-				}
-				return
-			})
-		}
+	c, ok := txn.numericalAt(column)
+	if !ok {
+		return txn
 	}
+
+	c.RLock()
+	defer c.RUnlock()
+	txn.index.Filter(func(x uint32) (match bool) {
+		if v, ok := c.loadInt64(x); ok {
+			match = predicate(v)
+		}
+		return
+	})
 	return txn
 }
 
 // WithUint filters down the values based on the specified predicate. The column for
 // this filter must be numerical and convertible to uint64.
 func (txn *Txn) WithUint(column string, predicate func(v uint64) bool) *Txn {
-	if p, ok := txn.columnAt(column); ok {
-		if n, ok := p.(numerical); ok {
-			txn.index.Filter(func(x uint32) (match bool) {
-				if v, ok := n.Uint64(x); ok {
-					match = predicate(v)
-				}
-				return
-			})
-		}
+	c, ok := txn.numericalAt(column)
+	if !ok {
+		return txn
 	}
+
+	c.RLock()
+	defer c.RUnlock()
+	txn.index.Filter(func(x uint32) (match bool) {
+		if v, ok := c.loadUint64(x); ok {
+			match = predicate(v)
+		}
+		return
+	})
 	return txn
 }
 
@@ -425,7 +432,7 @@ func (txn *Txn) deletePending() {
 	}
 
 	// Apply a batch delete on all of the columns
-	txn.owner.cols.Range(func(column Column) {
+	txn.owner.cols.Range(func(column *column) {
 		column.Delete(&txn.deletes)
 	})
 
@@ -458,7 +465,7 @@ type Selector struct {
 }
 
 // columnAt loads the column based on whether the selector has a transaction or not.
-func (cur *Selector) columnAt(column string) (Column, bool) {
+func (cur *Selector) columnAt(column string) (*column, bool) {
 	if cur.txn != nil {
 		return cur.txn.columnAt(column)
 	}
@@ -488,19 +495,15 @@ func (cur *Selector) StringAt(column string) (out string) {
 // FloatAt reads a float64 value for a current row at a given column.
 func (cur *Selector) FloatAt(column string) (out float64) {
 	if c, ok := cur.columnAt(column); ok {
-		if n, ok := c.(numerical); ok {
-			out, _ = n.Float64(cur.idx)
-		}
+		out, _ = c.Float64(cur.idx)
 	}
 	return
 }
 
 // IntAt reads an int64 value for a current row at a given column.
-func (cur *Selector) IntAt(column string) (out int64) {
-	if c, ok := cur.columnAt(column); ok {
-		if n, ok := c.(numerical); ok {
-			out, _ = n.Int64(cur.idx)
-		}
+func (cur *Selector) IntAt(columnName string) (out int64) {
+	if c, ok := cur.columnAt(columnName); ok {
+		out, _ = c.Int64(cur.idx)
 	}
 	return
 }
@@ -508,9 +511,7 @@ func (cur *Selector) IntAt(column string) (out int64) {
 // UintAt reads a uint64 value for a current row at a given column.
 func (cur *Selector) UintAt(column string) (out uint64) {
 	if c, ok := cur.columnAt(column); ok {
-		if n, ok := c.(numerical); ok {
-			out, _ = n.Uint64(cur.idx)
-		}
+		out, _ = c.Uint64(cur.idx)
 	}
 	return
 }
@@ -528,8 +529,8 @@ func (cur *Selector) BoolAt(column string) bool {
 // Cursor represents a iteration Selector that is bound to a specific column.
 type Cursor struct {
 	Selector
-	update int16  // The index of the update queue
-	column Column // The selected column
+	update int16   // The index of the update queue
+	column *column // The selected column
 }
 
 // Value reads a value for a current row at a given column.
@@ -548,25 +549,19 @@ func (cur *Cursor) String() (out string) {
 
 // Float reads a float64 value for a current row at a given column.
 func (cur *Cursor) Float() (out float64) {
-	if n, ok := cur.column.(numerical); ok {
-		out, _ = n.Float64(cur.idx)
-	}
+	out, _ = cur.column.Float64(cur.idx)
 	return
 }
 
 // Int reads an int64 value for a current row at a given column.
 func (cur *Cursor) Int() (out int64) {
-	if n, ok := cur.column.(numerical); ok {
-		out, _ = n.Int64(cur.idx)
-	}
+	out, _ = cur.column.Int64(cur.idx)
 	return
 }
 
 // Uint reads a uint64 value for a current row at a given column.
 func (cur *Cursor) Uint() (out uint64) {
-	if n, ok := cur.column.(numerical); ok {
-		out, _ = n.Uint64(cur.idx)
-	}
+	out, _ = cur.column.Uint64(cur.idx)
 	return
 }
 

@@ -17,6 +17,7 @@ func TestOfnumbers(t *testing.T) {
 	{ // Set the value at index
 		c.Update([]Update{{UpdatePut, 9, number(99)}})
 		assert.True(t, c.Contains(9))
+		assert.Equal(t, 1, c.Index().Count())
 	}
 
 	{ // Get the values
@@ -35,24 +36,6 @@ func TestOfnumbers(t *testing.T) {
 		u, ok := c.Uint64(9)
 		assert.Equal(t, uint64(99), u)
 		assert.True(t, ok)
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Intersect(&other)
-		assert.Equal(t, uint64(0b1000000000), other[0])
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Difference(&other)
-		assert.Equal(t, uint64(0xfffffffffffffdff), other[0])
-	}
-
-	{
-		other := bitmap.Bitmap{0xffffffffffffffff}
-		c.Union(&other)
-		assert.Equal(t, uint64(0xffffffffffffffff), other[0])
 	}
 
 	{ // Remove the value

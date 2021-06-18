@@ -91,8 +91,8 @@ func TestColumnOrder(t *testing.T) {
 
 func TestColumns(t *testing.T) {
 	cols := []Column{
-		makeBools(),
-		makeAny(),
+		ForBool(),
+		ForAny(),
 	}
 	for _, c := range cols {
 
@@ -106,24 +106,6 @@ func TestColumns(t *testing.T) {
 			v, ok := c.Value(9)
 			assert.Equal(t, true, v)
 			assert.True(t, ok)
-		}
-
-		{
-			other := bitmap.Bitmap{0xffffffffffffffff}
-			c.Intersect(&other)
-			assert.Equal(t, uint64(0b1000000000), other[0])
-		}
-
-		{
-			other := bitmap.Bitmap{0xffffffffffffffff}
-			c.Difference(&other)
-			assert.Equal(t, uint64(0xfffffffffffffdff), other[0])
-		}
-
-		{
-			other := bitmap.Bitmap{0xffffffffffffffff}
-			c.Union(&other)
-			assert.Equal(t, uint64(0xffffffffffffffff), other[0])
 		}
 
 		{ // Remove the value

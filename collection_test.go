@@ -14,14 +14,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// BenchmarkCollection/insert-8         	 5853918	       212.2 ns/op	       3 B/op	       0 allocs/op
-// BenchmarkCollection/unindexed-8      	  102012	     11425 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/count-8          	 9809371	       130.6 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/range-8          	 1891096	       648.2 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/update-at-8      	16961682	        71.77 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/update-all-8     	  196418	      6512 ns/op	       2 B/op	       0 allocs/op
-// BenchmarkCollection/delete-at-8      	 2226390	       534.4 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/delete-all-8     	 2045902	       592.7 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/insert-8         	 5717271	       210.1 ns/op	       3 B/op	       0 allocs/op
+// BenchmarkCollection/fetch-8          	23014076	        52.73 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/unindexed-8      	  144264	      7534 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/count-8          	 8954762	       132.2 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/range-8          	 1760739	       682.5 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/update-at-8      	 9917469	       122.9 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/update-all-8     	  200008	      6014 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/delete-at-8      	 2208020	       544.8 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCollection/delete-all-8     	 2013384	       599.2 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkCollection(b *testing.B) {
 	players := loadPlayers()
 	obj := Object{
