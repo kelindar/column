@@ -391,6 +391,29 @@ func (txn *Txn) Rollback() {
 
 // updatePending updates the pending entries that were modified during the query
 func (txn *Txn) updatePending() {
+
+	// First we need to aquire a lock on the collection. The reason for this is to make sure
+	// that while we'll be acquiring all of the locks for all of the columns. If someone else
+	// starts acquiring column locks, it could potentially lead to a deadlock situation. By
+	// first getting the collection lock we're making sure that no one else locks for update
+	// at the same time.
+	txn.owner.lock.Lock()
+	for _, u := range txn.updates {
+		if len(u.update) == 0 {
+			continue
+		}
+
+		// Lock all of the columns
+		if columns, ok := txn.owner.cols.LoadWithIndex(u.name); ok {
+			for _, col := range columns {
+				col.Lock()
+				defer col.Unlock()
+			}
+		}
+	}
+	txn.owner.lock.Unlock()
+
+	// Now we can iterate over all of the updates and apply them.
 	for i, u := range txn.updates {
 		if len(u.update) == 0 {
 			continue // No updates for this column
@@ -412,7 +435,11 @@ func (txn *Txn) updatePending() {
 		// If there's a writer, write before we unlock the column so that the transactions
 		// are seiralized in the writer as well, making everything consistent.
 		if txn.writer != nil {
-			txn.writer.Write(commit.ForStore(u.name, txn.updates[i].update))
+			txn.writer.Write(commit.Commit{
+				Type:    commit.TypeStore,
+				Column:  u.name,
+				Updates: txn.updates[i].update,
+			})
 		}
 
 		// Reset the queue
@@ -437,7 +464,10 @@ func (txn *Txn) deletePending() {
 
 	// If there's an associated writer, write into it
 	if txn.writer != nil {
-		txn.writer.Write(commit.ForDelete(txn.deletes))
+		txn.writer.Write(commit.Commit{
+			Type:    commit.TypeDelete,
+			Deletes: txn.deletes,
+		})
 	}
 
 	// Now that we're done with the deletion and the commit has been written, clear
@@ -448,10 +478,21 @@ func (txn *Txn) deletePending() {
 // insertPending inserts all of the entries marked as to be inserted. This just makes them
 // visible by setting the fill list atomically in the collection.
 func (txn *Txn) insertPending() {
-	if len(txn.inserts) > 0 {
-		txn.owner.lock.Lock()
-		txn.owner.fill.Or(txn.inserts)
-		txn.owner.lock.Unlock()
-		txn.inserts.Clear()
+	if len(txn.inserts) == 0 {
+		return
 	}
+
+	txn.owner.lock.Lock()
+	txn.owner.fill.Or(txn.inserts)
+
+	// If there's a writer, write before we unlock the column so that the transactions
+	// are seiralized in the writer as well, making everything consistent.
+	if txn.writer != nil {
+		txn.writer.Write(commit.Commit{
+			Type:    commit.TypeInsert,
+			Inserts: txn.inserts,
+		})
+	}
+	txn.owner.lock.Unlock()
+	txn.inserts.Clear()
 }

@@ -272,6 +272,44 @@ func (c *Collection) vacuum(ctx context.Context, interval time.Duration) {
 	}
 }
 
+// Replay replays a commit on a collection, applying the changes.
+func (c *Collection) Replay(change commit.Commit) error {
+	return c.Query(func(txn *Txn) error {
+		switch change.Type {
+		case commit.TypeInsert:
+			txn.inserts = append(txn.inserts, change.Inserts...)
+		case commit.TypeDelete:
+			txn.deletes = append(txn.deletes, change.Deletes...)
+
+		// Apply updates for this commit
+		case commit.TypeStore:
+
+			// If we already  have an existing update queue, append to that
+			for i, c := range txn.updates {
+				if c.name == change.Column {
+					txn.updates[i].update = append(txn.updates[i].update, change.Updates...)
+					return nil
+				}
+			}
+
+			// Create a new update queue, we need to copy all of the updates since both
+			// transaction and commits are pooled.
+			updates := make([]commit.Update, 0, len(change.Updates))
+			updates = append(updates, change.Updates...)
+
+			// Add a new update queue
+			txn.updates = append(txn.updates, updateQueue{
+				name:   change.Column,
+				update: updates,
+			})
+
+		default:
+			return fmt.Errorf("column: unsupported commit type %v", change.Type)
+		}
+		return nil
+	})
+}
+
 // --------------------------- column registry ---------------------------
 
 // columns represents a concurrent column registry.

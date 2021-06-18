@@ -16,7 +16,12 @@ import (
 func BenchmarkColumn(b *testing.B) {
 	b.Run("fetch", func(b *testing.B) {
 		p := makeAny()
-		p.Update([]commit.Update{{commit.Put, 5, "hello"}})
+		p.Grow(10)
+		p.Update([]commit.Update{{
+			Type:  commit.Put,
+			Index: 5,
+			Value: "hello",
+		}})
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
@@ -30,7 +35,7 @@ func TestColumn(t *testing.T) {
 	p.Grow(1000)
 
 	{ // Set the value at index
-		p.Update([]commit.Update{{commit.Put, 9, 99.5}})
+		p.Update([]commit.Update{{Type: commit.Put, Index: 9, Value: 99.5}})
 		assert.Equal(t, 1001, len(p.data))
 	}
 
@@ -49,8 +54,8 @@ func TestColumn(t *testing.T) {
 
 	{ // Set a couple of values, should only take 2 slots
 		p.Update([]commit.Update{
-			{commit.Put, 5, "hi"},
-			{commit.Put, 1000, "roman"},
+			{Type: commit.Put, Index: 5, Value: "hi"},
+			{Type: commit.Put, Index: 1000, Value: "roman"},
 		})
 
 		v1, ok := p.Value(5)
@@ -67,7 +72,11 @@ func TestColumnOrder(t *testing.T) {
 	p := makeAny()
 	p.Grow(199)
 	for i := uint32(100); i < 200; i++ {
-		p.Update([]commit.Update{{commit.Put, i, i}})
+		p.Update([]commit.Update{{
+			Type:  commit.Put,
+			Index: i,
+			Value: i,
+		}})
 	}
 
 	for i := uint32(100); i < 200; i++ {
@@ -80,7 +89,11 @@ func TestColumnOrder(t *testing.T) {
 		var deletes bitmap.Bitmap
 		deletes.Set(i)
 		p.Delete(&deletes)
-		p.Update([]commit.Update{{commit.Put, i, i}})
+		p.Update([]commit.Update{{
+			Type:  commit.Put,
+			Index: i,
+			Value: i,
+		}})
 	}
 
 	for i := uint32(100); i < 200; i++ {
@@ -99,7 +112,11 @@ func TestColumns(t *testing.T) {
 
 		{ // Set the value at index
 			c.Grow(9)
-			c.Update([]commit.Update{{commit.Put, 9, true}})
+			c.Update([]commit.Update{{
+				Type:  commit.Put,
+				Index: 9,
+				Value: true,
+			}})
 			assert.True(t, c.Contains(9))
 		}
 

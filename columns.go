@@ -120,10 +120,8 @@ func (c *column) Union(dst *bitmap.Bitmap) {
 
 // Update performs a series of updates at once
 func (c *column) Update(updates []commit.Update, growUntil uint32) {
-	c.Lock()
 	c.Column.Grow(growUntil)
 	c.Column.Update(updates)
-	c.Unlock()
 }
 
 // Delete deletes a set of items from the column.

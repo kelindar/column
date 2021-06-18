@@ -5,7 +5,7 @@ package commit
 
 // Writer represents a contract that a commit writer must implement
 type Writer interface {
-	Write(commit *Commit) error
+	Write(commit Commit) error
 }
 
 // --------------------------- Channel ----------------------------
@@ -14,10 +14,13 @@ var _ Writer = new(Channel)
 
 // Channel represents an impementation of a commit writer that simply sends each commit
 // into the channel.
-type Channel chan *Commit
+type Channel chan Commit
 
 // Write clones the commit and writes it into the writer
-func (w *Channel) Write(commit *Commit) error {
+func (w *Channel) Write(commit Commit) error {
+	//cloned := commit.Clone()
+	//	commit.Close()
+
 	*w <- commit.Clone()
-	return commit.Close()
+	return nil
 }

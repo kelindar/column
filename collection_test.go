@@ -6,6 +6,9 @@ package column
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"math"
+	"math/rand"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -144,6 +147,93 @@ func BenchmarkCollection(b *testing.B) {
 				return nil
 			})
 		}
+	})
+}
+
+// Test replication many times
+func TestReplicate(t *testing.T) {
+	for x := 0; x < 20; x++ {
+		runReplication(t, 5000, 500)
+	}
+}
+
+// runReplication runs a concurrent replication test
+func runReplication(t *testing.T, updates, inserts int) {
+	t.Run(fmt.Sprintf("replicate-%v-%v", updates, inserts), func(t *testing.T) {
+		writer := make(commit.Channel, 1024)
+		object := map[string]interface{}{
+			"float64": float64(0),
+			"int32":   int32(0),
+			"string":  "",
+		}
+
+		// Create a primary
+		primary := NewCollection(Options{
+			Capacity: inserts,
+			Writer:   &writer,
+		})
+		// Replica with the same schema
+		replica := NewCollection(Options{
+			Capacity: inserts,
+		})
+
+		// Create schemas and start streaming replication into the replica
+		primary.CreateColumnsOf(object)
+		replica.CreateColumnsOf(object)
+		var done sync.WaitGroup
+		go func() {
+			done.Add(1)
+			defer done.Done()
+			for change := range writer {
+				assert.NoError(t, replica.Replay(change))
+			}
+		}()
+
+		// Write some objects
+		for i := 0; i < inserts; i++ {
+			primary.Insert(object)
+		}
+
+		// Random concurrent updates
+		var wg sync.WaitGroup
+		wg.Add(updates)
+		for i := 0; i < updates; i++ {
+			go func() {
+				defer wg.Done()
+				offset := uint32(rand.Int31n(int32(inserts - 1)))
+				switch rand.Int31n(3) {
+				case 0:
+					primary.UpdateAt(offset, "float64", math.Round(rand.Float64()*1000)/100)
+				case 1:
+					primary.UpdateAt(offset, "int32", rand.Int31n(100000))
+				case 2:
+					primary.UpdateAt(offset, "string", fmt.Sprintf("hi %v", rand.Int31n(100)))
+				}
+			}()
+		}
+
+		// Replay all of the changes into the replica
+		wg.Wait()
+		close(writer)
+		done.Wait()
+
+		// Check if replica and primary are the same
+		assert.Equal(t, primary.Count(), replica.Count())
+		primary.Query(func(txn *Txn) error {
+			return txn.Range("float64", func(v Cursor) bool {
+				v1, v2 := v.FloatAt("float64"), v.IntAt("int32")
+				if v1 != 0 {
+					clone, _ := replica.Fetch(v.idx)
+					assert.Equal(t, v.FloatAt("float64"), clone.FloatAt("float64"))
+				}
+
+				if v2 != 0 {
+					clone, _ := replica.Fetch(v.idx)
+					assert.Equal(t, v.IntAt("int32"), clone.IntAt("int32"))
+				}
+				return true
+			})
+		})
 	})
 }
 
@@ -333,7 +423,7 @@ type noopWriter struct {
 }
 
 // Write clones the commit and writes it into the writer
-func (w *noopWriter) Write(commit *commit.Commit) error {
+func (w *noopWriter) Write(commit commit.Commit) error {
 	atomic.AddUint64(&w.commits, 1)
-	return commit.Close()
+	return nil
 }
