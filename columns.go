@@ -16,8 +16,8 @@ import (
 // Column represents a column implementation
 type Column interface {
 	Grow(idx uint32)
-	UpdateMany(updates []Update)
-	DeleteMany(items *bitmap.Bitmap)
+	Update(updates []Update)
+	Delete(items *bitmap.Bitmap)
 	Value(idx uint32) (interface{}, bool)
 	Contains(idx uint32) bool
 	Intersect(*bitmap.Bitmap)
@@ -89,8 +89,8 @@ type column struct {
 	fill bitmap.Bitmap
 }
 
-// DeleteMany deletes a set of items from the column.
-func (c *column) DeleteMany(items *bitmap.Bitmap) {
+// Delete deletes a set of items from the column.
+func (c *column) Delete(items *bitmap.Bitmap) {
 	c.Lock()
 	c.fill.AndNot(*items)
 	c.Unlock()
@@ -154,8 +154,8 @@ func (c *columnAny) Grow(idx uint32) {
 	c.Unlock()
 }
 
-// UpdateMany performs a series of updates at once
-func (c *columnAny) UpdateMany(updates []Update) {
+// Update performs a series of updates at once
+func (c *columnAny) Update(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -178,8 +178,8 @@ func (c *columnAny) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
-// DeleteMany deletes a set of items from the column.
-func (c *columnAny) DeleteMany(items *bitmap.Bitmap) {
+// Delete deletes a set of items from the column.
+func (c *columnAny) Delete(items *bitmap.Bitmap) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -211,8 +211,8 @@ func (c *columnBool) Grow(idx uint32) {
 	// TODO
 }
 
-// UpdateMany performs a series of updates at once
-func (c *columnBool) UpdateMany(updates []Update) {
+// Update performs a series of updates at once
+func (c *columnBool) Update(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -238,8 +238,8 @@ func (c *columnBool) Value(idx uint32) (interface{}, bool) {
 	return c.data.Contains(idx), true
 }
 
-// DeleteMany deletes a set of items from the column.
-func (c *columnBool) DeleteMany(items *bitmap.Bitmap) {
+// Delete deletes a set of items from the column.
+func (c *columnBool) Delete(items *bitmap.Bitmap) {
 	c.Lock()
 	c.fill.AndNot(*items)
 	c.data.AndNot(*items)
@@ -311,8 +311,8 @@ func (c *index) Column() string {
 	return c.prop
 }
 
-// UpdateMany performs a series of updates at once
-func (c *index) UpdateMany(updates []Update) {
+// Update performs a series of updates at once
+func (c *index) Update(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
 

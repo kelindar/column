@@ -15,7 +15,7 @@ func TestOfnumbers(t *testing.T) {
 	assert.Equal(t, 100, len(c.data))
 
 	{ // Set the value at index
-		c.UpdateMany([]Update{{UpdatePut, 9, number(99)}})
+		c.Update([]Update{{UpdatePut, 9, number(99)}})
 		assert.True(t, c.Contains(9))
 	}
 
@@ -56,7 +56,7 @@ func TestOfnumbers(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.DeleteMany(&bitmap.Bitmap{0b1000000000})
+		c.Delete(&bitmap.Bitmap{0b1000000000})
 		v, ok := c.Value(9)
 		assert.Equal(t, number(0), v)
 		assert.False(t, ok)
@@ -75,7 +75,7 @@ func TestOfnumbers(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.UpdateMany([]Update{
+		c.Update([]Update{
 			{Kind: UpdatePut, Index: 1, Value: number(2)},
 			{Kind: UpdatePut, Index: 2, Value: number(3)},
 			{Kind: UpdateAdd, Index: 1, Value: number(2)},

@@ -15,7 +15,7 @@ import (
 func BenchmarkColumn(b *testing.B) {
 	b.Run("fetch", func(b *testing.B) {
 		p := makeAny()
-		p.UpdateMany([]Update{{UpdatePut, 5, "hello"}})
+		p.Update([]Update{{UpdatePut, 5, "hello"}})
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
@@ -29,7 +29,7 @@ func TestColumn(t *testing.T) {
 	p.Grow(1000)
 
 	{ // Set the value at index
-		p.UpdateMany([]Update{{UpdatePut, 9, 99.5}})
+		p.Update([]Update{{UpdatePut, 9, 99.5}})
 		assert.Equal(t, 1001, len(p.data))
 	}
 
@@ -40,14 +40,14 @@ func TestColumn(t *testing.T) {
 	}
 
 	{ // Remove the value
-		p.DeleteMany(&bitmap.Bitmap{0b1000000000})
+		p.Delete(&bitmap.Bitmap{0b1000000000})
 		v, ok := p.Value(9)
 		assert.Equal(t, nil, v)
 		assert.False(t, ok)
 	}
 
 	{ // Set a couple of values, should only take 2 slots
-		p.UpdateMany([]Update{
+		p.Update([]Update{
 			{UpdatePut, 5, "hi"},
 			{UpdatePut, 1000, "roman"},
 		})
@@ -66,7 +66,7 @@ func TestColumnOrder(t *testing.T) {
 	p := makeAny()
 	p.Grow(199)
 	for i := uint32(100); i < 200; i++ {
-		p.UpdateMany([]Update{{UpdatePut, i, i}})
+		p.Update([]Update{{UpdatePut, i, i}})
 	}
 
 	for i := uint32(100); i < 200; i++ {
@@ -78,8 +78,8 @@ func TestColumnOrder(t *testing.T) {
 	for i := uint32(150); i < 180; i++ {
 		var deletes bitmap.Bitmap
 		deletes.Set(i)
-		p.DeleteMany(&deletes)
-		p.UpdateMany([]Update{{UpdatePut, i, i}})
+		p.Delete(&deletes)
+		p.Update([]Update{{UpdatePut, i, i}})
 	}
 
 	for i := uint32(100); i < 200; i++ {
@@ -98,7 +98,7 @@ func TestColumns(t *testing.T) {
 
 		{ // Set the value at index
 			c.Grow(9)
-			c.UpdateMany([]Update{{UpdatePut, 9, true}})
+			c.Update([]Update{{UpdatePut, 9, true}})
 			assert.True(t, c.Contains(9))
 		}
 
@@ -127,14 +127,14 @@ func TestColumns(t *testing.T) {
 		}
 
 		{ // Remove the value
-			c.DeleteMany(&bitmap.Bitmap{0xffffffffffffffff})
+			c.Delete(&bitmap.Bitmap{0xffffffffffffffff})
 
 			_, ok := c.Value(9)
 			assert.False(t, ok)
 		}
 
 		{ // Update several items at once
-			c.UpdateMany([]Update{{Index: 1, Value: true}, {Index: 2, Value: false}})
+			c.Update([]Update{{Index: 1, Value: true}, {Index: 2, Value: false}})
 			assert.True(t, c.Contains(1))
 			assert.True(t, c.Contains(2))
 		}

@@ -410,7 +410,7 @@ func (txn *Txn) updatePending() {
 			if max, ok := txn.inserts.Max(); ok {
 				v.Grow(max)
 			}
-			v.UpdateMany(u.update)
+			v.Update(u.update)
 		}
 
 		// Reset the queue
@@ -426,7 +426,7 @@ func (txn *Txn) deletePending() {
 
 	// Apply a batch delete on all of the columns
 	txn.owner.cols.Range(func(column Column) {
-		column.DeleteMany(&txn.deletes)
+		column.Delete(&txn.deletes)
 	})
 
 	// Clear the items in the collection and reinitialize the purge list

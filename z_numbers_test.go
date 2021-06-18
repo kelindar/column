@@ -17,7 +17,7 @@ func TestOfFloat32s(t *testing.T) {
 	assert.Equal(t, 100, len(c.data))
 
 	{ // Set the value at index
-		c.UpdateMany([]Update{{UpdatePut, 9, float32(99)}})
+		c.Update([]Update{{UpdatePut, 9, float32(99)}})
 		assert.True(t, c.Contains(9))
 	}
 
@@ -58,7 +58,7 @@ func TestOfFloat32s(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.DeleteMany(&bitmap.Bitmap{0b1000000000})
+		c.Delete(&bitmap.Bitmap{0b1000000000})
 		v, ok := c.Value(9)
 		assert.Equal(t, float32(0), v)
 		assert.False(t, ok)
@@ -77,7 +77,7 @@ func TestOfFloat32s(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.UpdateMany([]Update{
+		c.Update([]Update{
 			{Kind: UpdatePut, Index: 1, Value: float32(2)},
 			{Kind: UpdatePut, Index: 2, Value: float32(3)},
 			{Kind: UpdateAdd, Index: 1, Value: float32(2)},
@@ -96,7 +96,7 @@ func TestOfFloat64s(t *testing.T) {
 	assert.Equal(t, 100, len(c.data))
 
 	{ // Set the value at index
-		c.UpdateMany([]Update{{UpdatePut, 9, float64(99)}})
+		c.Update([]Update{{UpdatePut, 9, float64(99)}})
 		assert.True(t, c.Contains(9))
 	}
 
@@ -137,7 +137,7 @@ func TestOfFloat64s(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.DeleteMany(&bitmap.Bitmap{0b1000000000})
+		c.Delete(&bitmap.Bitmap{0b1000000000})
 		v, ok := c.Value(9)
 		assert.Equal(t, float64(0), v)
 		assert.False(t, ok)
@@ -156,7 +156,7 @@ func TestOfFloat64s(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.UpdateMany([]Update{
+		c.Update([]Update{
 			{Kind: UpdatePut, Index: 1, Value: float64(2)},
 			{Kind: UpdatePut, Index: 2, Value: float64(3)},
 			{Kind: UpdateAdd, Index: 1, Value: float64(2)},
@@ -175,7 +175,7 @@ func TestOfInts(t *testing.T) {
 	assert.Equal(t, 100, len(c.data))
 
 	{ // Set the value at index
-		c.UpdateMany([]Update{{UpdatePut, 9, int(99)}})
+		c.Update([]Update{{UpdatePut, 9, int(99)}})
 		assert.True(t, c.Contains(9))
 	}
 
@@ -216,7 +216,7 @@ func TestOfInts(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.DeleteMany(&bitmap.Bitmap{0b1000000000})
+		c.Delete(&bitmap.Bitmap{0b1000000000})
 		v, ok := c.Value(9)
 		assert.Equal(t, int(0), v)
 		assert.False(t, ok)
@@ -235,7 +235,7 @@ func TestOfInts(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.UpdateMany([]Update{
+		c.Update([]Update{
 			{Kind: UpdatePut, Index: 1, Value: int(2)},
 			{Kind: UpdatePut, Index: 2, Value: int(3)},
 			{Kind: UpdateAdd, Index: 1, Value: int(2)},
@@ -254,7 +254,7 @@ func TestOfInt16s(t *testing.T) {
 	assert.Equal(t, 100, len(c.data))
 
 	{ // Set the value at index
-		c.UpdateMany([]Update{{UpdatePut, 9, int16(99)}})
+		c.Update([]Update{{UpdatePut, 9, int16(99)}})
 		assert.True(t, c.Contains(9))
 	}
 
@@ -295,7 +295,7 @@ func TestOfInt16s(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.DeleteMany(&bitmap.Bitmap{0b1000000000})
+		c.Delete(&bitmap.Bitmap{0b1000000000})
 		v, ok := c.Value(9)
 		assert.Equal(t, int16(0), v)
 		assert.False(t, ok)
@@ -314,7 +314,7 @@ func TestOfInt16s(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.UpdateMany([]Update{
+		c.Update([]Update{
 			{Kind: UpdatePut, Index: 1, Value: int16(2)},
 			{Kind: UpdatePut, Index: 2, Value: int16(3)},
 			{Kind: UpdateAdd, Index: 1, Value: int16(2)},
@@ -333,7 +333,7 @@ func TestOfInt32s(t *testing.T) {
 	assert.Equal(t, 100, len(c.data))
 
 	{ // Set the value at index
-		c.UpdateMany([]Update{{UpdatePut, 9, int32(99)}})
+		c.Update([]Update{{UpdatePut, 9, int32(99)}})
 		assert.True(t, c.Contains(9))
 	}
 
@@ -374,7 +374,7 @@ func TestOfInt32s(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.DeleteMany(&bitmap.Bitmap{0b1000000000})
+		c.Delete(&bitmap.Bitmap{0b1000000000})
 		v, ok := c.Value(9)
 		assert.Equal(t, int32(0), v)
 		assert.False(t, ok)
@@ -393,7 +393,7 @@ func TestOfInt32s(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.UpdateMany([]Update{
+		c.Update([]Update{
 			{Kind: UpdatePut, Index: 1, Value: int32(2)},
 			{Kind: UpdatePut, Index: 2, Value: int32(3)},
 			{Kind: UpdateAdd, Index: 1, Value: int32(2)},
@@ -412,7 +412,7 @@ func TestOfInt64s(t *testing.T) {
 	assert.Equal(t, 100, len(c.data))
 
 	{ // Set the value at index
-		c.UpdateMany([]Update{{UpdatePut, 9, int64(99)}})
+		c.Update([]Update{{UpdatePut, 9, int64(99)}})
 		assert.True(t, c.Contains(9))
 	}
 
@@ -453,7 +453,7 @@ func TestOfInt64s(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.DeleteMany(&bitmap.Bitmap{0b1000000000})
+		c.Delete(&bitmap.Bitmap{0b1000000000})
 		v, ok := c.Value(9)
 		assert.Equal(t, int64(0), v)
 		assert.False(t, ok)
@@ -472,7 +472,7 @@ func TestOfInt64s(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.UpdateMany([]Update{
+		c.Update([]Update{
 			{Kind: UpdatePut, Index: 1, Value: int64(2)},
 			{Kind: UpdatePut, Index: 2, Value: int64(3)},
 			{Kind: UpdateAdd, Index: 1, Value: int64(2)},
@@ -491,7 +491,7 @@ func TestOfUints(t *testing.T) {
 	assert.Equal(t, 100, len(c.data))
 
 	{ // Set the value at index
-		c.UpdateMany([]Update{{UpdatePut, 9, uint(99)}})
+		c.Update([]Update{{UpdatePut, 9, uint(99)}})
 		assert.True(t, c.Contains(9))
 	}
 
@@ -532,7 +532,7 @@ func TestOfUints(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.DeleteMany(&bitmap.Bitmap{0b1000000000})
+		c.Delete(&bitmap.Bitmap{0b1000000000})
 		v, ok := c.Value(9)
 		assert.Equal(t, uint(0), v)
 		assert.False(t, ok)
@@ -551,7 +551,7 @@ func TestOfUints(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.UpdateMany([]Update{
+		c.Update([]Update{
 			{Kind: UpdatePut, Index: 1, Value: uint(2)},
 			{Kind: UpdatePut, Index: 2, Value: uint(3)},
 			{Kind: UpdateAdd, Index: 1, Value: uint(2)},
@@ -570,7 +570,7 @@ func TestOfUint16s(t *testing.T) {
 	assert.Equal(t, 100, len(c.data))
 
 	{ // Set the value at index
-		c.UpdateMany([]Update{{UpdatePut, 9, uint16(99)}})
+		c.Update([]Update{{UpdatePut, 9, uint16(99)}})
 		assert.True(t, c.Contains(9))
 	}
 
@@ -611,7 +611,7 @@ func TestOfUint16s(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.DeleteMany(&bitmap.Bitmap{0b1000000000})
+		c.Delete(&bitmap.Bitmap{0b1000000000})
 		v, ok := c.Value(9)
 		assert.Equal(t, uint16(0), v)
 		assert.False(t, ok)
@@ -630,7 +630,7 @@ func TestOfUint16s(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.UpdateMany([]Update{
+		c.Update([]Update{
 			{Kind: UpdatePut, Index: 1, Value: uint16(2)},
 			{Kind: UpdatePut, Index: 2, Value: uint16(3)},
 			{Kind: UpdateAdd, Index: 1, Value: uint16(2)},
@@ -649,7 +649,7 @@ func TestOfUint32s(t *testing.T) {
 	assert.Equal(t, 100, len(c.data))
 
 	{ // Set the value at index
-		c.UpdateMany([]Update{{UpdatePut, 9, uint32(99)}})
+		c.Update([]Update{{UpdatePut, 9, uint32(99)}})
 		assert.True(t, c.Contains(9))
 	}
 
@@ -690,7 +690,7 @@ func TestOfUint32s(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.DeleteMany(&bitmap.Bitmap{0b1000000000})
+		c.Delete(&bitmap.Bitmap{0b1000000000})
 		v, ok := c.Value(9)
 		assert.Equal(t, uint32(0), v)
 		assert.False(t, ok)
@@ -709,7 +709,7 @@ func TestOfUint32s(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.UpdateMany([]Update{
+		c.Update([]Update{
 			{Kind: UpdatePut, Index: 1, Value: uint32(2)},
 			{Kind: UpdatePut, Index: 2, Value: uint32(3)},
 			{Kind: UpdateAdd, Index: 1, Value: uint32(2)},
@@ -728,7 +728,7 @@ func TestOfUint64s(t *testing.T) {
 	assert.Equal(t, 100, len(c.data))
 
 	{ // Set the value at index
-		c.UpdateMany([]Update{{UpdatePut, 9, uint64(99)}})
+		c.Update([]Update{{UpdatePut, 9, uint64(99)}})
 		assert.True(t, c.Contains(9))
 	}
 
@@ -769,7 +769,7 @@ func TestOfUint64s(t *testing.T) {
 	}
 
 	{ // Remove the value
-		c.DeleteMany(&bitmap.Bitmap{0b1000000000})
+		c.Delete(&bitmap.Bitmap{0b1000000000})
 		v, ok := c.Value(9)
 		assert.Equal(t, uint64(0), v)
 		assert.False(t, ok)
@@ -788,7 +788,7 @@ func TestOfUint64s(t *testing.T) {
 	}
 
 	{ // Update several items at once
-		c.UpdateMany([]Update{
+		c.Update([]Update{
 			{Kind: UpdatePut, Index: 1, Value: uint64(2)},
 			{Kind: UpdatePut, Index: 2, Value: uint64(3)},
 			{Kind: UpdateAdd, Index: 1, Value: uint64(2)},

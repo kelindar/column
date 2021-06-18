@@ -195,7 +195,7 @@ players.Query(func(txn *Txn) error {
 ```
 
 
-Now, what if you need to quickly delete all some of the data in the collection? In this case `DeleteAll()` or `DeleteIf()` methosd come in handy. These methods are very fast (especially `DeleteAll()`) and allow you to quickly delete the appropriate results, transactionally. In the example below we delete all of the rogues from the collection by simply selecting them in the transaction and calling the `DeleteAll()` method.
+Now, what if you need to quickly delete all some of the data in the collection? In this case `DeleteAll()` or `DeleteIf()` methods come in handy. These methods are very fast (especially `DeleteAll()`) and allow you to quickly delete the appropriate results, transactionally. In the example below we delete all of the rogues from the collection by simply selecting them in the transaction and calling the `DeleteAll()` method.
 
 ```go
 players.Query(func(txn *Txn) error {

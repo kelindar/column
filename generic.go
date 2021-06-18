@@ -38,8 +38,8 @@ func (c *columnnumber) Grow(idx uint32) {
 	c.Unlock()
 }
 
-// UpdateMany performs a series of updates at once
-func (c *columnnumber) UpdateMany(updates []Update) {
+// Update performs a series of updates at once
+func (c *columnnumber) Update(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
 

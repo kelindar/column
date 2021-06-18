@@ -35,8 +35,8 @@ func (c *columnFloat32) Grow(idx uint32) {
 	c.Unlock()
 }
 
-// UpdateMany performs a series of updates at once
-func (c *columnFloat32) UpdateMany(updates []Update) {
+// Update performs a series of updates at once
+func (c *columnFloat32) Update(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -131,8 +131,8 @@ func (c *columnFloat64) Grow(idx uint32) {
 	c.Unlock()
 }
 
-// UpdateMany performs a series of updates at once
-func (c *columnFloat64) UpdateMany(updates []Update) {
+// Update performs a series of updates at once
+func (c *columnFloat64) Update(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -227,8 +227,8 @@ func (c *columnInt) Grow(idx uint32) {
 	c.Unlock()
 }
 
-// UpdateMany performs a series of updates at once
-func (c *columnInt) UpdateMany(updates []Update) {
+// Update performs a series of updates at once
+func (c *columnInt) Update(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -323,8 +323,8 @@ func (c *columnInt16) Grow(idx uint32) {
 	c.Unlock()
 }
 
-// UpdateMany performs a series of updates at once
-func (c *columnInt16) UpdateMany(updates []Update) {
+// Update performs a series of updates at once
+func (c *columnInt16) Update(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -419,8 +419,8 @@ func (c *columnInt32) Grow(idx uint32) {
 	c.Unlock()
 }
 
-// UpdateMany performs a series of updates at once
-func (c *columnInt32) UpdateMany(updates []Update) {
+// Update performs a series of updates at once
+func (c *columnInt32) Update(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -515,8 +515,8 @@ func (c *columnInt64) Grow(idx uint32) {
 	c.Unlock()
 }
 
-// UpdateMany performs a series of updates at once
-func (c *columnInt64) UpdateMany(updates []Update) {
+// Update performs a series of updates at once
+func (c *columnInt64) Update(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -611,8 +611,8 @@ func (c *columnUint) Grow(idx uint32) {
 	c.Unlock()
 }
 
-// UpdateMany performs a series of updates at once
-func (c *columnUint) UpdateMany(updates []Update) {
+// Update performs a series of updates at once
+func (c *columnUint) Update(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -707,8 +707,8 @@ func (c *columnUint16) Grow(idx uint32) {
 	c.Unlock()
 }
 
-// UpdateMany performs a series of updates at once
-func (c *columnUint16) UpdateMany(updates []Update) {
+// Update performs a series of updates at once
+func (c *columnUint16) Update(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -803,8 +803,8 @@ func (c *columnUint32) Grow(idx uint32) {
 	c.Unlock()
 }
 
-// UpdateMany performs a series of updates at once
-func (c *columnUint32) UpdateMany(updates []Update) {
+// Update performs a series of updates at once
+func (c *columnUint32) Update(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -899,8 +899,8 @@ func (c *columnUint64) Grow(idx uint32) {
 	c.Unlock()
 }
 
-// UpdateMany performs a series of updates at once
-func (c *columnUint64) UpdateMany(updates []Update) {
+// Update performs a series of updates at once
+func (c *columnUint64) Update(updates []Update) {
 	c.Lock()
 	defer c.Unlock()
 
