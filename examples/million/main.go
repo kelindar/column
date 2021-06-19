@@ -29,7 +29,7 @@ func main() {
 			count := txn.WithFloat("age", func(v float64) bool {
 				return v >= 30
 			}).Count()
-			println("-> result =", count)
+			fmt.Printf("-> result = %v\n", count)
 			return nil
 		})
 	})
@@ -40,7 +40,7 @@ func main() {
 			count := txn.WithString("class", func(v string) bool {
 				return v == "rogue"
 			}).Count()
-			println("-> result =", count)
+			fmt.Printf("-> result = %v\n", count)
 			return nil
 		})
 	})
@@ -48,7 +48,7 @@ func main() {
 	// run a query over human mages
 	measure("indexed query", "human mages", func() {
 		players.Query(func(txn *column.Txn) error {
-			println("-> result =", txn.With("human", "mage").Count())
+			fmt.Printf("-> result = %v\n", txn.With("human", "mage").Count())
 			return nil
 		})
 	})
@@ -56,7 +56,7 @@ func main() {
 	// run a query over human mages
 	measure("indexed query", "human female mages", func() {
 		players.Query(func(txn *column.Txn) error {
-			println("-> result =", txn.With("human", "female", "mage").Count())
+			fmt.Printf("-> result = %v\n", txn.With("human", "female", "mage").Count())
 			return nil
 		})
 	})
