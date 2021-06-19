@@ -34,10 +34,29 @@ func main() {
 		})
 	})
 
+	// run a full scan
+	measure("full scan", `class == "rogue"`, func() {
+		players.Query(func(txn *column.Txn) error {
+			count := txn.WithString("class", func(v string) bool {
+				return v == "rogue"
+			}).Count()
+			println("-> result =", count)
+			return nil
+		})
+	})
+
 	// run a query over human mages
 	measure("indexed query", "human mages", func() {
 		players.Query(func(txn *column.Txn) error {
 			println("-> result =", txn.With("human", "mage").Count())
+			return nil
+		})
+	})
+
+	// run a query over human mages
+	measure("indexed query", "human female mages", func() {
+		players.Query(func(txn *column.Txn) error {
+			println("-> result =", txn.With("human", "female", "mage").Count())
 			return nil
 		})
 	})
@@ -92,6 +111,16 @@ func createCollection(out *column.Collection, amount int) *column.Collection {
 	// index for mages
 	out.CreateIndex("mage", "class", func(v interface{}) bool {
 		return v == "mage"
+	})
+
+	// index for males
+	out.CreateIndex("male", "gender", func(v interface{}) bool {
+		return v == "male"
+	})
+
+	// index for females
+	out.CreateIndex("female", "gender", func(v interface{}) bool {
+		return v == "female"
 	})
 
 	// Load the 500 rows from JSON
