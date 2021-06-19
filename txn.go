@@ -443,6 +443,7 @@ func (txn *Txn) deletePending() {
 	// Clear the items in the collection and reinitialize the purge list
 	txn.owner.lock.Lock()
 	txn.owner.fill.AndNot(txn.deletes)
+	txn.owner.count = txn.owner.fill.Count()
 
 	// If there's an associated writer, write into it
 	if txn.writer != nil {
@@ -466,6 +467,7 @@ func (txn *Txn) insertPending() {
 
 	txn.owner.lock.Lock()
 	txn.owner.fill.Or(txn.inserts)
+	txn.owner.count = txn.owner.fill.Count()
 
 	// If there's a writer, write before we unlock the column so that the transactions
 	// are seiralized in the writer as well, making everything consistent.
