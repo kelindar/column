@@ -438,6 +438,37 @@ BenchmarkCollection/delete-at-8      2006052      594.9 ns/op     0 B/op     0 a
 BenchmarkCollection/delete-all-8     1889685      643.2 ns/op     0 B/op     0 allocs/op
 ```
 
+When testing for larger collections, I added a small example (see `examples` folder) and ran it with **20 million rows** inserted, each entry has **12 columns and 4 indexes** that need to be calculated, and a few queries and scans around them.
+
+```
+running insert of 20000000 rows...
+-> insert took 52.8255618s
+
+running full scan of age >= 30...
+-> result = 10200000
+-> full scan took 176.01008ms
+
+running full scan of class == "rogue"...
+-> result = 7160000
+-> full scan took 196.153362ms
+
+running indexed query of human mages...
+-> result = 1360000
+-> indexed query took 581.158µs
+
+running indexed query of human female mages...
+-> result = 640000
+-> indexed query took 753.122µs
+
+running update of balance of everyone...
+-> updated 20000000 rows
+-> update took 301.888912ms
+
+running update of age of mages...
+-> updated 6040000 rows
+-> update took 93.835876ms
+```
+
 ## Contributing
 
 We are open to contributions, feel free to submit a pull request and we'll review it as quickly as we can. This library is maintained by [Roman Atachiants](https://www.linkedin.com/in/atachiants/)
