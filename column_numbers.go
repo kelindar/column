@@ -28,10 +28,18 @@ func makeFloat32s() Column {
 // Grow grows the size of the column until we have enough to store
 func (c *columnFloat32) Grow(idx uint32) {
 	// TODO: also grow the bitmap
-	size := uint32(len(c.data))
-	for i := size; i <= idx; i++ {
-		c.data = append(c.data, 0)
+	if idx < uint32(len(c.data)) {
+		return
 	}
+
+	if idx < uint32(cap(c.data)) {
+		c.data = c.data[:idx+1]
+		return
+	}
+
+	clone := make([]float32, idx+1, capacityFor(idx+1))
+	copy(clone, c.data)
+	c.data = clone
 }
 
 // Update performs a series of updates at once
@@ -82,28 +90,58 @@ func (c *columnFloat32) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
-// Float64 retrieves a float64 value at a specified index
-func (c *columnFloat32) Float64(idx uint32) (v float64, ok bool) {
+// LoadFloat64 retrieves a float64 value at a specified index
+func (c *columnFloat32) LoadFloat64(idx uint32) (v float64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = float64(c.data[idx]), true
 	}
 	return
 }
 
-// Int64 retrieves an int64 value at a specified index
-func (c *columnFloat32) Int64(idx uint32) (v int64, ok bool) {
+// LoadInt64 retrieves an int64 value at a specified index
+func (c *columnFloat32) LoadInt64(idx uint32) (v int64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = int64(c.data[idx]), true
 	}
 	return
 }
 
-// Uint64 retrieves an uint64 value at a specified index
-func (c *columnFloat32) Uint64(idx uint32) (v uint64, ok bool) {
+// LoadUint64 retrieves an uint64 value at a specified index
+func (c *columnFloat32) LoadUint64(idx uint32) (v uint64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = uint64(c.data[idx]), true
 	}
 	return
+}
+
+// FilterFloat64 filters down the values based on the specified predicate.
+func (c *columnFloat32) FilterFloat64(index *bitmap.Bitmap, predicate func(v float64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(float64(c.data[idx]))
+		}
+		return
+	})
+}
+
+// FilterInt64 filters down the values based on the specified predicate.
+func (c *columnFloat32) FilterInt64(index *bitmap.Bitmap, predicate func(v int64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(int64(c.data[idx]))
+		}
+		return
+	})
+}
+
+// FilterUint64 filters down the values based on the specified predicate.
+func (c *columnFloat32) FilterUint64(index *bitmap.Bitmap, predicate func(v uint64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(uint64(c.data[idx]))
+		}
+		return
+	})
 }
 
 // --------------------------- float64s ----------------------------
@@ -125,10 +163,18 @@ func makeFloat64s() Column {
 // Grow grows the size of the column until we have enough to store
 func (c *columnFloat64) Grow(idx uint32) {
 	// TODO: also grow the bitmap
-	size := uint32(len(c.data))
-	for i := size; i <= idx; i++ {
-		c.data = append(c.data, 0)
+	if idx < uint32(len(c.data)) {
+		return
 	}
+
+	if idx < uint32(cap(c.data)) {
+		c.data = c.data[:idx+1]
+		return
+	}
+
+	clone := make([]float64, idx+1, capacityFor(idx+1))
+	copy(clone, c.data)
+	c.data = clone
 }
 
 // Update performs a series of updates at once
@@ -179,28 +225,58 @@ func (c *columnFloat64) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
-// Float64 retrieves a float64 value at a specified index
-func (c *columnFloat64) Float64(idx uint32) (v float64, ok bool) {
+// LoadFloat64 retrieves a float64 value at a specified index
+func (c *columnFloat64) LoadFloat64(idx uint32) (v float64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = float64(c.data[idx]), true
 	}
 	return
 }
 
-// Int64 retrieves an int64 value at a specified index
-func (c *columnFloat64) Int64(idx uint32) (v int64, ok bool) {
+// LoadInt64 retrieves an int64 value at a specified index
+func (c *columnFloat64) LoadInt64(idx uint32) (v int64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = int64(c.data[idx]), true
 	}
 	return
 }
 
-// Uint64 retrieves an uint64 value at a specified index
-func (c *columnFloat64) Uint64(idx uint32) (v uint64, ok bool) {
+// LoadUint64 retrieves an uint64 value at a specified index
+func (c *columnFloat64) LoadUint64(idx uint32) (v uint64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = uint64(c.data[idx]), true
 	}
 	return
+}
+
+// FilterFloat64 filters down the values based on the specified predicate.
+func (c *columnFloat64) FilterFloat64(index *bitmap.Bitmap, predicate func(v float64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(float64(c.data[idx]))
+		}
+		return
+	})
+}
+
+// FilterInt64 filters down the values based on the specified predicate.
+func (c *columnFloat64) FilterInt64(index *bitmap.Bitmap, predicate func(v int64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(int64(c.data[idx]))
+		}
+		return
+	})
+}
+
+// FilterUint64 filters down the values based on the specified predicate.
+func (c *columnFloat64) FilterUint64(index *bitmap.Bitmap, predicate func(v uint64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(uint64(c.data[idx]))
+		}
+		return
+	})
 }
 
 // --------------------------- ints ----------------------------
@@ -222,10 +298,18 @@ func makeInts() Column {
 // Grow grows the size of the column until we have enough to store
 func (c *columnInt) Grow(idx uint32) {
 	// TODO: also grow the bitmap
-	size := uint32(len(c.data))
-	for i := size; i <= idx; i++ {
-		c.data = append(c.data, 0)
+	if idx < uint32(len(c.data)) {
+		return
 	}
+
+	if idx < uint32(cap(c.data)) {
+		c.data = c.data[:idx+1]
+		return
+	}
+
+	clone := make([]int, idx+1, capacityFor(idx+1))
+	copy(clone, c.data)
+	c.data = clone
 }
 
 // Update performs a series of updates at once
@@ -276,28 +360,58 @@ func (c *columnInt) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
-// Float64 retrieves a float64 value at a specified index
-func (c *columnInt) Float64(idx uint32) (v float64, ok bool) {
+// LoadFloat64 retrieves a float64 value at a specified index
+func (c *columnInt) LoadFloat64(idx uint32) (v float64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = float64(c.data[idx]), true
 	}
 	return
 }
 
-// Int64 retrieves an int64 value at a specified index
-func (c *columnInt) Int64(idx uint32) (v int64, ok bool) {
+// LoadInt64 retrieves an int64 value at a specified index
+func (c *columnInt) LoadInt64(idx uint32) (v int64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = int64(c.data[idx]), true
 	}
 	return
 }
 
-// Uint64 retrieves an uint64 value at a specified index
-func (c *columnInt) Uint64(idx uint32) (v uint64, ok bool) {
+// LoadUint64 retrieves an uint64 value at a specified index
+func (c *columnInt) LoadUint64(idx uint32) (v uint64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = uint64(c.data[idx]), true
 	}
 	return
+}
+
+// FilterFloat64 filters down the values based on the specified predicate.
+func (c *columnInt) FilterFloat64(index *bitmap.Bitmap, predicate func(v float64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(float64(c.data[idx]))
+		}
+		return
+	})
+}
+
+// FilterInt64 filters down the values based on the specified predicate.
+func (c *columnInt) FilterInt64(index *bitmap.Bitmap, predicate func(v int64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(int64(c.data[idx]))
+		}
+		return
+	})
+}
+
+// FilterUint64 filters down the values based on the specified predicate.
+func (c *columnInt) FilterUint64(index *bitmap.Bitmap, predicate func(v uint64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(uint64(c.data[idx]))
+		}
+		return
+	})
 }
 
 // --------------------------- int16s ----------------------------
@@ -319,10 +433,18 @@ func makeInt16s() Column {
 // Grow grows the size of the column until we have enough to store
 func (c *columnInt16) Grow(idx uint32) {
 	// TODO: also grow the bitmap
-	size := uint32(len(c.data))
-	for i := size; i <= idx; i++ {
-		c.data = append(c.data, 0)
+	if idx < uint32(len(c.data)) {
+		return
 	}
+
+	if idx < uint32(cap(c.data)) {
+		c.data = c.data[:idx+1]
+		return
+	}
+
+	clone := make([]int16, idx+1, capacityFor(idx+1))
+	copy(clone, c.data)
+	c.data = clone
 }
 
 // Update performs a series of updates at once
@@ -373,28 +495,58 @@ func (c *columnInt16) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
-// Float64 retrieves a float64 value at a specified index
-func (c *columnInt16) Float64(idx uint32) (v float64, ok bool) {
+// LoadFloat64 retrieves a float64 value at a specified index
+func (c *columnInt16) LoadFloat64(idx uint32) (v float64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = float64(c.data[idx]), true
 	}
 	return
 }
 
-// Int64 retrieves an int64 value at a specified index
-func (c *columnInt16) Int64(idx uint32) (v int64, ok bool) {
+// LoadInt64 retrieves an int64 value at a specified index
+func (c *columnInt16) LoadInt64(idx uint32) (v int64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = int64(c.data[idx]), true
 	}
 	return
 }
 
-// Uint64 retrieves an uint64 value at a specified index
-func (c *columnInt16) Uint64(idx uint32) (v uint64, ok bool) {
+// LoadUint64 retrieves an uint64 value at a specified index
+func (c *columnInt16) LoadUint64(idx uint32) (v uint64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = uint64(c.data[idx]), true
 	}
 	return
+}
+
+// FilterFloat64 filters down the values based on the specified predicate.
+func (c *columnInt16) FilterFloat64(index *bitmap.Bitmap, predicate func(v float64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(float64(c.data[idx]))
+		}
+		return
+	})
+}
+
+// FilterInt64 filters down the values based on the specified predicate.
+func (c *columnInt16) FilterInt64(index *bitmap.Bitmap, predicate func(v int64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(int64(c.data[idx]))
+		}
+		return
+	})
+}
+
+// FilterUint64 filters down the values based on the specified predicate.
+func (c *columnInt16) FilterUint64(index *bitmap.Bitmap, predicate func(v uint64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(uint64(c.data[idx]))
+		}
+		return
+	})
 }
 
 // --------------------------- int32s ----------------------------
@@ -416,10 +568,18 @@ func makeInt32s() Column {
 // Grow grows the size of the column until we have enough to store
 func (c *columnInt32) Grow(idx uint32) {
 	// TODO: also grow the bitmap
-	size := uint32(len(c.data))
-	for i := size; i <= idx; i++ {
-		c.data = append(c.data, 0)
+	if idx < uint32(len(c.data)) {
+		return
 	}
+
+	if idx < uint32(cap(c.data)) {
+		c.data = c.data[:idx+1]
+		return
+	}
+
+	clone := make([]int32, idx+1, capacityFor(idx+1))
+	copy(clone, c.data)
+	c.data = clone
 }
 
 // Update performs a series of updates at once
@@ -470,28 +630,58 @@ func (c *columnInt32) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
-// Float64 retrieves a float64 value at a specified index
-func (c *columnInt32) Float64(idx uint32) (v float64, ok bool) {
+// LoadFloat64 retrieves a float64 value at a specified index
+func (c *columnInt32) LoadFloat64(idx uint32) (v float64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = float64(c.data[idx]), true
 	}
 	return
 }
 
-// Int64 retrieves an int64 value at a specified index
-func (c *columnInt32) Int64(idx uint32) (v int64, ok bool) {
+// LoadInt64 retrieves an int64 value at a specified index
+func (c *columnInt32) LoadInt64(idx uint32) (v int64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = int64(c.data[idx]), true
 	}
 	return
 }
 
-// Uint64 retrieves an uint64 value at a specified index
-func (c *columnInt32) Uint64(idx uint32) (v uint64, ok bool) {
+// LoadUint64 retrieves an uint64 value at a specified index
+func (c *columnInt32) LoadUint64(idx uint32) (v uint64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = uint64(c.data[idx]), true
 	}
 	return
+}
+
+// FilterFloat64 filters down the values based on the specified predicate.
+func (c *columnInt32) FilterFloat64(index *bitmap.Bitmap, predicate func(v float64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(float64(c.data[idx]))
+		}
+		return
+	})
+}
+
+// FilterInt64 filters down the values based on the specified predicate.
+func (c *columnInt32) FilterInt64(index *bitmap.Bitmap, predicate func(v int64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(int64(c.data[idx]))
+		}
+		return
+	})
+}
+
+// FilterUint64 filters down the values based on the specified predicate.
+func (c *columnInt32) FilterUint64(index *bitmap.Bitmap, predicate func(v uint64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(uint64(c.data[idx]))
+		}
+		return
+	})
 }
 
 // --------------------------- int64s ----------------------------
@@ -513,10 +703,18 @@ func makeInt64s() Column {
 // Grow grows the size of the column until we have enough to store
 func (c *columnInt64) Grow(idx uint32) {
 	// TODO: also grow the bitmap
-	size := uint32(len(c.data))
-	for i := size; i <= idx; i++ {
-		c.data = append(c.data, 0)
+	if idx < uint32(len(c.data)) {
+		return
 	}
+
+	if idx < uint32(cap(c.data)) {
+		c.data = c.data[:idx+1]
+		return
+	}
+
+	clone := make([]int64, idx+1, capacityFor(idx+1))
+	copy(clone, c.data)
+	c.data = clone
 }
 
 // Update performs a series of updates at once
@@ -567,28 +765,58 @@ func (c *columnInt64) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
-// Float64 retrieves a float64 value at a specified index
-func (c *columnInt64) Float64(idx uint32) (v float64, ok bool) {
+// LoadFloat64 retrieves a float64 value at a specified index
+func (c *columnInt64) LoadFloat64(idx uint32) (v float64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = float64(c.data[idx]), true
 	}
 	return
 }
 
-// Int64 retrieves an int64 value at a specified index
-func (c *columnInt64) Int64(idx uint32) (v int64, ok bool) {
+// LoadInt64 retrieves an int64 value at a specified index
+func (c *columnInt64) LoadInt64(idx uint32) (v int64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = int64(c.data[idx]), true
 	}
 	return
 }
 
-// Uint64 retrieves an uint64 value at a specified index
-func (c *columnInt64) Uint64(idx uint32) (v uint64, ok bool) {
+// LoadUint64 retrieves an uint64 value at a specified index
+func (c *columnInt64) LoadUint64(idx uint32) (v uint64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = uint64(c.data[idx]), true
 	}
 	return
+}
+
+// FilterFloat64 filters down the values based on the specified predicate.
+func (c *columnInt64) FilterFloat64(index *bitmap.Bitmap, predicate func(v float64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(float64(c.data[idx]))
+		}
+		return
+	})
+}
+
+// FilterInt64 filters down the values based on the specified predicate.
+func (c *columnInt64) FilterInt64(index *bitmap.Bitmap, predicate func(v int64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(int64(c.data[idx]))
+		}
+		return
+	})
+}
+
+// FilterUint64 filters down the values based on the specified predicate.
+func (c *columnInt64) FilterUint64(index *bitmap.Bitmap, predicate func(v uint64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(uint64(c.data[idx]))
+		}
+		return
+	})
 }
 
 // --------------------------- uints ----------------------------
@@ -610,10 +838,18 @@ func makeUints() Column {
 // Grow grows the size of the column until we have enough to store
 func (c *columnUint) Grow(idx uint32) {
 	// TODO: also grow the bitmap
-	size := uint32(len(c.data))
-	for i := size; i <= idx; i++ {
-		c.data = append(c.data, 0)
+	if idx < uint32(len(c.data)) {
+		return
 	}
+
+	if idx < uint32(cap(c.data)) {
+		c.data = c.data[:idx+1]
+		return
+	}
+
+	clone := make([]uint, idx+1, capacityFor(idx+1))
+	copy(clone, c.data)
+	c.data = clone
 }
 
 // Update performs a series of updates at once
@@ -664,28 +900,58 @@ func (c *columnUint) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
-// Float64 retrieves a float64 value at a specified index
-func (c *columnUint) Float64(idx uint32) (v float64, ok bool) {
+// LoadFloat64 retrieves a float64 value at a specified index
+func (c *columnUint) LoadFloat64(idx uint32) (v float64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = float64(c.data[idx]), true
 	}
 	return
 }
 
-// Int64 retrieves an int64 value at a specified index
-func (c *columnUint) Int64(idx uint32) (v int64, ok bool) {
+// LoadInt64 retrieves an int64 value at a specified index
+func (c *columnUint) LoadInt64(idx uint32) (v int64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = int64(c.data[idx]), true
 	}
 	return
 }
 
-// Uint64 retrieves an uint64 value at a specified index
-func (c *columnUint) Uint64(idx uint32) (v uint64, ok bool) {
+// LoadUint64 retrieves an uint64 value at a specified index
+func (c *columnUint) LoadUint64(idx uint32) (v uint64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = uint64(c.data[idx]), true
 	}
 	return
+}
+
+// FilterFloat64 filters down the values based on the specified predicate.
+func (c *columnUint) FilterFloat64(index *bitmap.Bitmap, predicate func(v float64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(float64(c.data[idx]))
+		}
+		return
+	})
+}
+
+// FilterInt64 filters down the values based on the specified predicate.
+func (c *columnUint) FilterInt64(index *bitmap.Bitmap, predicate func(v int64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(int64(c.data[idx]))
+		}
+		return
+	})
+}
+
+// FilterUint64 filters down the values based on the specified predicate.
+func (c *columnUint) FilterUint64(index *bitmap.Bitmap, predicate func(v uint64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(uint64(c.data[idx]))
+		}
+		return
+	})
 }
 
 // --------------------------- uint16s ----------------------------
@@ -707,10 +973,18 @@ func makeUint16s() Column {
 // Grow grows the size of the column until we have enough to store
 func (c *columnUint16) Grow(idx uint32) {
 	// TODO: also grow the bitmap
-	size := uint32(len(c.data))
-	for i := size; i <= idx; i++ {
-		c.data = append(c.data, 0)
+	if idx < uint32(len(c.data)) {
+		return
 	}
+
+	if idx < uint32(cap(c.data)) {
+		c.data = c.data[:idx+1]
+		return
+	}
+
+	clone := make([]uint16, idx+1, capacityFor(idx+1))
+	copy(clone, c.data)
+	c.data = clone
 }
 
 // Update performs a series of updates at once
@@ -761,28 +1035,58 @@ func (c *columnUint16) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
-// Float64 retrieves a float64 value at a specified index
-func (c *columnUint16) Float64(idx uint32) (v float64, ok bool) {
+// LoadFloat64 retrieves a float64 value at a specified index
+func (c *columnUint16) LoadFloat64(idx uint32) (v float64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = float64(c.data[idx]), true
 	}
 	return
 }
 
-// Int64 retrieves an int64 value at a specified index
-func (c *columnUint16) Int64(idx uint32) (v int64, ok bool) {
+// LoadInt64 retrieves an int64 value at a specified index
+func (c *columnUint16) LoadInt64(idx uint32) (v int64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = int64(c.data[idx]), true
 	}
 	return
 }
 
-// Uint64 retrieves an uint64 value at a specified index
-func (c *columnUint16) Uint64(idx uint32) (v uint64, ok bool) {
+// LoadUint64 retrieves an uint64 value at a specified index
+func (c *columnUint16) LoadUint64(idx uint32) (v uint64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = uint64(c.data[idx]), true
 	}
 	return
+}
+
+// FilterFloat64 filters down the values based on the specified predicate.
+func (c *columnUint16) FilterFloat64(index *bitmap.Bitmap, predicate func(v float64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(float64(c.data[idx]))
+		}
+		return
+	})
+}
+
+// FilterInt64 filters down the values based on the specified predicate.
+func (c *columnUint16) FilterInt64(index *bitmap.Bitmap, predicate func(v int64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(int64(c.data[idx]))
+		}
+		return
+	})
+}
+
+// FilterUint64 filters down the values based on the specified predicate.
+func (c *columnUint16) FilterUint64(index *bitmap.Bitmap, predicate func(v uint64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(uint64(c.data[idx]))
+		}
+		return
+	})
 }
 
 // --------------------------- uint32s ----------------------------
@@ -804,10 +1108,18 @@ func makeUint32s() Column {
 // Grow grows the size of the column until we have enough to store
 func (c *columnUint32) Grow(idx uint32) {
 	// TODO: also grow the bitmap
-	size := uint32(len(c.data))
-	for i := size; i <= idx; i++ {
-		c.data = append(c.data, 0)
+	if idx < uint32(len(c.data)) {
+		return
 	}
+
+	if idx < uint32(cap(c.data)) {
+		c.data = c.data[:idx+1]
+		return
+	}
+
+	clone := make([]uint32, idx+1, capacityFor(idx+1))
+	copy(clone, c.data)
+	c.data = clone
 }
 
 // Update performs a series of updates at once
@@ -858,28 +1170,58 @@ func (c *columnUint32) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
-// Float64 retrieves a float64 value at a specified index
-func (c *columnUint32) Float64(idx uint32) (v float64, ok bool) {
+// LoadFloat64 retrieves a float64 value at a specified index
+func (c *columnUint32) LoadFloat64(idx uint32) (v float64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = float64(c.data[idx]), true
 	}
 	return
 }
 
-// Int64 retrieves an int64 value at a specified index
-func (c *columnUint32) Int64(idx uint32) (v int64, ok bool) {
+// LoadInt64 retrieves an int64 value at a specified index
+func (c *columnUint32) LoadInt64(idx uint32) (v int64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = int64(c.data[idx]), true
 	}
 	return
 }
 
-// Uint64 retrieves an uint64 value at a specified index
-func (c *columnUint32) Uint64(idx uint32) (v uint64, ok bool) {
+// LoadUint64 retrieves an uint64 value at a specified index
+func (c *columnUint32) LoadUint64(idx uint32) (v uint64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = uint64(c.data[idx]), true
 	}
 	return
+}
+
+// FilterFloat64 filters down the values based on the specified predicate.
+func (c *columnUint32) FilterFloat64(index *bitmap.Bitmap, predicate func(v float64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(float64(c.data[idx]))
+		}
+		return
+	})
+}
+
+// FilterInt64 filters down the values based on the specified predicate.
+func (c *columnUint32) FilterInt64(index *bitmap.Bitmap, predicate func(v int64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(int64(c.data[idx]))
+		}
+		return
+	})
+}
+
+// FilterUint64 filters down the values based on the specified predicate.
+func (c *columnUint32) FilterUint64(index *bitmap.Bitmap, predicate func(v uint64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(uint64(c.data[idx]))
+		}
+		return
+	})
 }
 
 // --------------------------- uint64s ----------------------------
@@ -901,10 +1243,18 @@ func makeUint64s() Column {
 // Grow grows the size of the column until we have enough to store
 func (c *columnUint64) Grow(idx uint32) {
 	// TODO: also grow the bitmap
-	size := uint32(len(c.data))
-	for i := size; i <= idx; i++ {
-		c.data = append(c.data, 0)
+	if idx < uint32(len(c.data)) {
+		return
 	}
+
+	if idx < uint32(cap(c.data)) {
+		c.data = c.data[:idx+1]
+		return
+	}
+
+	clone := make([]uint64, idx+1, capacityFor(idx+1))
+	copy(clone, c.data)
+	c.data = clone
 }
 
 // Update performs a series of updates at once
@@ -955,26 +1305,56 @@ func (c *columnUint64) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
-// Float64 retrieves a float64 value at a specified index
-func (c *columnUint64) Float64(idx uint32) (v float64, ok bool) {
+// LoadFloat64 retrieves a float64 value at a specified index
+func (c *columnUint64) LoadFloat64(idx uint32) (v float64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = float64(c.data[idx]), true
 	}
 	return
 }
 
-// Int64 retrieves an int64 value at a specified index
-func (c *columnUint64) Int64(idx uint32) (v int64, ok bool) {
+// LoadInt64 retrieves an int64 value at a specified index
+func (c *columnUint64) LoadInt64(idx uint32) (v int64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = int64(c.data[idx]), true
 	}
 	return
 }
 
-// Uint64 retrieves an uint64 value at a specified index
-func (c *columnUint64) Uint64(idx uint32) (v uint64, ok bool) {
+// LoadUint64 retrieves an uint64 value at a specified index
+func (c *columnUint64) LoadUint64(idx uint32) (v uint64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = uint64(c.data[idx]), true
 	}
 	return
+}
+
+// FilterFloat64 filters down the values based on the specified predicate.
+func (c *columnUint64) FilterFloat64(index *bitmap.Bitmap, predicate func(v float64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(float64(c.data[idx]))
+		}
+		return
+	})
+}
+
+// FilterInt64 filters down the values based on the specified predicate.
+func (c *columnUint64) FilterInt64(index *bitmap.Bitmap, predicate func(v int64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(int64(c.data[idx]))
+		}
+		return
+	})
+}
+
+// FilterUint64 filters down the values based on the specified predicate.
+func (c *columnUint64) FilterUint64(index *bitmap.Bitmap, predicate func(v uint64) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			match = predicate(uint64(c.data[idx]))
+		}
+		return
+	})
 }

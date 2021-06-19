@@ -1,8 +1,7 @@
 // Copyright (c) Roman Atachiants and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
-//go:generate genny -pkg=column -in=generic.go -out=z_numbers.go gen "number=float32,float64,int,int16,int32,int64,uint,uint16,uint32,uint64"
-//go:generate genny -pkg=column -in=generic_test.go -out=z_numbers_test.go gen "number=float32,float64,int,int16,int32,int64,uint,uint16,uint32,uint64"
+//go:generate genny -pkg=column -in=column_generate.go -out=column_numbers.go gen "number=float32,float64,int,int16,int32,int64,uint,uint16,uint32,uint64"
 
 package column
 
@@ -14,6 +13,28 @@ import (
 	"github.com/kelindar/column/commit"
 )
 
+// columnType represents a type of a column.
+type columnType uint8
+
+const (
+	typeGeneric = columnType(0)      // Generic column, every column should support this
+	typeNumeric = columnType(1 << 0) // Numeric column supporting float64, int64 or uint64
+	typeTextual = columnType(1 << 1) // Textual column supporting strings
+)
+
+// typeOf resolves all supported types of the column
+func typeOf(column Column) (typ columnType) {
+	if _, ok := column.(Numeric); ok {
+		typ = typ | typeNumeric
+	}
+	if _, ok := column.(Textual); ok {
+		typ = typ | typeTextual
+	}
+	return
+}
+
+// --------------------------- Contracts ----------------------------
+
 // Column represents a column implementation
 type Column interface {
 	Grow(idx uint32)
@@ -24,11 +45,22 @@ type Column interface {
 	Index() *bitmap.Bitmap
 }
 
-// Numerical represents a numerical column implementation
-type numerical interface {
-	Float64(uint32) (float64, bool)
-	Uint64(uint32) (uint64, bool)
-	Int64(uint32) (int64, bool)
+// Numeric represents a column that stores numbers.
+type Numeric interface {
+	Column
+	LoadFloat64(uint32) (float64, bool)
+	LoadUint64(uint32) (uint64, bool)
+	LoadInt64(uint32) (int64, bool)
+	FilterFloat64(*bitmap.Bitmap, func(v float64) bool)
+	FilterUint64(*bitmap.Bitmap, func(v uint64) bool)
+	FilterInt64(*bitmap.Bitmap, func(v int64) bool)
+}
+
+// Textual represents a column that stores strings.
+type Textual interface {
+	Column
+	LoadString(uint32) (string, bool)
+	FilterString(*bitmap.Bitmap, func(v string) bool)
 }
 
 // --------------------------- Constructors ----------------------------
@@ -48,6 +80,7 @@ var (
 	ForUint32  = makeUint32s
 	ForUint64  = makeUint64s
 	ForBool    = makeBools
+	ForEnum    = makeEnum
 )
 
 // ForKind creates a new column instance for a specified reflect.Kind
@@ -85,16 +118,28 @@ func ForKind(kind reflect.Kind) Column {
 // column represents a column wrapper that synchronizes operations
 type column struct {
 	sync.RWMutex
-	name string
 	Column
+	kind columnType // The type of the colum
+	name string     // The name of the column
 }
 
 // columnFor creates a synchronized column for a column implementation
 func columnFor(name string, v Column) *column {
 	return &column{
+		kind:   typeOf(v),
 		name:   name,
 		Column: v,
 	}
+}
+
+// Is checks whether a column type supports certain numerical operations.
+func (c *column) IsNumeric() bool {
+	return (c.kind & typeNumeric) == typeNumeric
+}
+
+// Is checks whether a column type supports certain string operations.
+func (c *column) IsTextual() bool {
+	return (c.kind & typeTextual) == typeTextual
 }
 
 // Intersect performs a logical and operation and updates the destination bitmap.
@@ -147,6 +192,14 @@ func (c *column) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
+// Value retrieves a value at a specified index
+func (c *column) String(idx uint32) (v string, ok bool) {
+	c.RLock()
+	v, ok = c.loadString(idx)
+	c.RUnlock()
+	return
+}
+
 // Float64 retrieves a float64 value at a specified index
 func (c *column) Float64(idx uint32) (v float64, ok bool) {
 	c.RLock()
@@ -178,25 +231,33 @@ func (c *column) loadValue(idx uint32) (v interface{}, ok bool) {
 }
 
 // loadFloat64 (unlocked)  retrieves a float64 value at a specified index
+func (c *column) loadString(idx uint32) (v string, ok bool) {
+	if column, ok := c.Column.(Textual); ok {
+		v, ok = column.LoadString(idx)
+	}
+	return
+}
+
+// loadFloat64 (unlocked)  retrieves a float64 value at a specified index
 func (c *column) loadFloat64(idx uint32) (v float64, ok bool) {
-	if n, contains := c.Column.(numerical); contains {
-		v, ok = n.Float64(idx)
+	if n, contains := c.Column.(Numeric); contains {
+		v, ok = n.LoadFloat64(idx)
 	}
 	return
 }
 
 // loadInt64 (unlocked)  retrieves an int64 value at a specified index
 func (c *column) loadInt64(idx uint32) (v int64, ok bool) {
-	if n, contains := c.Column.(numerical); contains {
-		v, ok = n.Int64(idx)
+	if n, contains := c.Column.(Numeric); contains {
+		v, ok = n.LoadInt64(idx)
 	}
 	return
 }
 
 // loadUint64 (unlocked)  retrieves an uint64 value at a specified index
 func (c *column) loadUint64(idx uint32) (v uint64, ok bool) {
-	if n, contains := c.Column.(numerical); contains {
-		v, ok = n.Uint64(idx)
+	if n, contains := c.Column.(Numeric); contains {
+		v, ok = n.LoadUint64(idx)
 	}
 	return
 }
@@ -219,11 +280,18 @@ func makeAny() Column {
 
 // Grow grows the size of the column until we have enough to store
 func (c *columnAny) Grow(idx uint32) {
-	// TODO: also grow the bitmap
-	size := uint32(len(c.data))
-	for i := size; i <= idx; i++ {
-		c.data = append(c.data, nil)
+	if idx < uint32(len(c.data)) {
+		return
 	}
+
+	if idx < uint32(cap(c.data)) {
+		c.data = c.data[:idx+1]
+		return
+	}
+
+	clone := make([]interface{}, idx+1, capacityFor(idx+1))
+	copy(clone, c.data)
+	c.data = clone
 }
 
 // Update performs a series of updates at once
@@ -259,6 +327,26 @@ func (c *columnAny) Contains(idx uint32) bool {
 // Index returns the fill list for the column
 func (c *columnAny) Index() *bitmap.Bitmap {
 	return &c.fill
+}
+
+// LoadString retrieves a value at a specified index
+func (c *columnAny) LoadString(idx uint32) (string, bool) {
+	v, has := c.Value(idx)
+	s, ok := v.(string)
+	return s, has && ok
+}
+
+// FilterString filters down the values based on the specified predicate. The column for
+// this filter must be a string.
+func (c *columnAny) FilterString(index *bitmap.Bitmap, predicate func(v string) bool) {
+	index.Filter(func(idx uint32) (match bool) {
+		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+			if s, ok := c.LoadString(idx); ok {
+				return predicate(s)
+			}
+		}
+		return false
+	})
 }
 
 // --------------------------- booleans ----------------------------
@@ -315,75 +403,16 @@ func (c *columnBool) Index() *bitmap.Bitmap {
 	return &c.data
 }
 
-// --------------------------- computed index ----------------------------
+// --------------------------- funcs ----------------------------
 
-// computed represents a computed column
-type computed interface {
-	Column() string
-}
-
-// Index represents the index implementation
-type index struct {
-	fill bitmap.Bitmap
-	prop string
-	rule func(v interface{}) bool
-}
-
-// newIndex creates a new indexer
-func newIndex(indexName, columnName string, rule func(v interface{}) bool) *column {
-	return columnFor(indexName, &index{
-		fill: make(bitmap.Bitmap, 0, 4),
-		prop: columnName,
-		rule: rule,
-	})
-}
-
-// Grow grows the size of the column until we have enough to store
-func (c *index) Grow(idx uint32) {
-	// TODO
-}
-
-// Column returns the target name of the column on which this index should apply.
-func (c *index) Column() string {
-	return c.prop
-}
-
-// Update performs a series of updates at once
-func (c *index) Update(updates []commit.Update) {
-
-	// Index can only be updated based on the final stored value, so we can only work
-	// with put operations here. The trick is to update the final value after applying
-	// on the actual column.
-	for _, u := range updates {
-		if u.Type == commit.Put {
-			if c.rule(u.Value) {
-				c.fill.Set(u.Index)
-			} else {
-				c.fill.Remove(u.Index)
-			}
-		}
-	}
-}
-
-// Delete deletes a set of items from the column.
-func (c *index) Delete(items *bitmap.Bitmap) {
-	c.fill.AndNot(*items)
-}
-
-// Value retrieves a value at a specified index.
-func (c *index) Value(idx uint32) (v interface{}, ok bool) {
-	if idx < uint32(len(c.fill))<<6 {
-		v, ok = c.fill.Contains(idx), true
-	}
-	return
-}
-
-// Contains checks whether the column has a value at a specified index.
-func (c *index) Contains(idx uint32) bool {
-	return c.fill.Contains(idx)
-}
-
-// Index returns the fill list for the column
-func (c *index) Index() *bitmap.Bitmap {
-	return &c.fill
+// capacityFor computes the next power of 2 for a given index
+func capacityFor(v uint32) int {
+	v--
+	v |= v >> 1
+	v |= v >> 2
+	v |= v >> 4
+	v |= v >> 8
+	v |= v >> 16
+	v++
+	return int(v)
 }

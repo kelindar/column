@@ -19,15 +19,17 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// BenchmarkCollection/insert-8         	 5717271	       210.1 ns/op	       3 B/op	       0 allocs/op
-// BenchmarkCollection/fetch-8          	23014076	        52.73 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/unindexed-8      	  144264	      7534 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/count-8          	 8954762	       132.2 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/range-8          	 1760739	       682.5 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/update-at-8      	 9917469	       122.9 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/update-all-8     	  200008	      6014 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/delete-at-8      	 2208020	       544.8 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkCollection/delete-all-8     	 2013384	       599.2 ns/op	       0 B/op	       0 allocs/op
+/*
+BenchmarkCollection/insert-8         	 5013795	       239.9 ns/op	      27 B/op	       0 allocs/op
+BenchmarkCollection/fetch-8          	23730796	        50.63 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/scan-8           	  234990	      4743 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/count-8          	 7965873	       152.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/range-8          	 1512513	       799.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/update-at-8      	 5409420	       224.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/update-all-8     	  196626	      6099 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/delete-at-8      	 2006052	       594.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/delete-all-8     	 1889685	       643.2 ns/op	       0 B/op	       0 allocs/op
+*/
 func BenchmarkCollection(b *testing.B) {
 	players := loadPlayers()
 	obj := Object{
@@ -62,7 +64,7 @@ func BenchmarkCollection(b *testing.B) {
 		assert.NotEmpty(b, name)
 	})
 
-	b.Run("unindexed", func(b *testing.B) {
+	b.Run("scan", func(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
@@ -392,7 +394,18 @@ func loadPlayers() *Collection {
 
 	// Load the items into the collection
 	players := loadFixture("players.json")
-	out.CreateColumnsOf(players[0])
+	out.CreateColumn("serial", ForAny())
+	out.CreateColumn("name", ForAny())
+	out.CreateColumn("active", ForBool())
+	out.CreateColumn("class", ForEnum())
+	out.CreateColumn("race", ForEnum())
+	out.CreateColumn("age", ForFloat64())
+	out.CreateColumn("hp", ForFloat64())
+	out.CreateColumn("mp", ForFloat64())
+	out.CreateColumn("balance", ForFloat64())
+	out.CreateColumn("gender", ForEnum())
+	out.CreateColumn("guild", ForEnum())
+	out.CreateColumn("location", ForAny())
 	out.Query(func(txn *Txn) error {
 		for _, p := range players {
 			txn.Insert(p)

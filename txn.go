@@ -90,16 +90,6 @@ func (txn *Txn) columnAt(columnName string) (*column, bool) {
 	return column, true
 }
 
-// numericalAt returns a numerical column
-func (txn *Txn) numericalAt(columnName string) (*column, bool) {
-	if c, ok := txn.columnAt(columnName); ok {
-		if _, ok := c.Column.(numerical); ok {
-			return c, true
-		}
-	}
-	return nil, false
-}
-
 // With applies a logical AND operation to the current query and the specified index.
 func (txn *Txn) With(columns ...string) *Txn {
 	for _, columnName := range columns {
@@ -155,69 +145,61 @@ func (txn *Txn) WithValue(column string, predicate func(v interface{}) bool) *Tx
 // WithFloat filters down the values based on the specified predicate. The column for
 // this filter must be numerical and convertible to float64.
 func (txn *Txn) WithFloat(column string, predicate func(v float64) bool) *Txn {
-	c, ok := txn.numericalAt(column)
-	if !ok {
+	c, ok := txn.columnAt(column)
+	if !ok || !c.IsNumeric() {
 		txn.index.Clear()
 		return txn
 	}
 
 	c.RLock()
 	defer c.RUnlock()
-	txn.index.Filter(func(x uint32) (match bool) {
-		if v, ok := c.loadFloat64(x); ok {
-			match = predicate(v)
-		}
-		return
-	})
+	c.Column.(Numeric).FilterFloat64(&txn.index, predicate)
 	return txn
 }
 
 // WithInt filters down the values based on the specified predicate. The column for
 // this filter must be numerical and convertible to int64.
 func (txn *Txn) WithInt(column string, predicate func(v int64) bool) *Txn {
-	c, ok := txn.numericalAt(column)
-	if !ok {
+	c, ok := txn.columnAt(column)
+	if !ok || !c.IsNumeric() {
 		txn.index.Clear()
 		return txn
 	}
 
 	c.RLock()
 	defer c.RUnlock()
-	txn.index.Filter(func(x uint32) (match bool) {
-		if v, ok := c.loadInt64(x); ok {
-			match = predicate(v)
-		}
-		return
-	})
+	c.Column.(Numeric).FilterInt64(&txn.index, predicate)
 	return txn
 }
 
 // WithUint filters down the values based on the specified predicate. The column for
 // this filter must be numerical and convertible to uint64.
 func (txn *Txn) WithUint(column string, predicate func(v uint64) bool) *Txn {
-	c, ok := txn.numericalAt(column)
-	if !ok {
+	c, ok := txn.columnAt(column)
+	if !ok || !c.IsNumeric() {
 		txn.index.Clear()
 		return txn
 	}
 
 	c.RLock()
 	defer c.RUnlock()
-	txn.index.Filter(func(x uint32) (match bool) {
-		if v, ok := c.loadUint64(x); ok {
-			match = predicate(v)
-		}
-		return
-	})
+	c.Column.(Numeric).FilterUint64(&txn.index, predicate)
 	return txn
 }
 
 // WithString filters down the values based on the specified predicate. The column for
 // this filter must be a string.
 func (txn *Txn) WithString(column string, predicate func(v string) bool) *Txn {
-	return txn.WithValue(column, func(v interface{}) bool {
-		return predicate(v.(string))
-	})
+	c, ok := txn.columnAt(column)
+	if !ok || !c.IsTextual() {
+		txn.index.Clear()
+		return txn
+	}
+
+	c.RLock()
+	defer c.RUnlock()
+	c.Column.(Textual).FilterString(&txn.index, predicate)
+	return txn
 }
 
 // Count returns the number of objects matching the query
