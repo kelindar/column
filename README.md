@@ -427,16 +427,15 @@ The benchmarks below were ran on a collection of *500 items* containing a dozen 
 
 ```
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkCollection/insert-8         27589314       43.05 ns/op     1 B/op     0 allocs/op
-BenchmarkCollection/fetch-8          21041593       56.84 ns/op     0 B/op     0 allocs/op
-BenchmarkCollection/count-slow-8       109107    11001 ns/op        0 B/op     0 allocs/op
-BenchmarkCollection/count-8           9300270      128.6 ns/op      0 B/op     0 allocs/op
-BenchmarkCollection/range-8           1871557      641.0 ns/op      0 B/op     0 allocs/op
-BenchmarkCollection/select-8          1214799      975.8 ns/op      0 B/op     0 allocs/op
-BenchmarkCollection/update-at-8      28573945       41.99 ns/op     0 B/op     0 allocs/op
-BenchmarkCollection/update-all-8       184694      6481 ns/op       0 B/op     0 allocs/op
-BenchmarkCollection/delete-at-8       2613982      459.1 ns/op      0 B/op     0 allocs/op
-BenchmarkCollection/delete-all-8       296901      3762 ns/op       0 B/op     0 allocs/op
+BenchmarkCollection/insert-8         5013795      239.9 ns/op    27 B/op     0 allocs/op
+BenchmarkCollection/fetch-8         23730796       50.63 ns/op    0 B/op     0 allocs/op
+BenchmarkCollection/scan-8            234990     4743 ns/op       0 B/op     0 allocs/op
+BenchmarkCollection/count-8          7965873      152.7 ns/op     0 B/op     0 allocs/op
+BenchmarkCollection/range-8          1512513      799.9 ns/op     0 B/op     0 allocs/op
+BenchmarkCollection/update-at-8      5409420      224.7 ns/op     0 B/op     0 allocs/op
+BenchmarkCollection/update-all-8      196626     6099 ns/op       0 B/op     0 allocs/op
+BenchmarkCollection/delete-at-8      2006052      594.9 ns/op     0 B/op     0 allocs/op
+BenchmarkCollection/delete-all-8     1889685      643.2 ns/op     0 B/op     0 allocs/op
 ```
 
 ## Contributing

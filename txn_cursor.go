@@ -36,9 +36,7 @@ func (cur *Selector) ValueAt(column string) (out interface{}) {
 // StringAt reads a string value for a current row at a given column.
 func (cur *Selector) StringAt(column string) (out string) {
 	if c, ok := cur.columnAt(column); ok {
-		if v, ok := c.Value(cur.idx); ok {
-			out, _ = v.(string)
-		}
+		out, _ = c.String(cur.idx)
 	}
 	return
 }
@@ -92,9 +90,7 @@ func (cur *Cursor) Value() (out interface{}) {
 
 // String reads a string value for a current row at a given column.
 func (cur *Cursor) String() (out string) {
-	if v, ok := cur.column.Value(cur.idx); ok {
-		out, _ = v.(string)
-	}
+	out, _ = cur.column.String(cur.idx)
 	return
 }
 
