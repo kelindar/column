@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	amount := 1000000
+	amount, runs := 1000000, 50
 	players := column.NewCollection(column.Options{
 		Capacity: amount,
 	})
@@ -21,7 +21,7 @@ func main() {
 	// insert the data first
 	measure("insert", fmt.Sprintf("%v rows", amount), func() {
 		createCollection(players, amount)
-	})
+	}, 1)
 
 	// run a full scan
 	measure("full scan", "age >= 30", func() {
@@ -32,7 +32,7 @@ func main() {
 			fmt.Printf("-> result = %v\n", count)
 			return nil
 		})
-	})
+	}, runs)
 
 	// run a full scan
 	measure("full scan", `class == "rogue"`, func() {
@@ -43,7 +43,7 @@ func main() {
 			fmt.Printf("-> result = %v\n", count)
 			return nil
 		})
-	})
+	}, runs)
 
 	// run a query over human mages
 	measure("indexed query", "human mages", func() {
@@ -51,7 +51,7 @@ func main() {
 			fmt.Printf("-> result = %v\n", txn.With("human", "mage").Count())
 			return nil
 		})
-	})
+	}, runs*100)
 
 	// run a query over human mages
 	measure("indexed query", "human female mages", func() {
@@ -59,7 +59,7 @@ func main() {
 			fmt.Printf("-> result = %v\n", txn.With("human", "female", "mage").Count())
 			return nil
 		})
-	})
+	}, runs*100)
 
 	// update everyone
 	measure("update", "balance of everyone", func() {
@@ -72,7 +72,7 @@ func main() {
 			})
 		})
 		fmt.Printf("-> updated %v rows\n", updates)
-	})
+	}, runs)
 
 	// update age of mages
 	measure("update", "age of mages", func() {
@@ -85,7 +85,7 @@ func main() {
 			})
 		})
 		fmt.Printf("-> updated %v rows\n", updates)
-	})
+	}, runs)
 }
 
 // createCollection loads a collection of players
@@ -152,12 +152,23 @@ func createCollection(out *column.Collection, amount int) *column.Collection {
 }
 
 // measure runs a function and measures it
-func measure(action, name string, fn func()) {
-	defer func(start time.Time) {
-		fmt.Printf("-> %v took %v\n", action, time.Since(start).String())
-	}(time.Now())
+func measure(action, name string, fn func(), iterations int) {
+	defer func(start time.Time, stdout *os.File) {
+		os.Stdout = stdout
+		elapsed := time.Since(start) / time.Duration(iterations)
+		fmt.Printf("-> %v took %v\n", action, elapsed.String())
+	}(time.Now(), os.Stdout)
 
 	fmt.Println()
 	fmt.Printf("running %v of %v...\n", action, name)
-	fn()
+
+	// Run a few times so the results are more stable
+	null, _ := os.Open(os.DevNull)
+	for i := 0; i < iterations; i++ {
+		if i > 0 { // Silence subsequent runs
+			os.Stdout = null
+		}
+
+		fn()
+	}
 }
