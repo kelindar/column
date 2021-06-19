@@ -33,10 +33,18 @@ func makeEnum() Column {
 // Grow grows the size of the column until we have enough to store
 func (c *columnEnum) Grow(idx uint32) {
 	// TODO: also grow the bitmap
-	size := uint32(len(c.data))
-	for i := size; i <= idx; i++ {
-		c.locs = append(c.locs, 0)
+	if idx < uint32(len(c.locs)) {
+		return
 	}
+
+	if idx < uint32(cap(c.locs)) {
+		c.locs = c.locs[:idx+1]
+		return
+	}
+
+	clone := make([]uint32, idx+1, capacityFor(idx+1))
+	copy(clone, c.locs)
+	c.locs = clone
 }
 
 // Update performs a series of updates at once
