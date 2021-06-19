@@ -6,6 +6,7 @@ package column
 import (
 	"context"
 	"fmt"
+	"math/bits"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -28,6 +29,7 @@ type Collection struct {
 	cols   columns            // The map of columns
 	fill   bitmap.Bitmap      // The fill-list
 	size   int                // The initial size for new columns
+	count  int                // The current count of elements
 	writer commit.Writer      // The commit writer
 	cancel context.CancelFunc // The cancellation function for the context
 }
@@ -79,13 +81,31 @@ func NewCollection(opts ...Options) *Collection {
 // next finds the next free index in the collection, atomically.
 func (c *Collection) next() uint32 {
 	c.lock.Lock()
-	idx, ok := c.fill.FirstZero()
-	if !ok {
-		idx = uint32(len(c.fill)) * 64
+	idx := c.findFreeIndex()
+	c.fill.Set(idx)
+	c.count++
+	c.lock.Unlock()
+	return idx
+}
+
+// findFreeIndex finds a free index for insertion
+func (c *Collection) findFreeIndex() uint32 {
+
+	// Check if we have space at the end, since if we're inserting a lot of data it's more
+	// likely that we're full in the beginning.
+	fillSize := len(c.fill)
+	if fillSize > 0 {
+		if tail := c.fill[fillSize-1]; tail != 0xffffffffffffffff {
+			return uint32((fillSize-1)<<6 + bits.TrailingZeros64(^tail))
+		}
 	}
 
-	c.fill.Set(idx)
-	c.lock.Unlock()
+	// Otherwise, we scan the fill bitmap until we find the first zero. If we don't have it
+	// then we set the index at the size of the fill list.
+	idx, ok := c.fill.FirstZero()
+	if !ok {
+		idx = uint32(len(c.fill)) << 6
+	}
 	return idx
 }
 
@@ -133,7 +153,7 @@ func (c *Collection) DeleteAt(idx uint32) (deleted bool) {
 // Count returns the total number of elements in the collection.
 func (c *Collection) Count() (count int) {
 	c.lock.RLock()
-	count = c.fill.Count()
+	count = c.count
 	c.lock.RUnlock()
 	return
 }
