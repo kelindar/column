@@ -51,7 +51,7 @@ func main() {
 			fmt.Printf("-> result = %v\n", txn.With("human", "mage").Count())
 			return nil
 		})
-	}, runs*100)
+	}, runs*1000)
 
 	// run a query over human mages
 	measure("indexed query", "human female mages", func() {
@@ -59,7 +59,7 @@ func main() {
 			fmt.Printf("-> result = %v\n", txn.With("human", "female", "mage").Count())
 			return nil
 		})
-	}, runs*100)
+	}, runs*1000)
 
 	// update everyone
 	measure("update", "balance of everyone", func() {
@@ -92,12 +92,28 @@ func main() {
 		})
 		fmt.Printf("-> updated %v rows\n", updates)
 	}, runs)
+
+	// update names of males
+	measure("update", "name of males", func() {
+		updates := 0
+		players.Query(func(txn *column.Txn) error {
+			return txn.With("male").Range("name", func(v column.Cursor) bool {
+				updates++
+				v.Update("Sir " + v.String())
+				if updates%10000 == 0 {
+					txn.Commit() // Avoid big transaction to reduce memory used
+				}
+				return true
+			})
+		})
+		fmt.Printf("-> updated %v rows\n", updates)
+	}, runs)
 }
 
 // createCollection loads a collection of players
 func createCollection(out *column.Collection, amount int) *column.Collection {
-	out.CreateColumn("serial", column.ForAny())
-	out.CreateColumn("name", column.ForAny())
+	out.CreateColumn("serial", column.ForEnum())
+	out.CreateColumn("name", column.ForEnum())
 	out.CreateColumn("active", column.ForBool())
 	out.CreateColumn("class", column.ForEnum())
 	out.CreateColumn("race", column.ForEnum())

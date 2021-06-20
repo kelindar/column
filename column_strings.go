@@ -16,10 +16,10 @@ import (
 
 // columnEnum represents a enumerable string column
 type columnEnum struct {
-	fill  bitmap.Bitmap          // The fill-list
-	locs  []uint32               // The list of hash + size
-	data  []byte                 // The actual values
-	cache map[interface{}]uint32 // Cache for string locations (no need to persist)
+	fill  bitmap.Bitmap     // The fill-list
+	locs  []uint32          // The list of locations
+	data  []byte            // The actual values
+	cache map[string]uint32 // Cache for string locations (no need to persist)
 }
 
 // makeEnum creates a new column
@@ -28,7 +28,7 @@ func makeEnum() Column {
 		fill:  make(bitmap.Bitmap, 0, 4),
 		locs:  make([]uint32, 0, 64),
 		data:  make([]byte, 0, 16*32),
-		cache: make(map[interface{}]uint32, 16),
+		cache: make(map[string]uint32, 16),
 	}
 }
 
@@ -56,10 +56,10 @@ func (c *columnEnum) Update(updates []commit.Update) {
 
 			// Attempt to find if we already have the location of this value from the
 			// cache, and if we don't, find it and set the offset for faster lookup.
-			offset, cached := c.cache[u.Value]
+			offset, cached := c.cache[u.Value.(string)]
 			if !cached {
 				offset = c.findOrAdd(u.Value.(string))
-				c.cache[u.Value] = offset
+				c.cache[u.Value.(string)] = offset
 			}
 
 			// Set the value at the index
