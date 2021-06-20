@@ -289,6 +289,7 @@ func (c *columnAny) Grow(idx uint32) {
 		return
 	}
 
+	c.fill.Grow(idx)
 	clone := make([]interface{}, idx+1, capacityFor(idx+1))
 	copy(clone, c.data)
 	c.data = clone
@@ -367,7 +368,7 @@ func makeBools() Column {
 
 // Grow grows the size of the column until we have enough to store
 func (c *columnBool) Grow(idx uint32) {
-	// TODO
+	c.fill.Grow(idx)
 }
 
 // Update performs a series of updates at once

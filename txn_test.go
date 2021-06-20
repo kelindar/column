@@ -11,7 +11,7 @@ import (
 )
 
 func TestFind(t *testing.T) {
-	players := loadPlayers()
+	players := loadPlayers(500)
 	count := 0
 	players.Query(func(txn *Txn) error {
 		txn.WithString("race", func(v string) bool {
@@ -32,7 +32,7 @@ func TestFind(t *testing.T) {
 }
 
 func TestCount(t *testing.T) {
-	players := loadPlayers()
+	players := loadPlayers(500)
 
 	// Count all players
 	assert.Equal(t, 500, players.Count())
@@ -99,7 +99,7 @@ func TestCount(t *testing.T) {
 }
 
 func TestIndexInvalid(t *testing.T) {
-	players := loadPlayers()
+	players := loadPlayers(500)
 	players.Query(func(txn *Txn) error {
 		assert.Equal(t, 0, txn.With("invalid-index").Count())
 		return nil
@@ -160,7 +160,7 @@ func TestIndexInvalid(t *testing.T) {
 }
 
 func TestIndexed(t *testing.T) {
-	players := loadPlayers()
+	players := loadPlayers(500)
 	players.CreateIndex("rich", "balance", func(v interface{}) bool {
 		return v.(float64) > 3500
 	})
@@ -231,7 +231,7 @@ func TestIndexed(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	players := loadPlayers()
+	players := loadPlayers(500)
 	players.CreateIndex("broke", "balance", func(v interface{}) bool {
 		return v.(float64) < 100
 	})

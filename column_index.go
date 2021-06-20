@@ -33,7 +33,7 @@ func newIndex(indexName, columnName string, rule func(v interface{}) bool) *colu
 
 // Grow grows the size of the column until we have enough to store
 func (c *index) Grow(idx uint32) {
-	// TODO
+	c.fill.Grow(idx)
 }
 
 // Column returns the target name of the column on which this index should apply.

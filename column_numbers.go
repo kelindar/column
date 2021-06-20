@@ -27,7 +27,6 @@ func makeFloat32s() Column {
 
 // Grow grows the size of the column until we have enough to store
 func (c *columnFloat32) Grow(idx uint32) {
-	// TODO: also grow the bitmap
 	if idx < uint32(len(c.data)) {
 		return
 	}
@@ -37,6 +36,7 @@ func (c *columnFloat32) Grow(idx uint32) {
 		return
 	}
 
+	//	c.fill.Grow(idx)
 	clone := make([]float32, idx+1, capacityFor(idx+1))
 	copy(clone, c.data)
 	c.data = clone
@@ -162,7 +162,6 @@ func makeFloat64s() Column {
 
 // Grow grows the size of the column until we have enough to store
 func (c *columnFloat64) Grow(idx uint32) {
-	// TODO: also grow the bitmap
 	if idx < uint32(len(c.data)) {
 		return
 	}
@@ -172,6 +171,7 @@ func (c *columnFloat64) Grow(idx uint32) {
 		return
 	}
 
+	c.fill.Grow(idx)
 	clone := make([]float64, idx+1, capacityFor(idx+1))
 	copy(clone, c.data)
 	c.data = clone
@@ -297,7 +297,6 @@ func makeInts() Column {
 
 // Grow grows the size of the column until we have enough to store
 func (c *columnInt) Grow(idx uint32) {
-	// TODO: also grow the bitmap
 	if idx < uint32(len(c.data)) {
 		return
 	}
@@ -307,6 +306,7 @@ func (c *columnInt) Grow(idx uint32) {
 		return
 	}
 
+	c.fill.Grow(idx)
 	clone := make([]int, idx+1, capacityFor(idx+1))
 	copy(clone, c.data)
 	c.data = clone
@@ -432,7 +432,6 @@ func makeInt16s() Column {
 
 // Grow grows the size of the column until we have enough to store
 func (c *columnInt16) Grow(idx uint32) {
-	// TODO: also grow the bitmap
 	if idx < uint32(len(c.data)) {
 		return
 	}
@@ -442,6 +441,7 @@ func (c *columnInt16) Grow(idx uint32) {
 		return
 	}
 
+	c.fill.Grow(idx)
 	clone := make([]int16, idx+1, capacityFor(idx+1))
 	copy(clone, c.data)
 	c.data = clone
@@ -567,7 +567,6 @@ func makeInt32s() Column {
 
 // Grow grows the size of the column until we have enough to store
 func (c *columnInt32) Grow(idx uint32) {
-	// TODO: also grow the bitmap
 	if idx < uint32(len(c.data)) {
 		return
 	}
@@ -577,6 +576,7 @@ func (c *columnInt32) Grow(idx uint32) {
 		return
 	}
 
+	c.fill.Grow(idx)
 	clone := make([]int32, idx+1, capacityFor(idx+1))
 	copy(clone, c.data)
 	c.data = clone
@@ -702,7 +702,6 @@ func makeInt64s() Column {
 
 // Grow grows the size of the column until we have enough to store
 func (c *columnInt64) Grow(idx uint32) {
-	// TODO: also grow the bitmap
 	if idx < uint32(len(c.data)) {
 		return
 	}
@@ -712,6 +711,7 @@ func (c *columnInt64) Grow(idx uint32) {
 		return
 	}
 
+	c.fill.Grow(idx)
 	clone := make([]int64, idx+1, capacityFor(idx+1))
 	copy(clone, c.data)
 	c.data = clone
@@ -837,7 +837,6 @@ func makeUints() Column {
 
 // Grow grows the size of the column until we have enough to store
 func (c *columnUint) Grow(idx uint32) {
-	// TODO: also grow the bitmap
 	if idx < uint32(len(c.data)) {
 		return
 	}
@@ -847,6 +846,7 @@ func (c *columnUint) Grow(idx uint32) {
 		return
 	}
 
+	c.fill.Grow(idx)
 	clone := make([]uint, idx+1, capacityFor(idx+1))
 	copy(clone, c.data)
 	c.data = clone
@@ -972,7 +972,6 @@ func makeUint16s() Column {
 
 // Grow grows the size of the column until we have enough to store
 func (c *columnUint16) Grow(idx uint32) {
-	// TODO: also grow the bitmap
 	if idx < uint32(len(c.data)) {
 		return
 	}
@@ -982,6 +981,7 @@ func (c *columnUint16) Grow(idx uint32) {
 		return
 	}
 
+	c.fill.Grow(idx)
 	clone := make([]uint16, idx+1, capacityFor(idx+1))
 	copy(clone, c.data)
 	c.data = clone
@@ -1107,7 +1107,6 @@ func makeUint32s() Column {
 
 // Grow grows the size of the column until we have enough to store
 func (c *columnUint32) Grow(idx uint32) {
-	// TODO: also grow the bitmap
 	if idx < uint32(len(c.data)) {
 		return
 	}
@@ -1117,6 +1116,7 @@ func (c *columnUint32) Grow(idx uint32) {
 		return
 	}
 
+	c.fill.Grow(idx)
 	clone := make([]uint32, idx+1, capacityFor(idx+1))
 	copy(clone, c.data)
 	c.data = clone
@@ -1242,7 +1242,6 @@ func makeUint64s() Column {
 
 // Grow grows the size of the column until we have enough to store
 func (c *columnUint64) Grow(idx uint32) {
-	// TODO: also grow the bitmap
 	if idx < uint32(len(c.data)) {
 		return
 	}
@@ -1252,6 +1251,7 @@ func (c *columnUint64) Grow(idx uint32) {
 		return
 	}
 
+	c.fill.Grow(idx)
 	clone := make([]uint64, idx+1, capacityFor(idx+1))
 	copy(clone, c.data)
 	c.data = clone

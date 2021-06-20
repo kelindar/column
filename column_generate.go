@@ -1,5 +1,3 @@
-// +build ignore
-
 package column
 
 import (
@@ -28,7 +26,6 @@ func makenumbers() Column {
 
 // Grow grows the size of the column until we have enough to store
 func (c *columnnumber) Grow(idx uint32) {
-	// TODO: also grow the bitmap
 	if idx < uint32(len(c.data)) {
 		return
 	}
@@ -38,6 +35,7 @@ func (c *columnnumber) Grow(idx uint32) {
 		return
 	}
 
+	c.fill.Grow(idx)
 	clone := make([]number, idx+1, capacityFor(idx+1))
 	copy(clone, c.data)
 	c.data = clone

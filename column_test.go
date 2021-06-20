@@ -78,10 +78,13 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 	assert.Equal(t, value, v)
 	assert.True(t, ok)
 
+	fmt.Printf("%v\n", column.Index())
+
 	// Delete the value and update again
 	column.Delete(&bitmap.Bitmap{0xffffffffffffffff})
 	_, ok = column.Value(9)
 	assert.False(t, ok)
+	fmt.Printf("%v\n", column.Index())
 	column.Update([]commit.Update{{
 		Type:  commit.Put,
 		Index: 9,

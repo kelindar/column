@@ -16,23 +16,24 @@ import (
 
 // columnEnum represents a enumerable string column
 type columnEnum struct {
-	fill bitmap.Bitmap // The fill-list
-	locs []uint32      // The list of hash + size
-	data []byte        // The actual values
+	fill  bitmap.Bitmap          // The fill-list
+	locs  []uint32               // The list of hash + size
+	data  []byte                 // The actual values
+	cache map[interface{}]uint32 // Cache for string locations (no need to persist)
 }
 
 // makeEnum creates a new column
 func makeEnum() Column {
 	return &columnEnum{
-		fill: make(bitmap.Bitmap, 0, 4),
-		locs: make([]uint32, 0, 64),
-		data: make([]byte, 0, 8*32),
+		fill:  make(bitmap.Bitmap, 0, 4),
+		locs:  make([]uint32, 0, 64),
+		data:  make([]byte, 0, 16*32),
+		cache: make(map[interface{}]uint32, 16),
 	}
 }
 
 // Grow grows the size of the column until we have enough to store
 func (c *columnEnum) Grow(idx uint32) {
-	// TODO: also grow the bitmap
 	if idx < uint32(len(c.locs)) {
 		return
 	}
@@ -42,6 +43,7 @@ func (c *columnEnum) Grow(idx uint32) {
 		return
 	}
 
+	c.fill.Grow(idx)
 	clone := make([]uint32, idx+1, capacityFor(idx+1))
 	copy(clone, c.locs)
 	c.locs = clone
@@ -51,8 +53,18 @@ func (c *columnEnum) Grow(idx uint32) {
 func (c *columnEnum) Update(updates []commit.Update) {
 	for _, u := range updates {
 		if u.Type == commit.Put {
+
+			// Attempt to find if we already have the location of this value from the
+			// cache, and if we don't, find it and set the offset for faster lookup.
+			offset, cached := c.cache[u.Value]
+			if !cached {
+				offset = c.findOrAdd(u.Value.(string))
+				c.cache[u.Value] = offset
+			}
+
+			// Set the value at the index
 			c.fill.Set(u.Index)
-			c.locs[u.Index] = c.findOrAdd(u.Value.(string))
+			c.locs[u.Index] = offset
 		}
 	}
 }

@@ -20,18 +20,19 @@ import (
 )
 
 /*
-BenchmarkCollection/insert-8         	 5013795	       239.9 ns/op	      27 B/op	       0 allocs/op
-BenchmarkCollection/fetch-8          	23730796	        50.63 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/scan-8           	  234990	      4743 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/count-8          	 7965873	       152.7 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/range-8          	 1512513	       799.9 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/update-at-8      	 5409420	       224.7 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/update-all-8     	  196626	      6099 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/delete-at-8      	 2006052	       594.9 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/delete-all-8     	 1889685	       643.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/insert-8         	 5069828	       236.8 ns/op	      18 B/op	       0 allocs/op
+BenchmarkCollection/fetch-8          	24749718	        52.37 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/scan-8           	     654	   1863383 ns/op	     153 B/op	       0 allocs/op
+BenchmarkCollection/count-8          	  973424	      1104 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/range-8          	    9499	    125914 ns/op	       3 B/op	       0 allocs/op
+BenchmarkCollection/update-at-8      	 3583278	       337.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/update-all-8     	     781	   1378816 ns/op	   74813 B/op	       0 allocs/op
+BenchmarkCollection/delete-at-8      	  725270	      1612 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/delete-all-8     	  169120	      6833 ns/op	       1 B/op	       0 allocs/op
 */
 func BenchmarkCollection(b *testing.B) {
-	players := loadPlayers()
+	amount := 100000
+	players := loadPlayers(amount)
 	obj := Object{
 		"name":   "Roman",
 		"age":    35,
@@ -140,7 +141,7 @@ func BenchmarkCollection(b *testing.B) {
 	})
 
 	b.Run("delete-all", func(b *testing.B) {
-		temp := loadPlayers()
+		temp := loadPlayers(amount)
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
@@ -355,9 +356,9 @@ func TestInsertParallel(t *testing.T) {
 }
 
 // loadPlayers loads a list of players from the fixture
-func loadPlayers() *Collection {
+func loadPlayers(amount int) *Collection {
 	out := NewCollection(Options{
-		Capacity: 512,
+		Capacity: amount,
 		Vacuum:   500 * time.Millisecond,
 		Writer:   new(noopWriter),
 	})
@@ -393,7 +394,6 @@ func loadPlayers() *Collection {
 	})
 
 	// Load the items into the collection
-	players := loadFixture("players.json")
 	out.CreateColumn("serial", ForAny())
 	out.CreateColumn("name", ForAny())
 	out.CreateColumn("active", ForBool())
@@ -406,12 +406,17 @@ func loadPlayers() *Collection {
 	out.CreateColumn("gender", ForEnum())
 	out.CreateColumn("guild", ForEnum())
 	out.CreateColumn("location", ForAny())
-	out.Query(func(txn *Txn) error {
-		for _, p := range players {
-			txn.Insert(p)
-		}
-		return nil
-	})
+
+	// Load and copy until we reach the amount required
+	data := loadFixture("players.json")
+	for i := 0; i < amount/len(data); i++ {
+		out.Query(func(txn *Txn) error {
+			for _, p := range data {
+				txn.Insert(p)
+			}
+			return nil
+		})
+	}
 	return out
 }
 

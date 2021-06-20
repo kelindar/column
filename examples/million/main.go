@@ -68,6 +68,9 @@ func main() {
 			return txn.Range("balance", func(v column.Cursor) bool {
 				updates++
 				v.Update(1000.0)
+				if updates%10000 == 0 {
+					txn.Commit() // Avoid big transaction to reduce memory used
+				}
 				return true
 			})
 		})
@@ -81,6 +84,9 @@ func main() {
 			return txn.With("mage").Range("age", func(v column.Cursor) bool {
 				updates++
 				v.Update(99.0)
+				if updates%10000 == 0 {
+					txn.Commit() // Avoid big transaction to reduce memory used
+				}
 				return true
 			})
 		})
