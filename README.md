@@ -400,7 +400,7 @@ func main(){
 		return nil
 	})
 
-	// This performs a cound, but instead of scanning through the entire dataset, it scans
+	// This performs a count, but instead of scanning through the entire dataset, it scans
 	// over pre-built indexes and combines them using a logical AND operation. The result
 	// will be the same as the query above but the performance of the query is 10x-100x
 	// faster depending on the size of the underlying data.
