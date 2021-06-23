@@ -21,7 +21,6 @@ type Object = map[string]interface{}
 
 const (
 	expireColumn = "expire"
-	shards       = 128
 )
 
 // Collection represents a collection of objects in a columnar format
