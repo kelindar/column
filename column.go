@@ -116,7 +116,6 @@ func ForKind(kind reflect.Kind) Column {
 
 // column represents a column wrapper that synchronizes operations
 type column struct {
-	//sync.RWMutex
 	Column
 	kind columnType // The type of the colum
 	name string     // The name of the column
