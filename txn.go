@@ -6,6 +6,7 @@ package column
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/kelindar/bitmap"
@@ -92,9 +93,12 @@ func (txn *Txn) columnAt(columnName string) (*column, bool) {
 
 // With applies a logical AND operation to the current query and the specified index.
 func (txn *Txn) With(columns ...string) *Txn {
+	txn.owner.lock.RLock()
+	defer txn.owner.lock.RUnlock()
+
 	for _, columnName := range columns {
 		if idx, ok := txn.columnAt(columnName); ok {
-			idx.Intersect(&txn.index)
+			txn.index.And(*idx.Column.Index())
 		} else {
 			txn.index.Clear()
 		}
@@ -104,9 +108,12 @@ func (txn *Txn) With(columns ...string) *Txn {
 
 // Without applies a logical AND NOT operation to the current query and the specified index.
 func (txn *Txn) Without(columns ...string) *Txn {
+	txn.owner.lock.RLock()
+	defer txn.owner.lock.RUnlock()
+
 	for _, columnName := range columns {
 		if idx, ok := txn.columnAt(columnName); ok {
-			idx.Difference(&txn.index)
+			txn.index.AndNot(*idx.Column.Index())
 		}
 	}
 	return txn
@@ -114,9 +121,12 @@ func (txn *Txn) Without(columns ...string) *Txn {
 
 // Union computes a union between the current query and the specified index.
 func (txn *Txn) Union(columns ...string) *Txn {
+	txn.owner.lock.RLock()
+	defer txn.owner.lock.RUnlock()
+
 	for _, columnName := range columns {
 		if idx, ok := txn.columnAt(columnName); ok {
-			idx.Union(&txn.index)
+			txn.index.Or(*idx.Column.Index())
 		}
 	}
 	return txn
@@ -131,10 +141,10 @@ func (txn *Txn) WithValue(column string, predicate func(v interface{}) bool) *Tx
 		return txn
 	}
 
-	c.RLock()
-	defer c.RUnlock()
+	txn.owner.lock.RLock()
+	defer txn.owner.lock.RUnlock()
 	txn.index.Filter(func(x uint32) (match bool) {
-		if v, ok := c.loadValue(x); ok {
+		if v, ok := c.Value(x); ok {
 			match = predicate(v)
 		}
 		return
@@ -151,8 +161,8 @@ func (txn *Txn) WithFloat(column string, predicate func(v float64) bool) *Txn {
 		return txn
 	}
 
-	c.RLock()
-	defer c.RUnlock()
+	txn.owner.lock.RLock()
+	defer txn.owner.lock.RUnlock()
 	c.Column.(Numeric).FilterFloat64(&txn.index, predicate)
 	return txn
 }
@@ -166,8 +176,8 @@ func (txn *Txn) WithInt(column string, predicate func(v int64) bool) *Txn {
 		return txn
 	}
 
-	c.RLock()
-	defer c.RUnlock()
+	txn.owner.lock.RLock()
+	defer txn.owner.lock.RUnlock()
 	c.Column.(Numeric).FilterInt64(&txn.index, predicate)
 	return txn
 }
@@ -181,8 +191,8 @@ func (txn *Txn) WithUint(column string, predicate func(v uint64) bool) *Txn {
 		return txn
 	}
 
-	c.RLock()
-	defer c.RUnlock()
+	txn.owner.lock.RLock()
+	defer txn.owner.lock.RUnlock()
 	c.Column.(Numeric).FilterUint64(&txn.index, predicate)
 	return txn
 }
@@ -196,8 +206,8 @@ func (txn *Txn) WithString(column string, predicate func(v string) bool) *Txn {
 		return txn
 	}
 
-	c.RLock()
-	defer c.RUnlock()
+	txn.owner.lock.RLock()
+	defer txn.owner.lock.RUnlock()
 	c.Column.(Textual).FilterString(&txn.index, predicate)
 	return txn
 }
@@ -273,6 +283,9 @@ func (txn *Txn) insert(object Object, expireAt int64) uint32 {
 // is flexible, it is not the most efficient way, consider Range() as an alternative
 // iteration method over a specific column which also supports modification.
 func (txn *Txn) Select(fn func(v Selector) bool) {
+	txn.owner.lock.RLock()
+	defer txn.owner.lock.RUnlock()
+
 	txn.index.Range(func(x uint32) bool {
 		return fn(Selector{
 			idx: x,
@@ -303,6 +316,9 @@ func (txn *Txn) DeleteAll() {
 // also allows to select other columns, but at a slight performance cost. If the range
 // function returns false, it halts the iteration.
 func (txn *Txn) Range(column string, fn func(v Cursor) bool) error {
+	txn.owner.lock.RLock()
+	defer txn.owner.lock.RUnlock()
+
 	cur, err := txn.cursorFor(column)
 	if err != nil {
 		return err
@@ -350,16 +366,6 @@ func (txn *Txn) cursorFor(columnName string) (Cursor, error) {
 	}, nil
 }
 
-// Commit commits the transaction by applying all pending updates and deletes to
-// the collection. This operation is can be called several times for a transaction
-// in order to perform partial commits. If there's no pending updates/deletes, this
-// operation will result in a no-op.
-func (txn *Txn) Commit() {
-	txn.deletePending()
-	txn.updatePending()
-	txn.insertPending()
-}
-
 // Rollback empties the pending update and delete queues and does not apply any of
 // the pending updates/deletes. This operation can be called several times for
 // a transaction in order to perform partial rollbacks.
@@ -371,29 +377,24 @@ func (txn *Txn) Rollback() {
 	}
 }
 
+// Commit commits the transaction by applying all pending updates and deletes to
+// the collection. This operation is can be called several times for a transaction
+// in order to perform partial commits. If there's no pending updates/deletes, this
+// operation will result in a no-op.
+func (txn *Txn) Commit() {
+
+	// Currently, we need to acquire a global lock in order to make sure that the entire
+	// transaction is completely atomic.
+	txn.owner.lock.Lock()
+	defer txn.owner.lock.Unlock()
+
+	txn.deletePending()
+	txn.updatePending()
+	txn.insertPending()
+}
+
 // updatePending updates the pending entries that were modified during the query
 func (txn *Txn) updatePending() {
-
-	// First we need to aquire a lock on the collection. The reason for this is to make sure
-	// that while we'll be acquiring all of the locks for all of the columns. If someone else
-	// starts acquiring column locks, it could potentially lead to a deadlock situation. By
-	// first getting the collection lock we're making sure that no one else locks for update
-	// at the same time.
-	txn.owner.lock.Lock()
-	for _, u := range txn.updates {
-		if len(u.update) == 0 {
-			continue
-		}
-
-		// Lock all of the columns
-		if columns, ok := txn.owner.cols.LoadWithIndex(u.name); ok {
-			for _, col := range columns {
-				col.Lock()
-				defer col.Unlock()
-			}
-		}
-	}
-	txn.owner.lock.Unlock()
 
 	// Now we can iterate over all of the updates and apply them.
 	for i, u := range txn.updates {
@@ -441,9 +442,8 @@ func (txn *Txn) deletePending() {
 	})
 
 	// Clear the items in the collection and reinitialize the purge list
-	txn.owner.lock.Lock()
 	txn.owner.fill.AndNot(txn.deletes)
-	txn.owner.count = txn.owner.fill.Count()
+	atomic.StoreUint64(&txn.owner.count, uint64(txn.owner.fill.Count()))
 
 	// If there's an associated writer, write into it
 	if txn.writer != nil {
@@ -454,7 +454,6 @@ func (txn *Txn) deletePending() {
 	}
 
 	// Now that we're done with the deletion and the commit has been written, clear
-	txn.owner.lock.Unlock()
 	txn.deletes.Clear()
 }
 
@@ -465,9 +464,8 @@ func (txn *Txn) insertPending() {
 		return
 	}
 
-	txn.owner.lock.Lock()
 	txn.owner.fill.Or(txn.inserts)
-	txn.owner.count = txn.owner.fill.Count()
+	atomic.StoreUint64(&txn.owner.count, uint64(txn.owner.fill.Count()))
 
 	// If there's a writer, write before we unlock the column so that the transactions
 	// are seiralized in the writer as well, making everything consistent.
@@ -477,6 +475,5 @@ func (txn *Txn) insertPending() {
 			Inserts: txn.inserts,
 		})
 	}
-	txn.owner.lock.Unlock()
 	txn.inserts.Clear()
 }
