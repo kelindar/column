@@ -5,6 +5,7 @@ package column
 
 import (
 	"encoding/binary"
+	"math"
 	"reflect"
 	"unsafe"
 
@@ -126,22 +127,26 @@ func (c *columnEnum) LoadString(idx uint32) (v string, ok bool) {
 func (c *columnEnum) FilterString(index *bitmap.Bitmap, predicate func(v string) bool) {
 	cache := struct {
 		index uint32 // Last seen offset
-		value string // Last seen value
+		value bool   // Last evaluated predicate
 	}{}
+	cache.index = math.MaxUint32
+
+	// Do a quick ellimination of elements which are NOT contained in this column, this
+	// allows us not to check contains during the filter itself
+	index.And(c.fill)
 
 	// Filters down the strings, if strings repeat we avoid reading every time by
 	// caching the last seen index/value combination.
-	index.Filter(func(idx uint32) (match bool) {
-		if idx < uint32(len(c.locs)) && c.fill.Contains(idx) {
+	index.Filter(func(idx uint32) bool {
+		if idx < uint32(len(c.locs)) {
 			if at := c.locs[idx]; at != cache.index {
-				v := c.readAt(at)
 				cache.index = at
-				cache.value = v
-				return predicate(v)
+				cache.value = predicate(c.readAt(at))
+				return cache.value
 			}
 
-			// The value is cached, avoid reading it
-			return predicate(cache.value)
+			// The value is cached, avoid evaluating it
+			return cache.value
 		}
 		return false
 	})

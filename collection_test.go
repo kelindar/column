@@ -20,15 +20,16 @@ import (
 )
 
 /*
-BenchmarkCollection/insert-8         	 5545016	       216.8 ns/op	      18 B/op	       0 allocs/op
-BenchmarkCollection/fetch-8          	27272726	        43.61 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/scan-8           	     648	   1844623 ns/op	     147 B/op	       0 allocs/op
-BenchmarkCollection/count-8          	 1000000	      1107 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/range-8          	   10000	    102549 ns/op	       9 B/op	       0 allocs/op
-BenchmarkCollection/update-at-8      	 4316584	       280.7 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/update-all-8     	     826	   1379693 ns/op	   53068 B/op	       0 allocs/op
-BenchmarkCollection/delete-at-8      	 7059126	       169.1 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/delete-all-8     	  196734	      6294 ns/op	       0 B/op	       0 allocs/op
+cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
+BenchmarkCollection/insert-8         	 5531546	       215.9 ns/op	      18 B/op	       0 allocs/op
+BenchmarkCollection/fetch-8          	23749724	        44.97 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/scan-8           	     784	   1527506 ns/op	     160 B/op	       0 allocs/op
+BenchmarkCollection/count-8          	 1000000	      1081 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/range-8          	   10000	    100833 ns/op	      14 B/op	       0 allocs/op
+BenchmarkCollection/update-at-8      	 4225484	       281.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/update-all-8     	     830	   1388480 ns/op	  105714 B/op	       0 allocs/op
+BenchmarkCollection/delete-at-8      	 6928646	       171.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/delete-all-8     	  180884	      6373 ns/op	       1 B/op	       0 allocs/op
 */
 func BenchmarkCollection(b *testing.B) {
 	amount := 100000
@@ -156,7 +157,7 @@ func BenchmarkCollection(b *testing.B) {
 // Test replication many times
 func TestReplicate(t *testing.T) {
 	for x := 0; x < 20; x++ {
-		runReplication(t, 5000, 500)
+		runReplication(t, 5000, 50)
 	}
 }
 
