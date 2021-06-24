@@ -250,14 +250,14 @@ func (c *Collection) Query(fn func(txn *Txn) error) error {
 
 	// Execute the query and keep the error for later
 	if err := fn(txn); err != nil {
-		txn.Rollback()
+		txn.rollback()
 		releaseTxn(txn)
 		return err
 	}
 
 	// Now that the iteration has finished, we can range over the pending action
 	// queue and apply all of the actions that were requested by the Selector.
-	txn.Commit()
+	txn.commit()
 	releaseTxn(txn)
 	return nil
 }

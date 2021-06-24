@@ -275,7 +275,7 @@ players.Query(func(txn *column.Txn) error {
 		return true
 	})
 
-	// No error, txn.Commit() will be called
+	// No error, transaction will be committed
 	return nil
 })
 ```
@@ -290,25 +290,11 @@ players.Query(func(txn *column.Txn) error {
 		return true
 	})
 
-	// Returns an error, txn.Rollback() will be called
+	// Returns an error, transaction will be rolled back
 	return fmt.Errorf("bug") 
 })
 ```
 
-You can (but probablty won't need to) call `Commit()` or `Rollback()` manually, as many times as required. This could be handy to do partial updates but calling them too often will have a performance hit on your application.
-
-```go
-// Range over all of the players and update (successfully their balance)
-players.Query(func(txn *column.Txn) error {
-	txn.Range("balance", func(v column.Cursor) bool {
-		v.Update(10.0) // Update the "balance" to 10.0
-		return true
-	})
-
-	txn.Commit() // Manually commit all of the changes
-	return nil   // This will call txn.Commit() again, but will be a no-op
-})
-```
 
 ## Streaming Changes
 
@@ -442,31 +428,31 @@ When testing for larger collections, I added a small example (see `examples` fol
 
 ```
 running insert of 20000000 rows...
--> insert took 52.8255618s
+-> insert took 38.6921853s
 
 running full scan of age >= 30...
 -> result = 10200000
--> full scan took 176.01008ms
+-> full scan took 171.712196ms
 
 running full scan of class == "rogue"...
 -> result = 7160000
--> full scan took 196.153362ms
+-> full scan took 199.24443ms
 
 running indexed query of human mages...
 -> result = 1360000
--> indexed query took 581.158µs
+-> indexed query took 574µs
 
 running indexed query of human female mages...
 -> result = 640000
--> indexed query took 753.122µs
+-> indexed query took 747.148µs
 
 running update of balance of everyone...
 -> updated 20000000 rows
--> update took 301.888912ms
+-> update took 317.528908ms
 
 running update of age of mages...
 -> updated 6040000 rows
--> update took 93.835876ms
+-> update took 98.655836ms
 ```
 
 ## Contributing

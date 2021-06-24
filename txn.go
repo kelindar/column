@@ -369,7 +369,7 @@ func (txn *Txn) cursorFor(columnName string) (Cursor, error) {
 // Rollback empties the pending update and delete queues and does not apply any of
 // the pending updates/deletes. This operation can be called several times for
 // a transaction in order to perform partial rollbacks.
-func (txn *Txn) Rollback() {
+func (txn *Txn) rollback() {
 	txn.deletes.Clear()
 	txn.inserts.Clear()
 	for i := range txn.updates {
@@ -381,7 +381,7 @@ func (txn *Txn) Rollback() {
 // the collection. This operation is can be called several times for a transaction
 // in order to perform partial commits. If there's no pending updates/deletes, this
 // operation will result in a no-op.
-func (txn *Txn) Commit() {
+func (txn *Txn) commit() {
 
 	// Currently, we need to acquire a global lock in order to make sure that the entire
 	// transaction is completely atomic.
