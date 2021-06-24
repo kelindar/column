@@ -7,7 +7,6 @@ package column
 
 import (
 	"reflect"
-	"sync"
 
 	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
@@ -117,7 +116,6 @@ func ForKind(kind reflect.Kind) Column {
 
 // column represents a column wrapper that synchronizes operations
 type column struct {
-	sync.RWMutex
 	Column
 	kind columnType // The type of the colum
 	name string     // The name of the column
@@ -142,27 +140,6 @@ func (c *column) IsTextual() bool {
 	return (c.kind & typeTextual) == typeTextual
 }
 
-// Intersect performs a logical and operation and updates the destination bitmap.
-func (c *column) Intersect(dst *bitmap.Bitmap) {
-	c.RLock()
-	dst.And(*c.Index())
-	c.RUnlock()
-}
-
-// Difference performs a logical and not operation and updates the destination bitmap.
-func (c *column) Difference(dst *bitmap.Bitmap) {
-	c.RLock()
-	dst.AndNot(*c.Index())
-	c.RUnlock()
-}
-
-// Union performs a logical or operation and updates the destination bitmap.
-func (c *column) Union(dst *bitmap.Bitmap) {
-	c.RLock()
-	dst.Or(*c.Index())
-	c.RUnlock()
-}
-
 // Update performs a series of updates at once
 func (c *column) Update(updates []commit.Update, growUntil uint32) {
 	c.Column.Grow(growUntil)
@@ -171,91 +148,47 @@ func (c *column) Update(updates []commit.Update, growUntil uint32) {
 
 // Delete deletes a set of items from the column.
 func (c *column) Delete(items *bitmap.Bitmap) {
-	c.Lock()
 	c.Column.Delete(items)
-	c.Unlock()
 }
 
 // Contains checks whether the column has a value at a specified index.
 func (c *column) Contains(idx uint32) (exists bool) {
-	c.RLock()
 	exists = c.Column.Contains(idx)
-	c.RUnlock()
 	return
 }
 
 // Value retrieves a value at a specified index
 func (c *column) Value(idx uint32) (v interface{}, ok bool) {
-	c.RLock()
-	v, ok = c.loadValue(idx)
-	c.RUnlock()
+	v, ok = c.Column.Value(idx)
 	return
 }
 
 // Value retrieves a value at a specified index
 func (c *column) String(idx uint32) (v string, ok bool) {
-	c.RLock()
-	v, ok = c.loadString(idx)
-	c.RUnlock()
-	return
-}
-
-// Float64 retrieves a float64 value at a specified index
-func (c *column) Float64(idx uint32) (v float64, ok bool) {
-	c.RLock()
-	v, ok = c.loadFloat64(idx)
-	c.RUnlock()
-	return
-}
-
-// Int64 retrieves an int64 value at a specified index
-func (c *column) Int64(idx uint32) (v int64, ok bool) {
-	c.RLock()
-	v, ok = c.loadInt64(idx)
-	c.RUnlock()
-	return
-}
-
-// Uint64 retrieves an uint64 value at a specified index
-func (c *column) Uint64(idx uint32) (v uint64, ok bool) {
-	c.RLock()
-	v, ok = c.loadUint64(idx)
-	c.RUnlock()
-	return
-}
-
-// loadValue (unlocked) retrieves a value at a specified index
-func (c *column) loadValue(idx uint32) (v interface{}, ok bool) {
-	v, ok = c.Column.Value(idx)
-	return
-}
-
-// loadFloat64 (unlocked)  retrieves a float64 value at a specified index
-func (c *column) loadString(idx uint32) (v string, ok bool) {
 	if column, ok := c.Column.(Textual); ok {
 		v, ok = column.LoadString(idx)
 	}
 	return
 }
 
-// loadFloat64 (unlocked)  retrieves a float64 value at a specified index
-func (c *column) loadFloat64(idx uint32) (v float64, ok bool) {
+// Float64 retrieves a float64 value at a specified index
+func (c *column) Float64(idx uint32) (v float64, ok bool) {
 	if n, contains := c.Column.(Numeric); contains {
 		v, ok = n.LoadFloat64(idx)
 	}
 	return
 }
 
-// loadInt64 (unlocked)  retrieves an int64 value at a specified index
-func (c *column) loadInt64(idx uint32) (v int64, ok bool) {
+// Int64 retrieves an int64 value at a specified index
+func (c *column) Int64(idx uint32) (v int64, ok bool) {
 	if n, contains := c.Column.(Numeric); contains {
 		v, ok = n.LoadInt64(idx)
 	}
 	return
 }
 
-// loadUint64 (unlocked)  retrieves an uint64 value at a specified index
-func (c *column) loadUint64(idx uint32) (v uint64, ok bool) {
+// Uint64 retrieves an uint64 value at a specified index
+func (c *column) Uint64(idx uint32) (v uint64, ok bool) {
 	if n, contains := c.Column.(Numeric); contains {
 		v, ok = n.LoadUint64(idx)
 	}

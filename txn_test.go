@@ -328,7 +328,7 @@ func TestUpdate(t *testing.T) {
 				v.AddAt("balance", 100.0)
 				return true
 			})
-			txn.Commit()
+			txn.commit()
 		}
 		return nil
 	})

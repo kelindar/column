@@ -25,11 +25,11 @@ const (
 
 // Collection represents a collection of objects in a columnar format
 type Collection struct {
-	lock   sync.RWMutex       // The lock for fill list
+	count  uint64             // The current count of elements
+	lock   sync.RWMutex       // The global lock for both fill-list & transactions
 	cols   columns            // The map of columns
 	fill   bitmap.Bitmap      // The fill-list
 	size   int                // The initial size for new columns
-	count  int                // The current count of elements
 	writer commit.Writer      // The commit writer
 	cancel context.CancelFunc // The cancellation function for the context
 }
@@ -80,10 +80,11 @@ func NewCollection(opts ...Options) *Collection {
 
 // next finds the next free index in the collection, atomically.
 func (c *Collection) next() uint32 {
+	atomic.AddUint64(&c.count, 1)
+
 	c.lock.Lock()
 	idx := c.findFreeIndex()
 	c.fill.Set(idx)
-	c.count++
 	c.lock.Unlock()
 	return idx
 }
@@ -152,10 +153,7 @@ func (c *Collection) DeleteAt(idx uint32) (deleted bool) {
 
 // Count returns the total number of elements in the collection.
 func (c *Collection) Count() (count int) {
-	c.lock.RLock()
-	count = c.count
-	c.lock.RUnlock()
-	return
+	return int(atomic.LoadUint64(&c.count))
 }
 
 // CreateColumnsOf registers a set of columns that are present in the target object.
@@ -252,14 +250,14 @@ func (c *Collection) Query(fn func(txn *Txn) error) error {
 
 	// Execute the query and keep the error for later
 	if err := fn(txn); err != nil {
-		txn.Rollback()
+		txn.rollback()
 		releaseTxn(txn)
 		return err
 	}
 
 	// Now that the iteration has finished, we can range over the pending action
 	// queue and apply all of the actions that were requested by the Selector.
-	txn.Commit()
+	txn.commit()
 	releaseTxn(txn)
 	return nil
 }

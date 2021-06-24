@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	amount, runs := 1000000, 50
+	amount, runs := 20000000, 50
 	players := column.NewCollection(column.Options{
 		Capacity: amount,
 	})
@@ -68,9 +68,6 @@ func main() {
 			return txn.Range("balance", func(v column.Cursor) bool {
 				updates++
 				v.Update(1000.0)
-				if updates%10000 == 0 {
-					txn.Commit() // Avoid big transaction to reduce memory used
-				}
 				return true
 			})
 		})
@@ -84,9 +81,6 @@ func main() {
 			return txn.With("mage").Range("age", func(v column.Cursor) bool {
 				updates++
 				v.Update(99.0)
-				if updates%10000 == 0 {
-					txn.Commit() // Avoid big transaction to reduce memory used
-				}
 				return true
 			})
 		})
@@ -100,9 +94,6 @@ func main() {
 			return txn.With("male").Range("name", func(v column.Cursor) bool {
 				updates++
 				v.Update("Sir " + v.String())
-				if updates%10000 == 0 {
-					txn.Commit() // Avoid big transaction to reduce memory used
-				}
 				return true
 			})
 		})

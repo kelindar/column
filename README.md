@@ -275,7 +275,7 @@ players.Query(func(txn *column.Txn) error {
 		return true
 	})
 
-	// No error, txn.Commit() will be called
+	// No error, transaction will be committed
 	return nil
 })
 ```
@@ -290,25 +290,11 @@ players.Query(func(txn *column.Txn) error {
 		return true
 	})
 
-	// Returns an error, txn.Rollback() will be called
+	// Returns an error, transaction will be rolled back
 	return fmt.Errorf("bug") 
 })
 ```
 
-You can (but probablty won't need to) call `Commit()` or `Rollback()` manually, as many times as required. This could be handy to do partial updates but calling them too often will have a performance hit on your application.
-
-```go
-// Range over all of the players and update (successfully their balance)
-players.Query(func(txn *column.Txn) error {
-	txn.Range("balance", func(v column.Cursor) bool {
-		v.Update(10.0) // Update the "balance" to 10.0
-		return true
-	})
-
-	txn.Commit() // Manually commit all of the changes
-	return nil   // This will call txn.Commit() again, but will be a no-op
-})
-```
 
 ## Streaming Changes
 
@@ -423,50 +409,50 @@ func main(){
 
 ## Benchmarks
 
-The benchmarks below were ran on a collection of *500 items* containing a dozen columns. Feel free to explore the benchmarks but I strongly recommend testing it on your actual dataset.
+The benchmarks below were ran on a collection of **100,000 items** containing a dozen columns. Feel free to explore the benchmarks but I strongly recommend testing it on your actual dataset.
 
 ```
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkCollection/insert-8         5013795      239.9 ns/op    27 B/op     0 allocs/op
-BenchmarkCollection/fetch-8         23730796       50.63 ns/op    0 B/op     0 allocs/op
-BenchmarkCollection/scan-8            234990     4743 ns/op       0 B/op     0 allocs/op
-BenchmarkCollection/count-8          7965873      152.7 ns/op     0 B/op     0 allocs/op
-BenchmarkCollection/range-8          1512513      799.9 ns/op     0 B/op     0 allocs/op
-BenchmarkCollection/update-at-8      5409420      224.7 ns/op     0 B/op     0 allocs/op
-BenchmarkCollection/update-all-8      196626     6099 ns/op       0 B/op     0 allocs/op
-BenchmarkCollection/delete-at-8      2006052      594.9 ns/op     0 B/op     0 allocs/op
-BenchmarkCollection/delete-all-8     1889685      643.2 ns/op     0 B/op     0 allocs/op
+BenchmarkCollection/insert-8          5545016       216.8 ns/op       18 B/op    0 allocs/op
+BenchmarkCollection/fetch-8          27272726        43.61 ns/op       0 B/op    0 allocs/op
+BenchmarkCollection/scan-8                648   1844623 ns/op        147 B/op    0 allocs/op
+BenchmarkCollection/count-8           1000000      1107 ns/op          0 B/op    0 allocs/op
+BenchmarkCollection/range-8             10000    102549 ns/op          9 B/op    0 allocs/op
+BenchmarkCollection/update-at-8       4316584       280.7 ns/op        0 B/op    0 allocs/op
+BenchmarkCollection/update-all-8          826   1379693 ns/op      53068 B/op    0 allocs/op
+BenchmarkCollection/delete-at-8       7059126       169.1 ns/op        0 B/op    0 allocs/op
+BenchmarkCollection/delete-all-8       196734      6294 ns/op          0 B/op    0 allocs/op
 ```
 
 When testing for larger collections, I added a small example (see `examples` folder) and ran it with **20 million rows** inserted, each entry has **12 columns and 4 indexes** that need to be calculated, and a few queries and scans around them.
 
 ```
 running insert of 20000000 rows...
--> insert took 52.8255618s
+-> insert took 38.6921853s
 
 running full scan of age >= 30...
 -> result = 10200000
--> full scan took 176.01008ms
+-> full scan took 171.712196ms
 
 running full scan of class == "rogue"...
 -> result = 7160000
--> full scan took 196.153362ms
+-> full scan took 199.24443ms
 
 running indexed query of human mages...
 -> result = 1360000
--> indexed query took 581.158µs
+-> indexed query took 574µs
 
 running indexed query of human female mages...
 -> result = 640000
--> indexed query took 753.122µs
+-> indexed query took 747.148µs
 
 running update of balance of everyone...
 -> updated 20000000 rows
--> update took 301.888912ms
+-> update took 317.528908ms
 
 running update of age of mages...
 -> updated 6040000 rows
--> update took 93.835876ms
+-> update took 98.655836ms
 ```
 
 ## Contributing
