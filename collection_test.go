@@ -20,15 +20,15 @@ import (
 )
 
 /*
-BenchmarkCollection/insert-8         	 5069828	       236.8 ns/op	      18 B/op	       0 allocs/op
-BenchmarkCollection/fetch-8          	24749718	        52.37 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/scan-8           	     654	   1863383 ns/op	     153 B/op	       0 allocs/op
-BenchmarkCollection/count-8          	  973424	      1104 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/range-8          	    9499	    125914 ns/op	       3 B/op	       0 allocs/op
-BenchmarkCollection/update-at-8      	 3583278	       337.1 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/update-all-8     	     781	   1378816 ns/op	   74813 B/op	       0 allocs/op
-BenchmarkCollection/delete-at-8      	  725270	      1612 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/delete-all-8     	  169120	      6833 ns/op	       1 B/op	       0 allocs/op
+BenchmarkCollection/insert-8         	 5545016	       216.8 ns/op	      18 B/op	       0 allocs/op
+BenchmarkCollection/fetch-8          	27272726	        43.61 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/scan-8           	     648	   1844623 ns/op	     147 B/op	       0 allocs/op
+BenchmarkCollection/count-8          	 1000000	      1107 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/range-8          	   10000	    102549 ns/op	       9 B/op	       0 allocs/op
+BenchmarkCollection/update-at-8      	 4316584	       280.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/update-all-8     	     826	   1379693 ns/op	   53068 B/op	       0 allocs/op
+BenchmarkCollection/delete-at-8      	 7059126	       169.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/delete-all-8     	  196734	      6294 ns/op	       0 B/op	       0 allocs/op
 */
 func BenchmarkCollection(b *testing.B) {
 	amount := 100000
