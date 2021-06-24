@@ -409,19 +409,19 @@ func main(){
 
 ## Benchmarks
 
-The benchmarks below were ran on a collection of *500 items* containing a dozen columns. Feel free to explore the benchmarks but I strongly recommend testing it on your actual dataset.
+The benchmarks below were ran on a collection of **100,000 items** containing a dozen columns. Feel free to explore the benchmarks but I strongly recommend testing it on your actual dataset.
 
 ```
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkCollection/insert-8         5013795      239.9 ns/op    27 B/op     0 allocs/op
-BenchmarkCollection/fetch-8         23730796       50.63 ns/op    0 B/op     0 allocs/op
-BenchmarkCollection/scan-8            234990     4743 ns/op       0 B/op     0 allocs/op
-BenchmarkCollection/count-8          7965873      152.7 ns/op     0 B/op     0 allocs/op
-BenchmarkCollection/range-8          1512513      799.9 ns/op     0 B/op     0 allocs/op
-BenchmarkCollection/update-at-8      5409420      224.7 ns/op     0 B/op     0 allocs/op
-BenchmarkCollection/update-all-8      196626     6099 ns/op       0 B/op     0 allocs/op
-BenchmarkCollection/delete-at-8      2006052      594.9 ns/op     0 B/op     0 allocs/op
-BenchmarkCollection/delete-all-8     1889685      643.2 ns/op     0 B/op     0 allocs/op
+BenchmarkCollection/insert-8          5545016       216.8 ns/op       18 B/op    0 allocs/op
+BenchmarkCollection/fetch-8          27272726        43.61 ns/op       0 B/op    0 allocs/op
+BenchmarkCollection/scan-8                648   1844623 ns/op        147 B/op    0 allocs/op
+BenchmarkCollection/count-8           1000000      1107 ns/op          0 B/op    0 allocs/op
+BenchmarkCollection/range-8             10000    102549 ns/op          9 B/op    0 allocs/op
+BenchmarkCollection/update-at-8       4316584       280.7 ns/op        0 B/op    0 allocs/op
+BenchmarkCollection/update-all-8          826   1379693 ns/op      53068 B/op    0 allocs/op
+BenchmarkCollection/delete-at-8       7059126       169.1 ns/op        0 B/op    0 allocs/op
+BenchmarkCollection/delete-all-8       196734      6294 ns/op          0 B/op    0 allocs/op
 ```
 
 When testing for larger collections, I added a small example (see `examples` folder) and ran it with **20 million rows** inserted, each entry has **12 columns and 4 indexes** that need to be calculated, and a few queries and scans around them.
