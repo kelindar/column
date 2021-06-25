@@ -13,23 +13,25 @@ import (
 
 func TestCommits(t *testing.T) {
 	commit1 := Commit{
-		Type:    TypeDelete,
+		Type:    Delete,
 		Deletes: bitmap.Bitmap{0xff},
 	}
 	commit2 := Commit{
-		Type:    TypeStore,
-		Column:  "test",
-		Updates: []Update{{Type: Put, Index: 5, Value: "hi"}},
+		Type: Store,
+		Updates: []Updates{{
+			Column: "test",
+			Update: []Update{{Type: Put, Index: 5, Value: "hi"}},
+		}},
 	}
 	commit3 := Commit{
-		Type:    TypeInsert,
+		Type:    Insert,
 		Inserts: bitmap.Bitmap{0xaa},
 	}
 
 	// Assert types
-	assert.Equal(t, TypeDelete, commit1.Type)
-	assert.Equal(t, TypeStore, commit2.Type)
-	assert.Equal(t, TypeInsert, commit3.Type)
+	assert.Equal(t, Delete, commit1.Type)
+	assert.Equal(t, Store, commit2.Type)
+	assert.Equal(t, Insert, commit3.Type)
 
 	// Clone and assert
 	clone1 := commit1.Clone()
@@ -44,8 +46,17 @@ func TestCommits(t *testing.T) {
 }
 
 func TestType(t *testing.T) {
-	assert.Equal(t, "store", TypeStore.String())
-	assert.Equal(t, "delete", TypeDelete.String())
-	assert.Equal(t, "insert", TypeInsert.String())
-	assert.Equal(t, "invalid", Type(10).String())
+	assert.Equal(t, "store", Type(1).String())
+	assert.Equal(t, "insert", Type(2).String())
+	assert.Equal(t, "store,insert", Type(3).String())
+	assert.Equal(t, "delete", Type(4).String())
+	assert.Equal(t, "store,delete", Type(5).String())
+	assert.Equal(t, "insert,delete", Type(6).String())
+	assert.Equal(t, "store,insert,delete", Type(7).String())
+	assert.Equal(t, "invalid", Type(8).String())
+
+	c := Commit{
+		Type: Type(6),
+	}
+	assert.True(t, c.Is(Delete))
 }

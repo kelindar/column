@@ -80,33 +80,32 @@ func NewCollection(opts ...Options) *Collection {
 
 // next finds the next free index in the collection, atomically.
 func (c *Collection) next() uint32 {
-	atomic.AddUint64(&c.count, 1)
-
 	c.lock.Lock()
-	idx := c.findFreeIndex()
+	idx := c.findFreeIndex(atomic.AddUint64(&c.count, 1))
 	c.fill.Set(idx)
 	c.lock.Unlock()
 	return idx
 }
 
 // findFreeIndex finds a free index for insertion
-func (c *Collection) findFreeIndex() uint32 {
+func (c *Collection) findFreeIndex(count uint64) uint32 {
+	fillSize := len(c.fill)
+
+	// If the collection is full, we need to add at the end
+	if count > uint64(fillSize)<<6 {
+		return uint32(len(c.fill)) << 6
+	}
 
 	// Check if we have space at the end, since if we're inserting a lot of data it's more
 	// likely that we're full in the beginning.
-	fillSize := len(c.fill)
 	if fillSize > 0 {
 		if tail := c.fill[fillSize-1]; tail != 0xffffffffffffffff {
 			return uint32((fillSize-1)<<6 + bits.TrailingZeros64(^tail))
 		}
 	}
 
-	// Otherwise, we scan the fill bitmap until we find the first zero. If we don't have it
-	// then we set the index at the size of the fill list.
-	idx, ok := c.fill.FirstZero()
-	if !ok {
-		idx = uint32(len(c.fill)) << 6
-	}
+	// Otherwise, we scan the fill bitmap until we find the first zero.
+	idx, _ := c.fill.FirstZero()
 	return idx
 }
 
@@ -293,36 +292,40 @@ func (c *Collection) vacuum(ctx context.Context, interval time.Duration) {
 // Replay replays a commit on a collection, applying the changes.
 func (c *Collection) Replay(change commit.Commit) error {
 	return c.Query(func(txn *Txn) error {
-		switch change.Type {
-		case commit.TypeInsert:
-			txn.inserts = append(txn.inserts, change.Inserts...)
-		case commit.TypeDelete:
+
+		// If the change contains deletes, add them to the transaction
+		if change.Is(commit.Delete) {
 			txn.deletes = append(txn.deletes, change.Deletes...)
+		}
 
-		// Apply updates for this commit
-		case commit.TypeStore:
+		// If the change contains inserts, add them to the transaction
+		if change.Is(commit.Insert) {
+			txn.inserts = append(txn.inserts, change.Inserts...)
+		}
 
-			// If we already  have an existing update queue, append to that
-			for i, c := range txn.updates {
-				if c.name == change.Column {
-					txn.updates[i].update = append(txn.updates[i].update, change.Updates...)
-					return nil
+		// If the change contains updates, add them to the transaction
+		if change.Is(commit.Store) {
+			for _, log := range change.Updates {
+
+				// If we already  have an existing update queue, append to that
+				for i, c := range txn.updates {
+					if c.Column == log.Column {
+						txn.updates[i].Update = append(txn.updates[i].Update, log.Update...)
+						return nil
+					}
 				}
+
+				// Create a new update queue, we need to copy all of the updates since both
+				// transaction and commits are pooled.
+				updates := make([]commit.Update, 0, len(change.Updates))
+				updates = append(updates, log.Update...)
+
+				// Add a new update queue
+				txn.updates = append(txn.updates, commit.Updates{
+					Column: log.Column,
+					Update: updates,
+				})
 			}
-
-			// Create a new update queue, we need to copy all of the updates since both
-			// transaction and commits are pooled.
-			updates := make([]commit.Update, 0, len(change.Updates))
-			updates = append(updates, change.Updates...)
-
-			// Add a new update queue
-			txn.updates = append(txn.updates, updateQueue{
-				name:   change.Column,
-				update: updates,
-			})
-
-		default:
-			return fmt.Errorf("column: unsupported commit type %v", change.Type)
 		}
 		return nil
 	})

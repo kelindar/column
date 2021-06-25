@@ -204,6 +204,8 @@ func runReplication(t *testing.T, updates, inserts int) {
 		for i := 0; i < updates; i++ {
 			go func() {
 				defer wg.Done()
+
+				// Randomly update a column
 				offset := uint32(rand.Int31n(int32(inserts - 1)))
 				switch rand.Int31n(3) {
 				case 0:
@@ -212,6 +214,16 @@ func runReplication(t *testing.T, updates, inserts int) {
 					primary.UpdateAt(offset, "int32", rand.Int31n(100000))
 				case 2:
 					primary.UpdateAt(offset, "string", fmt.Sprintf("hi %v", rand.Int31n(100)))
+				}
+
+				// Randomly delete an item
+				if rand.Int31n(100) == 0 {
+					primary.DeleteAt(uint32(rand.Int31n(int32(inserts - 1))))
+				}
+
+				// Randomly insert an item
+				if rand.Int31n(100) == 0 {
+					primary.Insert(object)
 				}
 			}()
 		}

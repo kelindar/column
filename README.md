@@ -428,7 +428,7 @@ When testing for larger collections, I added a small example (see `examples` fol
 
 ```
 running insert of 20000000 rows...
--> insert took 38.6921853s
+-> insert took 22.7740005s
 
 running full scan of age >= 30...
 -> result = 10200000

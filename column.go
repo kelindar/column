@@ -273,8 +273,9 @@ func (c *columnAny) LoadString(idx uint32) (string, bool) {
 // FilterString filters down the values based on the specified predicate. The column for
 // this filter must be a string.
 func (c *columnAny) FilterString(index *bitmap.Bitmap, predicate func(v string) bool) {
+	index.And(c.fill)
 	index.Filter(func(idx uint32) (match bool) {
-		if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		if idx < uint32(len(c.data)) {
 			if s, ok := c.LoadString(idx); ok {
 				return predicate(s)
 			}

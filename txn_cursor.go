@@ -128,7 +128,7 @@ func (cur *Cursor) Delete() {
 // Update updates a column value for the current item. The actual operation
 // will be queued and executed once the current the transaction completes.
 func (cur *Cursor) Update(value interface{}) {
-	cur.txn.updates[cur.update].update = append(cur.txn.updates[cur.update].update, commit.Update{
+	cur.txn.updates[cur.update].Update = append(cur.txn.updates[cur.update].Update, commit.Update{
 		Type:  commit.Put,
 		Index: cur.idx,
 		Value: value,
@@ -138,7 +138,7 @@ func (cur *Cursor) Update(value interface{}) {
 // Add atomically increments/decrements the current value by the specified amount. Note
 // that this only works for numerical values and the type of the value must match.
 func (cur *Cursor) Add(amount interface{}) {
-	cur.txn.updates[cur.update].update = append(cur.txn.updates[cur.update].update, commit.Update{
+	cur.txn.updates[cur.update].Update = append(cur.txn.updates[cur.update].Update, commit.Update{
 		Type:  commit.Add,
 		Index: cur.idx,
 		Value: amount,
@@ -149,8 +149,8 @@ func (cur *Cursor) Add(amount interface{}) {
 // will be queued and executed once the current the transaction completes.
 func (cur *Cursor) UpdateAt(column string, value interface{}) {
 	for i, c := range cur.txn.updates {
-		if c.name == column {
-			cur.txn.updates[i].update = append(c.update, commit.Update{
+		if c.Column == column {
+			cur.txn.updates[i].Update = append(c.Update, commit.Update{
 				Type:  commit.Put,
 				Index: cur.idx,
 				Value: value,
@@ -160,9 +160,9 @@ func (cur *Cursor) UpdateAt(column string, value interface{}) {
 	}
 
 	// Create a new update queue
-	cur.txn.updates = append(cur.txn.updates, updateQueue{
-		name: column,
-		update: []commit.Update{{
+	cur.txn.updates = append(cur.txn.updates, commit.Updates{
+		Column: column,
+		Update: []commit.Update{{
 			Type:  commit.Put,
 			Index: cur.idx,
 			Value: value,
@@ -174,8 +174,8 @@ func (cur *Cursor) UpdateAt(column string, value interface{}) {
 // that this only works for numerical values and the type of the value must match.
 func (cur *Cursor) AddAt(column string, amount interface{}) {
 	for i, c := range cur.txn.updates {
-		if c.name == column {
-			cur.txn.updates[i].update = append(c.update, commit.Update{
+		if c.Column == column {
+			cur.txn.updates[i].Update = append(c.Update, commit.Update{
 				Type:  commit.Add,
 				Index: cur.idx,
 				Value: amount,
@@ -185,9 +185,9 @@ func (cur *Cursor) AddAt(column string, amount interface{}) {
 	}
 
 	// Create a new update queue
-	cur.txn.updates = append(cur.txn.updates, updateQueue{
-		name: column,
-		update: []commit.Update{{
+	cur.txn.updates = append(cur.txn.updates, commit.Updates{
+		Column: column,
+		Update: []commit.Update{{
 			Type:  commit.Add,
 			Index: cur.idx,
 			Value: amount,

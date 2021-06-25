@@ -13,11 +13,11 @@ import (
 func TestWriterChannel(t *testing.T) {
 	w := make(Channel, 1)
 	w.Write(Commit{
-		Type:    TypeDelete,
+		Type:    Delete,
 		Deletes: bitmap.Bitmap{0xff},
 	})
 
 	out := <-w
-	assert.Equal(t, TypeDelete, out.Type)
+	assert.Equal(t, Delete, out.Type)
 	assert.Equal(t, bitmap.Bitmap{0xff}, out.Deletes)
 }
