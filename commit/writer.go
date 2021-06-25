@@ -18,9 +18,6 @@ type Channel chan Commit
 
 // Write clones the commit and writes it into the writer
 func (w *Channel) Write(commit Commit) error {
-	//cloned := commit.Clone()
-	//	commit.Close()
-
 	*w <- commit.Clone()
 	return nil
 }

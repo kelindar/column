@@ -25,6 +25,14 @@ type Update struct {
 	Value interface{} // The value to update to
 }
 
+// --------------------------- Update Type ----------------------------
+
+// Updates represents a list of updates for a column column.
+type Updates struct {
+	Column string   // The column name
+	Update []Update // The update queue
+}
+
 // --------------------------- Commit Type ----------------------------
 
 // Type represents a type of a commit operation.
@@ -32,21 +40,28 @@ type Type uint8
 
 // Various commit types
 const (
-	_          Type = iota // Invalid
-	TypeStore              // Store stores (updates or inserts) a set of values
-	TypeInsert             // Insert inserts elements into the collection
-	TypeDelete             // Delete deletes a set of entries in the collection
+	Store  = Type(1 << 0) // Store stores (updates or inserts) a set of values
+	Insert = Type(1 << 1) // Insert inserts elements into the collection
+	Delete = Type(1 << 2) // Delete deletes a set of entries in the collection
 )
 
 // String returns the string representation of the type
-func (t Type) String() string {
+func (t Type) String() (op string) {
 	switch t {
-	case TypeStore:
+	case Store | Insert | Delete:
+		return "store,insert,delete"
+	case Store | Insert:
+		return "store,insert"
+	case Store | Delete:
+		return "store,delete"
+	case Insert | Delete:
+		return "insert,delete"
+	case Store:
 		return "store"
-	case TypeDelete:
-		return "delete"
-	case TypeInsert:
+	case Insert:
 		return "insert"
+	case Delete:
+		return "delete"
 	default:
 		return "invalid"
 	}
@@ -58,28 +73,30 @@ func (t Type) String() string {
 // in the same transaction, it would result in multiple commits per transaction.
 type Commit struct {
 	Type    Type          // The type of the commit
-	Column  string        // The column name
-	Updates []Update      // The update list
+	Updates []Updates     // The update list
 	Deletes bitmap.Bitmap // The delete list
 	Inserts bitmap.Bitmap // The insert list
 }
 
+// Is returns whether a commit is of a specified type
+func (c *Commit) Is(t Type) bool {
+	return (c.Type & t) == t
+}
+
 // Clone clones a commit into a new one
 func (c *Commit) Clone() (clone Commit) {
-	switch c.Type {
-	case TypeStore:
-		clone.Type = TypeStore
-		clone.Column = c.Column
-		clone.Updates = clone.Updates[:0]
-		clone.Updates = append(clone.Updates, c.Updates...)
-	case TypeDelete:
-		clone.Type = TypeDelete
-		clone.Deletes = clone.Deletes[:0]
-		clone.Deletes = append(clone.Deletes, c.Deletes...)
-	case TypeInsert:
-		clone.Type = TypeInsert
-		clone.Inserts = clone.Inserts[:0]
-		clone.Inserts = append(clone.Inserts, c.Inserts...)
+	clone.Type = c.Type
+	clone.Deletes = append(clone.Deletes, c.Deletes...)
+	clone.Inserts = append(clone.Inserts, c.Inserts...)
+	for _, u := range c.Updates {
+		if len(u.Update) > 0 {
+			ops := make([]Update, 0, len(u.Update))
+			ops = append(ops, u.Update...)
+			clone.Updates = append(clone.Updates, Updates{
+				Column: u.Column,
+				Update: ops,
+			})
+		}
 	}
 	return
 }

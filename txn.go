@@ -22,7 +22,7 @@ var txns = &sync.Pool{
 			index:   make(bitmap.Bitmap, 0, 4),
 			deletes: make(bitmap.Bitmap, 0, 4),
 			inserts: make(bitmap.Bitmap, 0, 4),
-			updates: make([]updateQueue, 0, 256),
+			updates: make([]commit.Updates, 0, 256),
 			columns: make([]columnCache, 0, 16),
 		}
 	},
@@ -47,19 +47,13 @@ func releaseTxn(txn *Txn) {
 
 // Txn represents a transaction which supports filtering and projection.
 type Txn struct {
-	owner   *Collection   // The target collection
-	index   bitmap.Bitmap // The filtering index
-	deletes bitmap.Bitmap // The delete queue
-	inserts bitmap.Bitmap // The insert queue
-	updates []updateQueue // The update queue
-	columns []columnCache // The column mapping
-	writer  commit.Writer // The optional commit writer
-}
-
-// Update queue represents a queue per column that contains the pending updates.
-type updateQueue struct {
-	name   string          // The column name
-	update []commit.Update // The update queue
+	owner   *Collection      // The target collection
+	index   bitmap.Bitmap    // The filtering index
+	deletes bitmap.Bitmap    // The delete queue
+	inserts bitmap.Bitmap    // The insert queue
+	updates []commit.Updates // The update queue
+	columns []columnCache    // The column mapping
+	writer  commit.Writer    // The optional commit writer
 }
 
 // columnCache caches a column by its name. This speeds things up since it's a very
@@ -341,7 +335,7 @@ func (txn *Txn) cursorFor(columnName string) (Cursor, error) {
 	// Attempt to find the existing update queue index for this column
 	updateQueueIndex := -1
 	for i, c := range txn.updates {
-		if c.name == columnName {
+		if c.Column == columnName {
 			updateQueueIndex = i
 			break
 		}
@@ -350,9 +344,9 @@ func (txn *Txn) cursorFor(columnName string) (Cursor, error) {
 	// Create a new update queue for the selected column
 	if updateQueueIndex == -1 {
 		updateQueueIndex = len(txn.updates)
-		txn.updates = append(txn.updates, updateQueue{
-			name:   columnName,
-			update: make([]commit.Update, 0, 64),
+		txn.updates = append(txn.updates, commit.Updates{
+			Column: columnName,
+			Update: make([]commit.Update, 0, 64),
 		})
 	}
 
@@ -373,7 +367,7 @@ func (txn *Txn) rollback() {
 	txn.deletes.Clear()
 	txn.inserts.Clear()
 	for i := range txn.updates {
-		txn.updates[i].update = txn.updates[i].update[:0]
+		txn.updates[i].Update = txn.updates[i].Update[:0]
 	}
 }
 
@@ -382,28 +376,47 @@ func (txn *Txn) rollback() {
 // in order to perform partial commits. If there's no pending updates/deletes, this
 // operation will result in a no-op.
 func (txn *Txn) commit() {
+	max, _ := txn.inserts.Max()
+	var typ commit.Type
 
 	// Currently, we need to acquire a global lock in order to make sure that the entire
 	// transaction is completely atomic.
 	txn.owner.lock.Lock()
-	defer txn.owner.lock.Unlock()
+	typ |= txn.deletePending()
+	typ |= txn.insertPending()
+	typ |= txn.updatePending(max)
 
-	txn.deletePending()
-	txn.updatePending()
-	txn.insertPending()
+	// If there's a writer, write into it before we clean up the transaction
+	if typ > 0 && txn.writer != nil {
+		txn.writer.Write(commit.Commit{
+			Type:    typ,
+			Inserts: txn.inserts,
+			Deletes: txn.deletes,
+			Updates: txn.updates,
+		})
+	}
+
+	// Unlock and reset the transaction so it can be re-used
+	txn.owner.lock.Unlock()
+	txn.deletes.Clear()
+	txn.inserts.Clear()
+	for i, u := range txn.updates {
+		if len(u.Update) > 0 {
+			txn.updates[i].Update = txn.updates[i].Update[:0]
+		}
+	}
 }
 
 // updatePending updates the pending entries that were modified during the query
-func (txn *Txn) updatePending() {
-
-	// Now we can iterate over all of the updates and apply them.
-	for i, u := range txn.updates {
-		if len(u.update) == 0 {
+func (txn *Txn) updatePending(max uint32) (typ commit.Type) {
+	for _, u := range txn.updates {
+		if len(u.Update) == 0 {
 			continue // No updates for this column
 		}
 
 		// Get the column that needs to be updated
-		columns, exists := txn.owner.cols.LoadWithIndex(u.name)
+		typ = commit.Store
+		columns, exists := txn.owner.cols.LoadWithIndex(u.Column)
 		if !exists || len(columns) == 0 {
 			continue
 		}
@@ -411,29 +424,16 @@ func (txn *Txn) updatePending() {
 		// Range through all of the pending updates and apply them to the column
 		// and its associated computed columns.
 		for _, v := range columns {
-			max, _ := txn.inserts.Max()
-			v.Update(u.update, max)
+			v.Update(u.Update, max)
 		}
-
-		// If there's a writer, write before we unlock the column so that the transactions
-		// are seiralized in the writer as well, making everything consistent.
-		if txn.writer != nil {
-			txn.writer.Write(commit.Commit{
-				Type:    commit.TypeStore,
-				Column:  u.name,
-				Updates: txn.updates[i].update,
-			})
-		}
-
-		// Reset the queue
-		txn.updates[i].update = txn.updates[i].update[:0]
 	}
+	return
 }
 
 // deletePending removes all of the entries marked as to be deleted
-func (txn *Txn) deletePending() {
+func (txn *Txn) deletePending() commit.Type {
 	if len(txn.deletes) == 0 {
-		return // Nothing to delete
+		return 0 // Nothing to delete
 	}
 
 	// Apply a batch delete on all of the columns
@@ -444,36 +444,17 @@ func (txn *Txn) deletePending() {
 	// Clear the items in the collection and reinitialize the purge list
 	txn.owner.fill.AndNot(txn.deletes)
 	atomic.StoreUint64(&txn.owner.count, uint64(txn.owner.fill.Count()))
-
-	// If there's an associated writer, write into it
-	if txn.writer != nil {
-		txn.writer.Write(commit.Commit{
-			Type:    commit.TypeDelete,
-			Deletes: txn.deletes,
-		})
-	}
-
-	// Now that we're done with the deletion and the commit has been written, clear
-	txn.deletes.Clear()
+	return commit.Delete
 }
 
 // insertPending inserts all of the entries marked as to be inserted. This just makes them
 // visible by setting the fill list atomically in the collection.
-func (txn *Txn) insertPending() {
+func (txn *Txn) insertPending() commit.Type {
 	if len(txn.inserts) == 0 {
-		return
+		return 0
 	}
 
 	txn.owner.fill.Or(txn.inserts)
 	atomic.StoreUint64(&txn.owner.count, uint64(txn.owner.fill.Count()))
-
-	// If there's a writer, write before we unlock the column so that the transactions
-	// are seiralized in the writer as well, making everything consistent.
-	if txn.writer != nil {
-		txn.writer.Write(commit.Commit{
-			Type:    commit.TypeInsert,
-			Inserts: txn.inserts,
-		})
-	}
-	txn.inserts.Clear()
+	return commit.Insert
 }
