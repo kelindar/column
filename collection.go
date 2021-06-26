@@ -105,7 +105,7 @@ func (c *Collection) findFreeIndex(count uint64) uint32 {
 	}
 
 	// Otherwise, we scan the fill bitmap until we find the first zero.
-	idx, _ := c.fill.FirstZero()
+	idx, _ := c.fill.MinZero()
 	return idx
 }
 
