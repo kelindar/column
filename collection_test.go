@@ -23,7 +23,7 @@ import (
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
 BenchmarkCollection/insert-8         	 5531546	       215.9 ns/op	      18 B/op	       0 allocs/op
 BenchmarkCollection/fetch-8          	23749724	        44.97 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/scan-8           	     784	   1527506 ns/op	     160 B/op	       0 allocs/op
+BenchmarkCollection/scan-8           	     855	   1388532 ns/op	      88 B/op	       0 allocs/op
 BenchmarkCollection/count-8          	 1000000	      1081 ns/op	       0 B/op	       0 allocs/op
 BenchmarkCollection/range-8          	   10000	    100833 ns/op	      14 B/op	       0 allocs/op
 BenchmarkCollection/update-at-8      	 4225484	       281.7 ns/op	       0 B/op	       0 allocs/op
