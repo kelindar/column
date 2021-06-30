@@ -211,7 +211,7 @@ func runReplication(t *testing.T, updates, inserts int) {
 				case 1:
 					primary.UpdateAt(offset, "int32", rand.Int31n(100000))
 				case 2:
-					primary.UpdateAt(offset, "string", fmt.Sprintf("hi %v", rand.Int31n(100)))
+					primary.UpdateAt(offset, "string", fmt.Sprintf("hi %v", rand.Int31n(10)))
 				}
 
 				// Randomly delete an item

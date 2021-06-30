@@ -405,15 +405,15 @@ The benchmarks below were ran on a collection of **100,000 items** containing a 
 
 ```
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkCollection/insert-8          5545016       216.8 ns/op       18 B/op    0 allocs/op
-BenchmarkCollection/fetch-8          27272726        43.61 ns/op       0 B/op    0 allocs/op
-BenchmarkCollection/scan-8                648   1844623 ns/op        147 B/op    0 allocs/op
-BenchmarkCollection/count-8           1000000      1107 ns/op          0 B/op    0 allocs/op
-BenchmarkCollection/range-8             10000    102549 ns/op          9 B/op    0 allocs/op
-BenchmarkCollection/update-at-8       4316584       280.7 ns/op        0 B/op    0 allocs/op
-BenchmarkCollection/update-all-8          826   1379693 ns/op      53068 B/op    0 allocs/op
-BenchmarkCollection/delete-at-8       7059126       169.1 ns/op        0 B/op    0 allocs/op
-BenchmarkCollection/delete-all-8       196734      6294 ns/op          0 B/op    0 allocs/op
+BenchmarkCollection/insert-8         5439637      221.3 ns/op      18 B/op     0 allocs/op
+BenchmarkCollection/fetch-8         23985608      48.55 ns/op       0 B/op     0 allocs/op
+BenchmarkCollection/scan-8              1845     689796 ns/op      25 B/op     0 allocs/op
+BenchmarkCollection/count-8          1000000       1133 ns/op       0 B/op     0 allocs/op
+BenchmarkCollection/range-8            10000     107436 ns/op      10 B/op     0 allocs/op
+BenchmarkCollection/update-at-8      4171920      286.7 ns/op       0 B/op     0 allocs/op
+BenchmarkCollection/update-all-8         837    1312193 ns/op   52392 B/op     0 allocs/op
+BenchmarkCollection/delete-at-8      7141628      169.9 ns/op       0 B/op     0 allocs/op
+BenchmarkCollection/delete-all-8      189722       6322 ns/op       0 B/op     0 allocs/op
 ```
 
 When testing for larger collections, I added a small example (see `examples` folder) and ran it with **20 million rows** inserted, each entry has **12 columns and 4 indexes** that need to be calculated, and a few queries and scans around them.
