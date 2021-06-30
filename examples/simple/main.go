@@ -41,9 +41,8 @@ func main() {
 
 	// Run an indexed query
 	players.Query(func(txn *column.Txn) error {
-		return txn.With("human", "mage", "old").Range("name", func(v column.Cursor) bool {
+		return txn.With("human", "mage", "old").Range("name", func(v column.Cursor) {
 			println("human old mage", v.String())
-			return true
 		})
 	})
 }

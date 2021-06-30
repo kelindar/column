@@ -163,9 +163,8 @@ Let's first examine the `Range()` method. In the example below we select all of 
 
 ```go
 players.Query(func(txn *Txn) error {
-	txn.With("rogue").Range("name", func(v column.Cursor) bool {
+	txn.With("rogue").Range("name", func(v column.Cursor) {
 		println("rogue name ", v.String()) // Prints the name
-		return true
 	})
 	return nil
 })
@@ -175,10 +174,9 @@ Now, what if you need two columns? The range only allows you to quickly select a
 
 ```go
 players.Query(func(txn *Txn) error {
-	txn.With("rogue").Range("name", func(v column.Cursor) bool {
+	txn.With("rogue").Range("name", func(v column.Cursor) {
 		println("rogue name ", v.String())    // Prints the name
 		println("rogue age ", v.IntAt("age")) // Prints the age
-		return true
 	})
 	return nil
 })
@@ -214,10 +212,9 @@ In the example below we're selecting all of the rogues and updating both their b
 
 ```go
 players.Query(func(txn *Txn) error {
-	txn.With("rogue").Range("balance", func(v column.Cursor) bool {
+	txn.With("rogue").Range("balance", func(v column.Cursor) {
 		v.Update(10.0)        // Update the "balance" to 10.0
 		v.UpdateAt("age", 50) // Update the "age" to 50
-		return true
 	}) // Select the balance
 	return nil
 })
@@ -227,9 +224,8 @@ In certain cases, you might want to atomically increment or decrement numerical 
 
 ```go
 players.Query(func(txn *Txn) error {
-	txn.With("rogue").Range("balance", func(v column.Cursor) bool {
+	txn.With("rogue").Range("balance", func(v column.Cursor) {
 		v.Add(500.0) // Increment the "balance" by 500
-		return true
 	})
 	return nil
 })
@@ -254,11 +250,10 @@ On an interestig node, since `expire` column which is automatically added to eac
 
 ```go
 players.Query(func(txn *column.Txn) error {
-	return txn.Range("expire", func(v column.Cursor) bool {
+	return txn.Range("expire", func(v column.Cursor) {
 		oldExpire := time.Unix(0, v.Int()) // Convert expiration to time.Time
 		newExpire := expireAt.Add(1 * time.Hour).UnixNano()  // Add some time
 		v.Update(newExpire)
-		return true
 	})
 })
 ```
@@ -270,9 +265,8 @@ Transactions allow for isolation between two concurrent operations. In fact, all
 ```go
 // Range over all of the players and update (successfully their balance)
 players.Query(func(txn *column.Txn) error {
-	txn.Range("balance", func(v column.Cursor) bool {
+	txn.Range("balance", func(v column.Cursor) {
 		v.Update(10.0) // Update the "balance" to 10.0
-		return true
 	})
 
 	// No error, transaction will be committed
@@ -285,9 +279,8 @@ Now, in this example, we try to update balance but a query callback returns an e
 ```go
 // Range over all of the players and update (successfully their balance)
 players.Query(func(txn *column.Txn) error {
-	txn.Range("balance", func(v column.Cursor) bool {
+	txn.Range("balance", func(v column.Cursor) {
 		v.Update(10.0) // Update the "balance" to 10.0
-		return true
 	})
 
 	// Returns an error, transaction will be rolled back
@@ -398,9 +391,8 @@ func main(){
 	// Same condition as above, but we also select the actual names of those 
 	// players and iterate through them.
 	players.Query(func(txn *column.Txn) error {
-		txn.With("human", "mage", "old").Range("name", func(v column.Cursor) bool {
+		txn.With("human", "mage", "old").Range("name", func(v column.Cursor) {
 			println(v.String()) // prints the name
-			return true
 		}) // The column to select
 		return nil
 	})
@@ -428,31 +420,31 @@ When testing for larger collections, I added a small example (see `examples` fol
 
 ```
 running insert of 20000000 rows...
--> insert took 22.7740005s
-
-running full scan of age >= 30...
--> result = 10200000
--> full scan took 171.712196ms
-
-running full scan of class == "rogue"...
--> result = 7160000
--> full scan took 199.24443ms
-
-running indexed query of human mages...
--> result = 1360000
--> indexed query took 574µs
-
-running indexed query of human female mages...
--> result = 640000
--> indexed query took 747.148µs
-
-running update of balance of everyone...
--> updated 20000000 rows
--> update took 317.528908ms
-
-running update of age of mages...
--> updated 6040000 rows
--> update took 98.655836ms
+-> insert took 22.6758949s                      
+                                                
+running full scan of age >= 30...               
+-> result = 10200000                            
+-> full scan took 71.334496ms                   
+                                                
+running full scan of class == "rogue"...        
+-> result = 7160000                             
+-> full scan took 88.987218ms                   
+                                                
+running indexed query of human mages...         
+-> result = 1360000                             
+-> indexed query took 541.126µs                 
+                                                
+running indexed query of human female mages...  
+-> result = 640000                              
+-> indexed query took 724.593µs                 
+                                                
+running update of balance of everyone...        
+-> updated 20000000 rows                        
+-> update took 301.445804ms                     
+                                                
+running update of age of mages...               
+-> updated 6040000 rows                         
+-> update took 95.673186ms
 ```
 
 ## Contributing

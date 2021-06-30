@@ -21,15 +21,15 @@ import (
 
 /*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkCollection/insert-8         	 5531546	       215.9 ns/op	      18 B/op	       0 allocs/op
-BenchmarkCollection/fetch-8          	23749724	        44.97 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/scan-8           	     855	   1388532 ns/op	      88 B/op	       0 allocs/op
-BenchmarkCollection/count-8          	 1000000	      1081 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/range-8          	   10000	    100833 ns/op	      14 B/op	       0 allocs/op
-BenchmarkCollection/update-at-8      	 4225484	       281.7 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/update-all-8     	     830	   1388480 ns/op	  105714 B/op	       0 allocs/op
-BenchmarkCollection/delete-at-8      	 6928646	       171.9 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/delete-all-8     	  180884	      6373 ns/op	       1 B/op	       0 allocs/op
+BenchmarkCollection/insert-8         	 5439637	       221.3 ns/op	      18 B/op	       0 allocs/op
+BenchmarkCollection/fetch-8          	23985608	        48.55 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/scan-8           	    1845	    689796 ns/op	      25 B/op	       0 allocs/op
+BenchmarkCollection/count-8          	 1000000	      1133 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/range-8          	   10000	    107436 ns/op	      10 B/op	       0 allocs/op
+BenchmarkCollection/update-at-8      	 4171920	       286.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/update-all-8     	     837	   1312193 ns/op	   52392 B/op	       0 allocs/op
+BenchmarkCollection/delete-at-8      	 7141628	       169.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/delete-all-8     	  189722	      6322 ns/op	       0 B/op	       0 allocs/op
 */
 func BenchmarkCollection(b *testing.B) {
 	amount := 100000
@@ -100,10 +100,9 @@ func BenchmarkCollection(b *testing.B) {
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
 			players.Query(func(txn *Txn) error {
-				txn.With("human", "mage", "old").Range("name", func(v Cursor) bool {
+				txn.With("human", "mage", "old").Range("name", func(v Cursor) {
 					count++
 					name = v.String()
-					return true
 				})
 				return nil
 			})
@@ -124,9 +123,8 @@ func BenchmarkCollection(b *testing.B) {
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
 			players.Query(func(txn *Txn) error {
-				txn.Range("balance", func(v Cursor) bool {
+				txn.Range("balance", func(v Cursor) {
 					v.Update(1.0)
-					return true
 				})
 				return nil
 			})
@@ -236,7 +234,7 @@ func runReplication(t *testing.T, updates, inserts int) {
 		// Check if replica and primary are the same
 		assert.Equal(t, primary.Count(), replica.Count())
 		primary.Query(func(txn *Txn) error {
-			return txn.Range("float64", func(v Cursor) bool {
+			return txn.Range("float64", func(v Cursor) {
 				v1, v2 := v.FloatAt("float64"), v.IntAt("int32")
 				if v1 != 0 {
 					clone, _ := replica.Fetch(v.idx)
@@ -247,7 +245,6 @@ func runReplication(t *testing.T, updates, inserts int) {
 					clone, _ := replica.Fetch(v.idx)
 					assert.Equal(t, v.IntAt("int32"), clone.IntAt("int32"))
 				}
-				return true
 			})
 		})
 	})
@@ -329,10 +326,9 @@ func TestExpire(t *testing.T) {
 	// Insert an object
 	col.InsertWithTTL(obj, time.Microsecond)
 	col.Query(func(txn *Txn) error {
-		return txn.Range(expireColumn, func(v Cursor) bool {
+		return txn.Range(expireColumn, func(v Cursor) {
 			expireAt := time.Unix(0, v.Int())
 			v.Update(expireAt.Add(1 * time.Microsecond).UnixNano())
-			return true
 		})
 	})
 	assert.Equal(t, 1, col.Count())

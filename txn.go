@@ -276,12 +276,12 @@ func (txn *Txn) insert(object Object, expireAt int64) uint32 {
 // Select iterates over the result set and allows to read any column. While this
 // is flexible, it is not the most efficient way, consider Range() as an alternative
 // iteration method over a specific column which also supports modification.
-func (txn *Txn) Select(fn func(v Selector) bool) {
+func (txn *Txn) Select(fn func(v Selector)) {
 	txn.owner.lock.RLock()
 	defer txn.owner.lock.RUnlock()
 
-	txn.index.Range(func(x uint32) bool {
-		return fn(Selector{
+	txn.index.Range(func(x uint32) {
+		fn(Selector{
 			idx: x,
 			txn: txn,
 		})
@@ -292,11 +292,10 @@ func (txn *Txn) Select(fn func(v Selector) bool) {
 // the function returns true, the element at the index will be marked for deletion. The
 // actual delete will take place once the transaction is committed.
 func (txn *Txn) DeleteIf(fn func(v Selector) bool) {
-	txn.index.Range(func(x uint32) bool {
+	txn.index.Range(func(x uint32) {
 		if fn(Selector{idx: x, txn: txn}) {
 			txn.deletes.Set(x)
 		}
-		return true
 	})
 }
 
@@ -307,9 +306,8 @@ func (txn *Txn) DeleteAll() {
 }
 
 // Range selects and iterates over a results for a specific column. The cursor provided
-// also allows to select other columns, but at a slight performance cost. If the range
-// function returns false, it halts the iteration.
-func (txn *Txn) Range(column string, fn func(v Cursor) bool) error {
+// also allows to select other columns, but at a slight performance cost.
+func (txn *Txn) Range(column string, fn func(v Cursor)) error {
 	txn.owner.lock.RLock()
 	defer txn.owner.lock.RUnlock()
 
@@ -318,9 +316,9 @@ func (txn *Txn) Range(column string, fn func(v Cursor) bool) error {
 		return err
 	}
 
-	txn.index.Range(func(x uint32) bool {
+	txn.index.Range(func(x uint32) {
 		cur.idx = x
-		return fn(cur)
+		fn(cur)
 	})
 	return nil
 }
