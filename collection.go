@@ -278,11 +278,10 @@ func (c *Collection) vacuum(ctx context.Context, interval time.Duration) {
 		case <-ticker.C:
 			now := time.Now().UnixNano()
 			c.Query(func(txn *Txn) error {
-				return txn.With(expireColumn).Range(expireColumn, func(v Cursor) bool {
+				return txn.With(expireColumn).Range(expireColumn, func(v Cursor) {
 					if expirateAt := v.Int(); expirateAt != 0 && now >= v.Int() {
 						v.Delete()
 					}
-					return true
 				})
 			})
 		}

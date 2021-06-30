@@ -65,10 +65,9 @@ func main() {
 	measure("update", "balance of everyone", func() {
 		updates := 0
 		players.Query(func(txn *column.Txn) error {
-			return txn.Range("balance", func(v column.Cursor) bool {
+			return txn.Range("balance", func(v column.Cursor) {
 				updates++
 				v.Update(1000.0)
-				return true
 			})
 		})
 		fmt.Printf("-> updated %v rows\n", updates)
@@ -78,10 +77,9 @@ func main() {
 	measure("update", "age of mages", func() {
 		updates := 0
 		players.Query(func(txn *column.Txn) error {
-			return txn.With("mage").Range("age", func(v column.Cursor) bool {
+			return txn.With("mage").Range("age", func(v column.Cursor) {
 				updates++
 				v.Update(99.0)
-				return true
 			})
 		})
 		fmt.Printf("-> updated %v rows\n", updates)
@@ -91,10 +89,9 @@ func main() {
 	measure("update", "name of males", func() {
 		updates := 0
 		players.Query(func(txn *column.Txn) error {
-			return txn.With("male").Range("name", func(v column.Cursor) bool {
+			return txn.With("male").Range("name", func(v column.Cursor) {
 				updates++
 				v.Update("Sir " + v.String())
-				return true
 			})
 		})
 		fmt.Printf("-> updated %v rows\n", updates)
