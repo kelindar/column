@@ -32,7 +32,7 @@ func (txn *Txn) cursorFor(columnName string) (Cursor, error) {
 			Column:  columnName,
 			Current: -1,
 			Update:  make([]commit.Update, 0, 64),
-			Offsets: make([]int, 0, 64),
+			Offsets: []int{},
 		})
 	}
 
@@ -214,7 +214,6 @@ func (cur *Cursor) AddAt(column string, amount interface{}) {
 func (cur *Cursor) updateChunk(idx uint32) {
 	chunk := idx >> chunkShift
 	cur.txn.dirty.Set(chunk)
-
 	if cur.txn.updates[cur.update].Current != int(chunk) {
 		cur.txn.updates[cur.update].Offsets = append(cur.txn.updates[cur.update].Offsets, len(cur.txn.updates[cur.update].Update))
 		cur.txn.updates[cur.update].Current = int(chunk)
@@ -237,8 +236,9 @@ func (cur *Cursor) updateChunkAt(column string, idx uint32) int {
 
 	// Create a new update queue
 	cur.txn.updates = append(cur.txn.updates, commit.Updates{
-		Current: int(chunk),
 		Column:  column,
+		Current: int(chunk),
+		Update:  make([]commit.Update, 0, 64),
 		Offsets: []int{0},
 	})
 	return len(cur.txn.updates) - 1

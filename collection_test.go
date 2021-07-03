@@ -33,15 +33,15 @@ BenchmarkCollection/delete-all-8     	  189722	      6322 ns/op	       0 B/op	  
 
 /*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkCollection/insert-8         	 4343367	       278.3 ns/op	      27 B/op	       0 allocs/op
-BenchmarkCollection/fetch-8          	26084574	        43.79 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/scan-8           	    1708	    694244 ns/op	     203 B/op	       0 allocs/op
-BenchmarkCollection/count-8          	  667849	      1866 ns/op	       1 B/op	       0 allocs/op
-BenchmarkCollection/range-8          	   10000	    107204 ns/op	     131 B/op	       0 allocs/op
-BenchmarkCollection/update-at-8      	 1214835	       983.5 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/update-all-8     	     388	   2992448 ns/op	  151203 B/op	       2 allocs/op
-BenchmarkCollection/delete-at-8      	 2340022	       512.2 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/delete-all-8     	  750055	      1597 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/insert-8         	 3604454	       321.2 ns/op	      27 B/op	       0 allocs/op
+BenchmarkCollection/fetch-8          	27254515	        43.06 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/scan-8           	    1816	    663411 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/count-8          	  599061	      1934 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/range-8          	   10000	    107856 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/update-at-8      	 1000000	      1060 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/update-all-8     	     403	   2787555 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/delete-at-8      	 1991262	       603.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/delete-all-8     	  705836	      1607 ns/op	       0 B/op	       0 allocs/op
 */
 func BenchmarkCollection(b *testing.B) {
 	amount := 100000

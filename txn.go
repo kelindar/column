@@ -4,7 +4,6 @@
 package column
 
 import (
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -15,7 +14,7 @@ import (
 // --------------------------- Pool of Transactions ----------------------------
 
 // txns represents a pool of transactions
-var txns = &sync.Pool{
+/*var txns = &sync.Pool{
 	New: func() interface{} {
 		return &Txn{
 			index:   make(bitmap.Bitmap, 0, 4),
@@ -26,12 +25,14 @@ var txns = &sync.Pool{
 			columns: make([]columnCache, 0, 16),
 		}
 	},
-}
+}*/
+
+var txns = newTxnPool()
 
 // aquireBitmap acquires a transaction for a transaction
 func aquireTxn(owner *Collection) *Txn {
-	txn := txns.Get().(*Txn)
-	txn.reset()
+	//txn := txns.Get().(*Txn)
+	txn := txns.acquire()
 	txn.owner = owner
 	txn.columns = txn.columns[:0]
 	txn.writer = owner.writer
@@ -41,7 +42,42 @@ func aquireTxn(owner *Collection) *Txn {
 
 // releaseTxn releases a transaction back to the pool
 func releaseTxn(txn *Txn) {
-	txns.Put(txn)
+	//txns.Put(txn)
+	txns.release(txn)
+}
+
+// txnPool is a pool of transactions which are retained for the lifetime of the process.
+type txnPool struct {
+	pool chan *Txn
+}
+
+func newTxnPool() *txnPool {
+	return &txnPool{
+		pool: make(chan *Txn, 1024), // Max transactions pooled
+	}
+}
+
+func (p *txnPool) acquire() (txn *Txn) {
+	select {
+	case txn = <-p.pool:
+	default:
+		txn = &Txn{
+			index:   make(bitmap.Bitmap, 0, 4),
+			deletes: make(bitmap.Bitmap, 0, 4),
+			inserts: make(bitmap.Bitmap, 0, 4),
+			dirty:   make(bitmap.Bitmap, 0, 4),
+			updates: make([]commit.Updates, 0, 256),
+			columns: make([]columnCache, 0, 16),
+		}
+	}
+	return
+}
+
+func (p *txnPool) release(txn *Txn) {
+	select {
+	case p.pool <- txn: // put back in pool
+	default: // Release back to the GC
+	}
 }
 
 // --------------------------- Transaction ----------------------------
@@ -336,15 +372,15 @@ func (txn *Txn) Range(column string, fn func(v Cursor)) error {
 
 // Reset resets the transaction state so it can be used again.
 func (txn *Txn) reset() {
-	txn.dirty.Clear()
-	txn.deletes.Clear()
-	txn.inserts.Clear()
-
 	for i := range txn.updates {
 		txn.updates[i].Current = -1
 		txn.updates[i].Update = txn.updates[i].Update[:0]
 		txn.updates[i].Offsets = txn.updates[i].Offsets[:0]
 	}
+
+	txn.dirty.Clear()
+	txn.deletes.Clear()
+	txn.inserts.Clear()
 }
 
 // Rollback empties the pending update and delete queues and does not apply any of
@@ -359,7 +395,7 @@ func (txn *Txn) rollback() {
 // in order to perform partial commits. If there's no pending updates/deletes, this
 // operation will result in a no-op.
 func (txn *Txn) commit() {
-	//defer txn.reset()
+	defer txn.reset()
 
 	max, _ := txn.inserts.Max()
 	var typ commit.Type
@@ -387,7 +423,6 @@ func (txn *Txn) commit() {
 			Updates: txn.updates,
 		})
 	}
-
 }
 
 // commitUpdates applies the pending updates to the collection.
