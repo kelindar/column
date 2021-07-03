@@ -33,15 +33,15 @@ BenchmarkCollection/delete-all-8     	  189722	      6322 ns/op	       0 B/op	  
 
 /*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkCollection/insert-8         	 3604454	       321.2 ns/op	      27 B/op	       0 allocs/op
-BenchmarkCollection/fetch-8          	27254515	        43.06 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/scan-8           	    1816	    663411 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/count-8          	  599061	      1934 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/range-8          	   10000	    107856 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/update-at-8      	 1000000	      1060 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/update-all-8     	     403	   2787555 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/delete-at-8      	 1991262	       603.3 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/delete-all-8     	  705836	      1607 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/insert-8         	 3558544	       324.8 ns/op	      27 B/op	       0 allocs/op
+BenchmarkCollection/fetch-8          	27462153	        43.46 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/scan-8           	    1642	    677866 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/count-8          	  599808	      1982 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/range-8          	   10000	    107665 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/update-at-8      	 1000000	      1102 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/update-all-8     	     714	   1447069 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/delete-at-8      	 1882471	       639.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/delete-all-8     	  704398	      1693 ns/op	       0 B/op	       0 allocs/op
 */
 func BenchmarkCollection(b *testing.B) {
 	amount := 100000
@@ -364,7 +364,7 @@ func TestInsertParallel(t *testing.T) {
 
 	col := NewCollection()
 	var wg sync.WaitGroup
-	for i := 0; i < 500; i++ {
+	for i := 0; i < 5000; i++ {
 		wg.Add(1)
 		go func() {
 			col.Insert(obj)

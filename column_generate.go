@@ -1,5 +1,3 @@
-// +build ignore
-
 package column
 
 import (
@@ -48,7 +46,7 @@ func (c *columnnumber) Update(updates []commit.Update) {
 
 	// Range over all of the updates, and depending on the operation perform the action
 	for i, u := range updates {
-		c.fill.Set(u.Index)
+		c.fill[u.Index>>6] |= 1 << (u.Index & 0x3f) // Set the bit without grow
 		switch u.Type {
 		case commit.Put:
 			c.data[u.Index] = u.Value.(number)

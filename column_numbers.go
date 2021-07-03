@@ -47,7 +47,7 @@ func (c *columnFloat32) Update(updates []commit.Update) {
 
 	// Range over all of the updates, and depending on the operation perform the action
 	for i, u := range updates {
-		c.fill.Set(u.Index)
+		c.fill[u.Index>>6] |= 1 << (u.Index & 0x3f) // Set the bit without grow
 		switch u.Type {
 		case commit.Put:
 			c.data[u.Index] = u.Value.(float32)
@@ -180,7 +180,7 @@ func (c *columnFloat64) Update(updates []commit.Update) {
 
 	// Range over all of the updates, and depending on the operation perform the action
 	for i, u := range updates {
-		c.fill.Set(u.Index)
+		c.fill[u.Index>>6] |= 1 << (u.Index & 0x3f) // Set the bit without grow
 		switch u.Type {
 		case commit.Put:
 			c.data[u.Index] = u.Value.(float64)
@@ -313,7 +313,7 @@ func (c *columnInt) Update(updates []commit.Update) {
 
 	// Range over all of the updates, and depending on the operation perform the action
 	for i, u := range updates {
-		c.fill.Set(u.Index)
+		c.fill[u.Index>>6] |= 1 << (u.Index & 0x3f) // Set the bit without grow
 		switch u.Type {
 		case commit.Put:
 			c.data[u.Index] = u.Value.(int)
@@ -446,7 +446,7 @@ func (c *columnInt16) Update(updates []commit.Update) {
 
 	// Range over all of the updates, and depending on the operation perform the action
 	for i, u := range updates {
-		c.fill.Set(u.Index)
+		c.fill[u.Index>>6] |= 1 << (u.Index & 0x3f) // Set the bit without grow
 		switch u.Type {
 		case commit.Put:
 			c.data[u.Index] = u.Value.(int16)
@@ -579,7 +579,7 @@ func (c *columnInt32) Update(updates []commit.Update) {
 
 	// Range over all of the updates, and depending on the operation perform the action
 	for i, u := range updates {
-		c.fill.Set(u.Index)
+		c.fill[u.Index>>6] |= 1 << (u.Index & 0x3f) // Set the bit without grow
 		switch u.Type {
 		case commit.Put:
 			c.data[u.Index] = u.Value.(int32)
@@ -712,7 +712,7 @@ func (c *columnInt64) Update(updates []commit.Update) {
 
 	// Range over all of the updates, and depending on the operation perform the action
 	for i, u := range updates {
-		c.fill.Set(u.Index)
+		c.fill[u.Index>>6] |= 1 << (u.Index & 0x3f) // Set the bit without grow
 		switch u.Type {
 		case commit.Put:
 			c.data[u.Index] = u.Value.(int64)
@@ -845,7 +845,7 @@ func (c *columnUint) Update(updates []commit.Update) {
 
 	// Range over all of the updates, and depending on the operation perform the action
 	for i, u := range updates {
-		c.fill.Set(u.Index)
+		c.fill[u.Index>>6] |= 1 << (u.Index & 0x3f) // Set the bit without grow
 		switch u.Type {
 		case commit.Put:
 			c.data[u.Index] = u.Value.(uint)
@@ -978,7 +978,7 @@ func (c *columnUint16) Update(updates []commit.Update) {
 
 	// Range over all of the updates, and depending on the operation perform the action
 	for i, u := range updates {
-		c.fill.Set(u.Index)
+		c.fill[u.Index>>6] |= 1 << (u.Index & 0x3f) // Set the bit without grow
 		switch u.Type {
 		case commit.Put:
 			c.data[u.Index] = u.Value.(uint16)
@@ -1111,7 +1111,7 @@ func (c *columnUint32) Update(updates []commit.Update) {
 
 	// Range over all of the updates, and depending on the operation perform the action
 	for i, u := range updates {
-		c.fill.Set(u.Index)
+		c.fill[u.Index>>6] |= 1 << (u.Index & 0x3f) // Set the bit without grow
 		switch u.Type {
 		case commit.Put:
 			c.data[u.Index] = u.Value.(uint32)
@@ -1244,7 +1244,7 @@ func (c *columnUint64) Update(updates []commit.Update) {
 
 	// Range over all of the updates, and depending on the operation perform the action
 	for i, u := range updates {
-		c.fill.Set(u.Index)
+		c.fill[u.Index>>6] |= 1 << (u.Index & 0x3f) // Set the bit without grow
 		switch u.Type {
 		case commit.Put:
 			c.data[u.Index] = u.Value.(uint64)

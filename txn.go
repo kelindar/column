@@ -440,15 +440,15 @@ func (txn *Txn) commitUpdates(chunk, max uint32) (typ commit.Type) {
 
 		// Do a linear search to find the offset for the current chunk
 		typ |= commit.Store
-		for _, offset := range u.Offsets {
+		for i, offset := range u.Offsets {
 			if (u.Update[offset].Index >> chunkShift) != chunk {
 				continue // Not the right chunk
 			}
 
 			// Find the next offset
 			chunkUpdates := u.Update[offset:]
-			if len(u.Offsets) > offset+1 {
-				until := u.Offsets[offset+1]
+			if len(u.Offsets) > i+1 {
+				until := u.Offsets[i+1]
 				chunkUpdates = u.Update[offset:until]
 			}
 

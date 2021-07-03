@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	amount, runs := 1000000, 50
+	amount, runs := 20000000, 50
 	players := column.NewCollection(column.Options{
 		Capacity: amount,
 	})
@@ -60,6 +60,10 @@ func main() {
 			return nil
 		})
 	}, runs*1000)
+
+	/*defer profile.Start(
+		profile.ProfilePath("."),
+	).Stop()*/
 
 	// update everyone
 	measure("update", "balance of everyone", func() {

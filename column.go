@@ -230,7 +230,7 @@ func (c *columnAny) Update(updates []commit.Update) {
 	// Update the values of the column, for this one we can only process stores
 	for _, u := range updates {
 		if u.Type == commit.Put {
-			c.fill.Set(u.Index)
+			c.fill[u.Index>>6] |= 1 << (u.Index & 0x3f)
 			c.data[u.Index] = u.Value
 		}
 	}
@@ -296,12 +296,13 @@ func makeBools() Column {
 // Grow grows the size of the column until we have enough to store
 func (c *columnBool) Grow(idx uint32) {
 	c.fill.Grow(idx)
+	c.data.Grow(idx)
 }
 
 // Update performs a series of updates at once
 func (c *columnBool) Update(updates []commit.Update) {
 	for _, u := range updates {
-		c.fill.Set(u.Index)
+		c.fill[u.Index>>6] |= 1 << (u.Index & 0x3f)
 		if u.Value.(bool) {
 			c.data.Set(u.Index)
 		} else {

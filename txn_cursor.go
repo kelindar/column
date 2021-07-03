@@ -213,6 +213,10 @@ func (cur *Cursor) AddAt(column string, amount interface{}) {
 
 func (cur *Cursor) updateChunk(idx uint32) {
 	chunk := idx >> chunkShift
+	if cur.txn.dirty.Contains(chunk) {
+		return
+	}
+
 	cur.txn.dirty.Set(chunk)
 	if cur.txn.updates[cur.update].Current != int(chunk) {
 		cur.txn.updates[cur.update].Offsets = append(cur.txn.updates[cur.update].Offsets, len(cur.txn.updates[cur.update].Update))

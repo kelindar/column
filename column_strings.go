@@ -66,7 +66,7 @@ func (c *columnEnum) Update(updates []commit.Update) {
 			}
 
 			// Set the value at the index
-			c.fill.Set(u.Index)
+			c.fill[u.Index>>6] |= 1 << (u.Index & 0x3f)
 			c.locs[u.Index] = offset
 		}
 	}
