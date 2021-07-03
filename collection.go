@@ -28,7 +28,7 @@ const (
 type Collection struct {
 	count  uint64       // The current count of elements
 	lock   sync.RWMutex // The global lock for both fill-list & transactions
-	slock  smutex.SMutex128
+	slock  *smutex.SMutex128
 	cols   columns            // The map of columns
 	fill   bitmap.Bitmap      // The fill-list
 	size   int                // The initial size for new columns
@@ -69,6 +69,7 @@ func NewCollection(opts ...Options) *Collection {
 	store := &Collection{
 		cols:   makeColumns(8),
 		size:   options.Capacity,
+		slock:  new(smutex.SMutex128),
 		fill:   make(bitmap.Bitmap, 0, options.Capacity>>6),
 		writer: options.Writer,
 		cancel: cancel,
