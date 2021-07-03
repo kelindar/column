@@ -4,7 +4,6 @@
 package column
 
 import (
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -22,6 +21,7 @@ var txns = &sync.Pool{
 			index:   make(bitmap.Bitmap, 0, 4),
 			deletes: make(bitmap.Bitmap, 0, 4),
 			inserts: make(bitmap.Bitmap, 0, 4),
+			dirty:   make(bitmap.Bitmap, 0, 4),
 			updates: make([]commit.Updates, 0, 256),
 			columns: make([]columnCache, 0, 16),
 		}
@@ -31,6 +31,7 @@ var txns = &sync.Pool{
 // aquireBitmap acquires a transaction for a transaction
 func aquireTxn(owner *Collection) *Txn {
 	txn := txns.Get().(*Txn)
+	txn.reset()
 	txn.owner = owner
 	txn.columns = txn.columns[:0]
 	txn.writer = owner.writer
@@ -51,6 +52,7 @@ type Txn struct {
 	index   bitmap.Bitmap    // The filtering index
 	deletes bitmap.Bitmap    // The delete queue
 	inserts bitmap.Bitmap    // The insert queue
+	dirty   bitmap.Bitmap    // The dirty chunks
 	updates []commit.Updates // The update queue
 	columns []columnCache    // The column mapping
 	writer  commit.Writer    // The optional commit writer
@@ -87,12 +89,11 @@ func (txn *Txn) columnAt(columnName string) (*column, bool) {
 
 // With applies a logical AND operation to the current query and the specified index.
 func (txn *Txn) With(columns ...string) *Txn {
-	txn.owner.lock.RLock()
-	defer txn.owner.lock.RUnlock()
-
 	for _, columnName := range columns {
 		if idx, ok := txn.columnAt(columnName); ok {
-			txn.index.And(*idx.Column.Index())
+			txn.rlockEachPair(*idx.Column.Index(), func(dst, src bitmap.Bitmap) {
+				dst.And(src)
+			})
 		} else {
 			txn.index.Clear()
 		}
@@ -102,12 +103,11 @@ func (txn *Txn) With(columns ...string) *Txn {
 
 // Without applies a logical AND NOT operation to the current query and the specified index.
 func (txn *Txn) Without(columns ...string) *Txn {
-	txn.owner.lock.RLock()
-	defer txn.owner.lock.RUnlock()
-
 	for _, columnName := range columns {
 		if idx, ok := txn.columnAt(columnName); ok {
-			txn.index.AndNot(*idx.Column.Index())
+			txn.rlockEachPair(*idx.Column.Index(), func(dst, src bitmap.Bitmap) {
+				dst.AndNot(src)
+			})
 		}
 	}
 	return txn
@@ -115,12 +115,11 @@ func (txn *Txn) Without(columns ...string) *Txn {
 
 // Union computes a union between the current query and the specified index.
 func (txn *Txn) Union(columns ...string) *Txn {
-	txn.owner.lock.RLock()
-	defer txn.owner.lock.RUnlock()
-
 	for _, columnName := range columns {
 		if idx, ok := txn.columnAt(columnName); ok {
-			txn.index.Or(*idx.Column.Index())
+			txn.rlockEachPair(*idx.Column.Index(), func(dst, src bitmap.Bitmap) {
+				dst.Or(src)
+			})
 		}
 	}
 	return txn
@@ -135,13 +134,13 @@ func (txn *Txn) WithValue(column string, predicate func(v interface{}) bool) *Tx
 		return txn
 	}
 
-	txn.owner.lock.RLock()
-	defer txn.owner.lock.RUnlock()
-	txn.index.Filter(func(x uint32) (match bool) {
-		if v, ok := c.Value(x); ok {
-			match = predicate(v)
-		}
-		return
+	txn.rlockEach(func(_ uint32, index bitmap.Bitmap) {
+		index.Filter(func(x uint32) (match bool) {
+			if v, ok := c.Value(x); ok {
+				match = predicate(v)
+			}
+			return
+		})
 	})
 	return txn
 }
@@ -155,9 +154,9 @@ func (txn *Txn) WithFloat(column string, predicate func(v float64) bool) *Txn {
 		return txn
 	}
 
-	txn.owner.lock.RLock()
-	defer txn.owner.lock.RUnlock()
-	c.Column.(Numeric).FilterFloat64(&txn.index, predicate)
+	txn.rlockEach(func(_ uint32, index bitmap.Bitmap) {
+		c.Column.(Numeric).FilterFloat64(&index, predicate)
+	})
 	return txn
 }
 
@@ -170,9 +169,9 @@ func (txn *Txn) WithInt(column string, predicate func(v int64) bool) *Txn {
 		return txn
 	}
 
-	txn.owner.lock.RLock()
-	defer txn.owner.lock.RUnlock()
-	c.Column.(Numeric).FilterInt64(&txn.index, predicate)
+	txn.rlockEach(func(_ uint32, index bitmap.Bitmap) {
+		c.Column.(Numeric).FilterInt64(&index, predicate)
+	})
 	return txn
 }
 
@@ -185,9 +184,9 @@ func (txn *Txn) WithUint(column string, predicate func(v uint64) bool) *Txn {
 		return txn
 	}
 
-	txn.owner.lock.RLock()
-	defer txn.owner.lock.RUnlock()
-	c.Column.(Numeric).FilterUint64(&txn.index, predicate)
+	txn.rlockEach(func(_ uint32, index bitmap.Bitmap) {
+		c.Column.(Numeric).FilterUint64(&index, predicate)
+	})
 	return txn
 }
 
@@ -200,9 +199,9 @@ func (txn *Txn) WithString(column string, predicate func(v string) bool) *Txn {
 		return txn
 	}
 
-	txn.owner.lock.RLock()
-	defer txn.owner.lock.RUnlock()
-	c.Column.(Textual).FilterString(&txn.index, predicate)
+	txn.rlockEach(func(_ uint32, index bitmap.Bitmap) {
+		c.Column.(Textual).FilterString(&index, predicate)
+	})
 	return txn
 }
 
@@ -232,6 +231,7 @@ func (txn *Txn) DeleteAt(index uint32) bool {
 	}
 
 	txn.deletes.Set(index)
+	txn.dirty.Set(index >> chunkShift)
 	return true
 }
 
@@ -260,6 +260,7 @@ func (txn *Txn) insert(object Object, expireAt int64) uint32 {
 
 	// Set the insert bit and generate the updates
 	txn.inserts.Set(slot.idx)
+	txn.dirty.Set(slot.idx >> chunkShift)
 	for k, v := range object {
 		if _, ok := txn.columnAt(k); ok {
 			slot.UpdateAt(k, v)
@@ -277,13 +278,12 @@ func (txn *Txn) insert(object Object, expireAt int64) uint32 {
 // is flexible, it is not the most efficient way, consider Range() as an alternative
 // iteration method over a specific column which also supports modification.
 func (txn *Txn) Select(fn func(v Selector)) {
-	txn.owner.lock.RLock()
-	defer txn.owner.lock.RUnlock()
-
-	txn.index.Range(func(x uint32) {
-		fn(Selector{
-			idx: x,
-			txn: txn,
+	txn.rlockEach(func(offset uint32, index bitmap.Bitmap) {
+		index.Range(func(x uint32) {
+			fn(Selector{
+				idx: offset + x,
+				txn: txn,
+			})
 		})
 	})
 }
@@ -295,6 +295,7 @@ func (txn *Txn) DeleteIf(fn func(v Selector) bool) {
 	txn.index.Range(func(x uint32) {
 		if fn(Selector{idx: x, txn: txn}) {
 			txn.deletes.Set(x)
+			txn.dirty.Set(x >> chunkShift)
 		}
 	})
 }
@@ -303,70 +304,48 @@ func (txn *Txn) DeleteIf(fn func(v Selector) bool) {
 // actual delete will take place once the transaction is committed.
 func (txn *Txn) DeleteAll() {
 	txn.deletes.Or(txn.index)
+
+	// TODO: optimize this
+	txn.deletes.Range(func(x uint32) {
+		txn.dirty.Set(x >> chunkShift)
+	})
 }
 
 // Range selects and iterates over a results for a specific column. The cursor provided
 // also allows to select other columns, but at a slight performance cost.
 func (txn *Txn) Range(column string, fn func(v Cursor)) error {
-	txn.owner.lock.RLock()
-	defer txn.owner.lock.RUnlock()
-
 	cur, err := txn.cursorFor(column)
 	if err != nil {
 		return err
 	}
 
-	txn.index.Range(func(x uint32) {
-		cur.idx = x
-		fn(cur)
+	txn.rlockEach(func(offset uint32, index bitmap.Bitmap) {
+		index.Range(func(x uint32) {
+			cur.idx = offset + x
+			fn(cur)
+		})
 	})
 	return nil
 }
 
-// cursorFor returns a cursor for a specified column
-func (txn *Txn) cursorFor(columnName string) (Cursor, error) {
-	c, ok := txn.columnAt(columnName)
-	if !ok {
-		return Cursor{}, fmt.Errorf("column: specified column '%v' does not exist", columnName)
-	}
+// Reset resets the transaction state so it can be used again.
+func (txn *Txn) reset() {
+	txn.dirty.Clear()
+	txn.deletes.Clear()
+	txn.inserts.Clear()
 
-	// Attempt to find the existing update queue index for this column
-	updateQueueIndex := -1
-	for i, c := range txn.updates {
-		if c.Column == columnName {
-			updateQueueIndex = i
-			break
-		}
+	for i := range txn.updates {
+		txn.updates[i].Current = -1
+		txn.updates[i].Update = txn.updates[i].Update[:0]
+		txn.updates[i].Offsets = txn.updates[i].Offsets[:0]
 	}
-
-	// Create a new update queue for the selected column
-	if updateQueueIndex == -1 {
-		updateQueueIndex = len(txn.updates)
-		txn.updates = append(txn.updates, commit.Updates{
-			Column: columnName,
-			Update: make([]commit.Update, 0, 64),
-		})
-	}
-
-	// Create a Cursor
-	return Cursor{
-		column: c,
-		update: int16(updateQueueIndex),
-		Selector: Selector{
-			txn: txn,
-		},
-	}, nil
 }
 
 // Rollback empties the pending update and delete queues and does not apply any of
 // the pending updates/deletes. This operation can be called several times for
 // a transaction in order to perform partial rollbacks.
 func (txn *Txn) rollback() {
-	txn.deletes.Clear()
-	txn.inserts.Clear()
-	for i := range txn.updates {
-		txn.updates[i].Update = txn.updates[i].Update[:0]
-	}
+	txn.reset()
 }
 
 // Commit commits the transaction by applying all pending updates and deletes to
@@ -374,15 +353,24 @@ func (txn *Txn) rollback() {
 // in order to perform partial commits. If there's no pending updates/deletes, this
 // operation will result in a no-op.
 func (txn *Txn) commit() {
+	//defer txn.reset()
+
 	max, _ := txn.inserts.Max()
 	var typ commit.Type
 
-	// Currently, we need to acquire a global lock in order to make sure that the entire
-	// transaction is completely atomic.
-	txn.owner.lock.Lock()
-	typ |= txn.deletePending()
-	typ |= txn.insertPending()
-	typ |= txn.updatePending(max)
+	// TODO: collection lock so we only commit 1 txn at a time, but still allow
+	// concurrent reads
+
+	//fmt.Printf("Committing %d inserts, %d deletes\n", txn.inserts.Count(), txn.deletes.Count())
+
+	txn.commitEach(func(chunk uint32, fill bitmap.Bitmap) {
+		typ |= txn.commitDeletes(chunk, fill)
+		typ |= txn.commitInserts(chunk, fill)
+		typ |= txn.commitUpdates(chunk, max)
+	})
+
+	// Update the collection's size
+	atomic.StoreUint64(&txn.owner.count, uint64(txn.owner.fill.Count()))
 
 	// If there's a writer, write into it before we clean up the transaction
 	if typ > 0 && txn.writer != nil {
@@ -394,65 +382,80 @@ func (txn *Txn) commit() {
 		})
 	}
 
-	// Unlock and reset the transaction so it can be re-used
-	txn.owner.lock.Unlock()
-	txn.deletes.Clear()
-	txn.inserts.Clear()
-	for i, u := range txn.updates {
-		if len(u.Update) > 0 {
-			txn.updates[i].Update = txn.updates[i].Update[:0]
-		}
-	}
 }
 
-// updatePending updates the pending entries that were modified during the query
-func (txn *Txn) updatePending(max uint32) (typ commit.Type) {
+// commitUpdates applies the pending updates to the collection.
+func (txn *Txn) commitUpdates(chunk, max uint32) (typ commit.Type) {
 	for _, u := range txn.updates {
 		if len(u.Update) == 0 {
 			continue // No updates for this column
 		}
 
-		// Get the column that needs to be updated
-		typ = commit.Store
+		// Get the column to update
 		columns, exists := txn.owner.cols.LoadWithIndex(u.Column)
 		if !exists || len(columns) == 0 {
 			continue
 		}
 
-		// Range through all of the pending updates and apply them to the column
-		// and its associated computed columns.
-		for _, v := range columns {
-			v.Update(u.Update, max)
+		// Do a linear search to find the offset for the current chunk
+		typ |= commit.Store
+		for _, offset := range u.Offsets {
+			if (u.Update[offset].Index >> chunkShift) != chunk {
+				continue // Not the right chunk
+			}
+
+			// Find the next offset
+			chunkUpdates := u.Update[offset:]
+			if len(u.Offsets) > offset+1 {
+				until := u.Offsets[offset+1]
+				chunkUpdates = u.Update[offset:until]
+			}
+
+			// Range through all of the pending updates and apply them to the column
+			// and its associated computed columns.
+			for _, v := range columns {
+				v.Update(chunkUpdates, max)
+			}
 		}
 	}
 	return
 }
 
-// deletePending removes all of the entries marked as to be deleted
-func (txn *Txn) deletePending() commit.Type {
-	if len(txn.deletes) == 0 {
+// commitDeletes removes all of the entries marked as to be deleted
+func (txn *Txn) commitDeletes(chunk uint32, fill bitmap.Bitmap) commit.Type {
+	at := int(chunk << (chunkShift - 6))
+	if len(txn.deletes) < at {
 		return 0 // Nothing to delete
 	}
 
 	// Apply a batch delete on all of the columns
+	deletes := txn.deletes[at:]
+	if len(deletes) > at+len(fill) {
+		deletes = txn.deletes[at : at+len(fill)]
+	}
+
 	txn.owner.cols.Range(func(column *column) {
-		column.Delete(&txn.deletes)
+		column.Delete(at, deletes)
 	})
 
 	// Clear the items in the collection and reinitialize the purge list
-	txn.owner.fill.AndNot(txn.deletes)
-	atomic.StoreUint64(&txn.owner.count, uint64(txn.owner.fill.Count()))
+	fill.AndNot(deletes)
 	return commit.Delete
 }
 
-// insertPending inserts all of the entries marked as to be inserted. This just makes them
+// commitInserts inserts all of the entries marked as to be inserted. This just makes them
 // visible by setting the fill list atomically in the collection.
-func (txn *Txn) insertPending() commit.Type {
-	if len(txn.inserts) == 0 {
+func (txn *Txn) commitInserts(chunk uint32, fill bitmap.Bitmap) commit.Type {
+	at := int(chunk << (chunkShift - 6))
+	if len(txn.inserts) < at {
 		return 0
 	}
 
-	txn.owner.fill.Or(txn.inserts)
-	atomic.StoreUint64(&txn.owner.count, uint64(txn.owner.fill.Count()))
+	inserts := txn.inserts[at:]
+	if len(inserts) > at+len(fill) {
+		inserts = txn.inserts[at : at+len(fill)]
+	}
+
+	fill.Or(inserts)
 	return commit.Insert
 }

@@ -79,7 +79,7 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 	assert.True(t, ok)
 
 	// Delete the value and update again
-	column.Delete(&bitmap.Bitmap{0xffffffffffffffff})
+	column.Delete(0, bitmap.Bitmap{0xffffffffffffffff})
 	_, ok = column.Value(9)
 	assert.False(t, ok)
 	column.Update([]commit.Update{{
@@ -176,7 +176,7 @@ func TestColumnOrder(t *testing.T) {
 	for i := uint32(150); i < 180; i++ {
 		var deletes bitmap.Bitmap
 		deletes.Set(i)
-		p.Delete(&deletes)
+		p.Delete(0, deletes)
 		p.Update([]commit.Update{{
 			Type:  commit.Put,
 			Index: i,

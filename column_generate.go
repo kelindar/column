@@ -1,5 +1,3 @@
-// +build ignore
-
 package column
 
 import (
@@ -68,8 +66,9 @@ func (c *columnnumber) Update(updates []commit.Update) {
 }
 
 // Delete deletes a set of items from the column.
-func (c *columnnumber) Delete(items *bitmap.Bitmap) {
-	c.fill.AndNot(*items)
+func (c *columnnumber) Delete(offset int, items bitmap.Bitmap) {
+	fill := c.fill[offset:]
+	fill.AndNot(items)
 }
 
 // Contains checks whether the column has a value at a specified index.

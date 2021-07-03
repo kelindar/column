@@ -38,7 +38,7 @@ func typeOf(column Column) (typ columnType) {
 type Column interface {
 	Grow(idx uint32)
 	Update(updates []commit.Update)
-	Delete(items *bitmap.Bitmap)
+	Delete(offset int, items bitmap.Bitmap)
 	Value(idx uint32) (interface{}, bool)
 	Contains(idx uint32) bool
 	Index() *bitmap.Bitmap
@@ -147,14 +147,8 @@ func (c *column) Update(updates []commit.Update, growUntil uint32) {
 }
 
 // Delete deletes a set of items from the column.
-func (c *column) Delete(items *bitmap.Bitmap) {
-	c.Column.Delete(items)
-}
-
-// Contains checks whether the column has a value at a specified index.
-func (c *column) Contains(idx uint32) (exists bool) {
-	exists = c.Column.Contains(idx)
-	return
+func (c *column) Delete(offset int, items bitmap.Bitmap) {
+	c.Column.Delete(offset, items)
 }
 
 // Value retrieves a value at a specified index
@@ -165,7 +159,7 @@ func (c *column) Value(idx uint32) (v interface{}, ok bool) {
 
 // Value retrieves a value at a specified index
 func (c *column) String(idx uint32) (v string, ok bool) {
-	if column, ok := c.Column.(Textual); ok {
+	if column, text := c.Column.(Textual); text {
 		v, ok = column.LoadString(idx)
 	}
 	return
@@ -241,8 +235,9 @@ func (c *columnAny) Update(updates []commit.Update) {
 }
 
 // Delete deletes a set of items from the column.
-func (c *columnAny) Delete(items *bitmap.Bitmap) {
-	c.fill.AndNot(*items)
+func (c *columnAny) Delete(offset int, items bitmap.Bitmap) {
+	fill := c.fill[offset:]
+	fill.AndNot(items)
 }
 
 // Value retrieves a value at a specified index
@@ -318,9 +313,11 @@ func (c *columnBool) Value(idx uint32) (interface{}, bool) {
 }
 
 // Delete deletes a set of items from the column.
-func (c *columnBool) Delete(items *bitmap.Bitmap) {
-	c.fill.AndNot(*items)
-	c.data.AndNot(*items)
+func (c *columnBool) Delete(offset int, items bitmap.Bitmap) {
+	fill := c.fill[offset:]
+	//data := c.data[offset:]
+	fill.AndNot(items)
+	//c.data.AndNot(items)
 }
 
 // Contains checks whether the column has a value at a specified index.

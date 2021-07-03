@@ -14,6 +14,7 @@ import (
 
 	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
+	"github.com/kelindar/smutex"
 )
 
 // Object represents a single object
@@ -25,8 +26,9 @@ const (
 
 // Collection represents a collection of objects in a columnar format
 type Collection struct {
-	count  uint64             // The current count of elements
-	lock   sync.RWMutex       // The global lock for both fill-list & transactions
+	count  uint64       // The current count of elements
+	lock   sync.RWMutex // The global lock for both fill-list & transactions
+	slock  smutex.SMutex128
 	cols   columns            // The map of columns
 	fill   bitmap.Bitmap      // The fill-list
 	size   int                // The initial size for new columns
@@ -413,7 +415,6 @@ func (c *columns) Store(columnName string, main *column, index ...*column) {
 		cols: value,
 	})
 	c.cols.Store(columns)
-	return
 }
 
 // DeleteColumn deletes a column from the registry.

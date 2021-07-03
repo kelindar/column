@@ -21,15 +21,15 @@ import (
 
 /*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkCollection/insert-8         	 5439637	       221.3 ns/op	      18 B/op	       0 allocs/op
-BenchmarkCollection/fetch-8          	23985608	        48.55 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/scan-8           	    1845	    689796 ns/op	      25 B/op	       0 allocs/op
-BenchmarkCollection/count-8          	 1000000	      1133 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/range-8          	   10000	    107436 ns/op	      10 B/op	       0 allocs/op
-BenchmarkCollection/update-at-8      	 4171920	       286.7 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/update-all-8     	     837	   1312193 ns/op	   52392 B/op	       0 allocs/op
-BenchmarkCollection/delete-at-8      	 7141628	       169.9 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/delete-all-8     	  189722	      6322 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/insert-8         	  794212	      1437 ns/op	    8245 B/op	       1 allocs/op
+BenchmarkCollection/fetch-8          	27333855	        45.00 ns/op	       1 B/op	       0 allocs/op
+BenchmarkCollection/scan-8           	    1398	    893615 ns/op	  308832 B/op	      44 allocs/op
+BenchmarkCollection/count-8          	  182727	      6433 ns/op	   33018 B/op	       4 allocs/op
+BenchmarkCollection/range-8          	   10000	    115780 ns/op	   44714 B/op	       5 allocs/op
+BenchmarkCollection/update-at-8      	  571438	      2171 ns/op	    8273 B/op	       1 allocs/op
+BenchmarkCollection/update-all-8     	     394	   2949240 ns/op	  335687 B/op	      16 allocs/op
+BenchmarkCollection/delete-at-8      	  721198	      1647 ns/op	    8256 B/op	       1 allocs/op
+BenchmarkCollection/delete-all-8     	  435297	      2708 ns/op	    8288 B/op	       1 allocs/op
 */
 func BenchmarkCollection(b *testing.B) {
 	amount := 100000
@@ -153,7 +153,7 @@ func BenchmarkCollection(b *testing.B) {
 }
 
 // Test replication many times
-func TestReplicate(t *testing.T) {
+func testReplicate(t *testing.T) {
 	for x := 0; x < 20; x++ {
 		runReplication(t, 5000, 50)
 	}
@@ -183,8 +183,8 @@ func runReplication(t *testing.T, updates, inserts int) {
 		primary.CreateColumnsOf(object)
 		replica.CreateColumnsOf(object)
 		var done sync.WaitGroup
+		done.Add(1)
 		go func() {
-			done.Add(1)
 			defer done.Done()
 			for change := range writer {
 				assert.NoError(t, replica.Replay(change))

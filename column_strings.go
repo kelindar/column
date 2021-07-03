@@ -102,8 +102,9 @@ func (c *columnEnum) readAt(at uint32) string {
 }
 
 // Delete deletes a set of items from the column.
-func (c *columnEnum) Delete(items *bitmap.Bitmap) {
-	c.fill.AndNot(*items)
+func (c *columnEnum) Delete(offset int, items bitmap.Bitmap) {
+	fill := c.fill[offset:]
+	fill.AndNot(items)
 
 	// TODO: remove unused strings, need some reference counting for that
 	// and can proably be done during vacuum() instead

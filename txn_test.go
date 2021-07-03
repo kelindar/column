@@ -30,6 +30,19 @@ func TestFind(t *testing.T) {
 	assert.Equal(t, 21, count)
 }
 
+func TestMany(t *testing.T) {
+	players := loadPlayers(20000)
+	count := 0
+	players.Query(func(txn *Txn) error {
+		txn.Range("name", func(v Cursor) {
+			count++
+		})
+		return nil
+	})
+
+	assert.Equal(t, 20000, count)
+}
+
 func TestCount(t *testing.T) {
 	players := loadPlayers(500)
 
@@ -111,7 +124,7 @@ func TestIndexInvalid(t *testing.T) {
 
 	assert.Error(t, players.Query(func(txn *Txn) error {
 		return txn.Range("invalid-column", func(v Cursor) {
-			return
+			// do nothing
 		})
 	}))
 
@@ -127,7 +140,6 @@ func TestIndexInvalid(t *testing.T) {
 	assert.NoError(t, players.Query(func(txn *Txn) error {
 		return txn.Range("balance", func(v Cursor) {
 			v.AddAt("invalid-column", 1)
-			return
 		})
 	}))
 
@@ -297,7 +309,6 @@ func TestUpdate(t *testing.T) {
 	})
 
 	// Reset balance back to zero
-	println("reset balance")
 	players.Query(func(txn *Txn) error {
 		return txn.Range("balance", func(v Cursor) {
 			v.Update(0.0)
@@ -317,7 +328,6 @@ func TestUpdate(t *testing.T) {
 				v.Add(100.0)
 				v.AddAt("balance", 100.0)
 			})
-			txn.commit()
 		}
 		return nil
 	})

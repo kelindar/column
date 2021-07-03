@@ -67,8 +67,9 @@ func (c *columnFloat32) Update(updates []commit.Update) {
 }
 
 // Delete deletes a set of items from the column.
-func (c *columnFloat32) Delete(items *bitmap.Bitmap) {
-	c.fill.AndNot(*items)
+func (c *columnFloat32) Delete(offset int, items bitmap.Bitmap) {
+	fill := c.fill[offset:]
+	fill.AndNot(items)
 }
 
 // Contains checks whether the column has a value at a specified index.
@@ -196,8 +197,9 @@ func (c *columnFloat64) Update(updates []commit.Update) {
 }
 
 // Delete deletes a set of items from the column.
-func (c *columnFloat64) Delete(items *bitmap.Bitmap) {
-	c.fill.AndNot(*items)
+func (c *columnFloat64) Delete(offset int, items bitmap.Bitmap) {
+	fill := c.fill[offset:]
+	fill.AndNot(items)
 }
 
 // Contains checks whether the column has a value at a specified index.
@@ -325,8 +327,9 @@ func (c *columnInt) Update(updates []commit.Update) {
 }
 
 // Delete deletes a set of items from the column.
-func (c *columnInt) Delete(items *bitmap.Bitmap) {
-	c.fill.AndNot(*items)
+func (c *columnInt) Delete(offset int, items bitmap.Bitmap) {
+	fill := c.fill[offset:]
+	fill.AndNot(items)
 }
 
 // Contains checks whether the column has a value at a specified index.
@@ -454,8 +457,9 @@ func (c *columnInt16) Update(updates []commit.Update) {
 }
 
 // Delete deletes a set of items from the column.
-func (c *columnInt16) Delete(items *bitmap.Bitmap) {
-	c.fill.AndNot(*items)
+func (c *columnInt16) Delete(offset int, items bitmap.Bitmap) {
+	fill := c.fill[offset:]
+	fill.AndNot(items)
 }
 
 // Contains checks whether the column has a value at a specified index.
@@ -583,8 +587,9 @@ func (c *columnInt32) Update(updates []commit.Update) {
 }
 
 // Delete deletes a set of items from the column.
-func (c *columnInt32) Delete(items *bitmap.Bitmap) {
-	c.fill.AndNot(*items)
+func (c *columnInt32) Delete(offset int, items bitmap.Bitmap) {
+	fill := c.fill[offset:]
+	fill.AndNot(items)
 }
 
 // Contains checks whether the column has a value at a specified index.
@@ -712,8 +717,9 @@ func (c *columnInt64) Update(updates []commit.Update) {
 }
 
 // Delete deletes a set of items from the column.
-func (c *columnInt64) Delete(items *bitmap.Bitmap) {
-	c.fill.AndNot(*items)
+func (c *columnInt64) Delete(offset int, items bitmap.Bitmap) {
+	fill := c.fill[offset:]
+	fill.AndNot(items)
 }
 
 // Contains checks whether the column has a value at a specified index.
@@ -841,8 +847,9 @@ func (c *columnUint) Update(updates []commit.Update) {
 }
 
 // Delete deletes a set of items from the column.
-func (c *columnUint) Delete(items *bitmap.Bitmap) {
-	c.fill.AndNot(*items)
+func (c *columnUint) Delete(offset int, items bitmap.Bitmap) {
+	fill := c.fill[offset:]
+	fill.AndNot(items)
 }
 
 // Contains checks whether the column has a value at a specified index.
@@ -970,8 +977,9 @@ func (c *columnUint16) Update(updates []commit.Update) {
 }
 
 // Delete deletes a set of items from the column.
-func (c *columnUint16) Delete(items *bitmap.Bitmap) {
-	c.fill.AndNot(*items)
+func (c *columnUint16) Delete(offset int, items bitmap.Bitmap) {
+	fill := c.fill[offset:]
+	fill.AndNot(items)
 }
 
 // Contains checks whether the column has a value at a specified index.
@@ -1099,8 +1107,9 @@ func (c *columnUint32) Update(updates []commit.Update) {
 }
 
 // Delete deletes a set of items from the column.
-func (c *columnUint32) Delete(items *bitmap.Bitmap) {
-	c.fill.AndNot(*items)
+func (c *columnUint32) Delete(offset int, items bitmap.Bitmap) {
+	fill := c.fill[offset:]
+	fill.AndNot(items)
 }
 
 // Contains checks whether the column has a value at a specified index.
@@ -1228,8 +1237,9 @@ func (c *columnUint64) Update(updates []commit.Update) {
 }
 
 // Delete deletes a set of items from the column.
-func (c *columnUint64) Delete(items *bitmap.Bitmap) {
-	c.fill.AndNot(*items)
+func (c *columnUint64) Delete(offset int, items bitmap.Bitmap) {
+	fill := c.fill[offset:]
+	fill.AndNot(items)
 }
 
 // Contains checks whether the column has a value at a specified index.

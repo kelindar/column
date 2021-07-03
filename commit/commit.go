@@ -29,8 +29,10 @@ type Update struct {
 
 // Updates represents a list of updates for a column column.
 type Updates struct {
-	Column string   // The column name
-	Update []Update // The update queue
+	Column  string   // The column name
+	Update  []Update // The update queue
+	Offsets []int    // The offsets of chunks
+	Current int      // The current chunk
 }
 
 // --------------------------- Commit Type ----------------------------

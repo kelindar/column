@@ -3,7 +3,48 @@
 
 package column
 
-import "github.com/kelindar/column/commit"
+import (
+	"fmt"
+
+	"github.com/kelindar/column/commit"
+)
+
+// cursorFor returns a cursor for a specified column
+func (txn *Txn) cursorFor(columnName string) (Cursor, error) {
+	c, ok := txn.columnAt(columnName)
+	if !ok {
+		return Cursor{}, fmt.Errorf("column: specified column '%v' does not exist", columnName)
+	}
+
+	// Attempt to find the existing update queue index for this column
+	updateQueueIndex := -1
+	for i, c := range txn.updates {
+		if c.Column == columnName {
+			updateQueueIndex = i
+			break
+		}
+	}
+
+	// Create a new update queue for the selected column
+	if updateQueueIndex == -1 {
+		updateQueueIndex = len(txn.updates)
+		txn.updates = append(txn.updates, commit.Updates{
+			Column:  columnName,
+			Current: -1,
+			Update:  make([]commit.Update, 0, 64),
+			Offsets: make([]int, 0, 64),
+		})
+	}
+
+	// Create a Cursor
+	return Cursor{
+		column: c,
+		update: int16(updateQueueIndex),
+		Selector: Selector{
+			txn: txn,
+		},
+	}, nil
+}
 
 // --------------------------- Selector ---------------------------
 
@@ -122,12 +163,14 @@ func (cur *Cursor) Bool() bool {
 // Delete deletes the current item. The actual operation will be queued and
 // executed once the current the transaction completes.
 func (cur *Cursor) Delete() {
+	cur.txn.dirty.Set(cur.idx >> chunkShift)
 	cur.txn.deletes.Set(cur.idx)
 }
 
 // Update updates a column value for the current item. The actual operation
 // will be queued and executed once the current the transaction completes.
 func (cur *Cursor) Update(value interface{}) {
+	cur.updateChunk(cur.idx)
 	cur.txn.updates[cur.update].Update = append(cur.txn.updates[cur.update].Update, commit.Update{
 		Type:  commit.Put,
 		Index: cur.idx,
@@ -138,6 +181,7 @@ func (cur *Cursor) Update(value interface{}) {
 // Add atomically increments/decrements the current value by the specified amount. Note
 // that this only works for numerical values and the type of the value must match.
 func (cur *Cursor) Add(amount interface{}) {
+	cur.updateChunk(cur.idx)
 	cur.txn.updates[cur.update].Update = append(cur.txn.updates[cur.update].Update, commit.Update{
 		Type:  commit.Add,
 		Index: cur.idx,
@@ -148,49 +192,54 @@ func (cur *Cursor) Add(amount interface{}) {
 // UpdateAt updates a specified column value for the current item. The actual operation
 // will be queued and executed once the current the transaction completes.
 func (cur *Cursor) UpdateAt(column string, value interface{}) {
-	for i, c := range cur.txn.updates {
-		if c.Column == column {
-			cur.txn.updates[i].Update = append(c.Update, commit.Update{
-				Type:  commit.Put,
-				Index: cur.idx,
-				Value: value,
-			})
-			return
-		}
-	}
-
-	// Create a new update queue
-	cur.txn.updates = append(cur.txn.updates, commit.Updates{
-		Column: column,
-		Update: []commit.Update{{
-			Type:  commit.Put,
-			Index: cur.idx,
-			Value: value,
-		}},
+	columnIndex := cur.updateChunkAt(column, cur.idx)
+	cur.txn.updates[columnIndex].Update = append(cur.txn.updates[columnIndex].Update, commit.Update{
+		Type:  commit.Put,
+		Index: cur.idx,
+		Value: value,
 	})
 }
 
 // Add atomically increments/decrements the column value by the specified amount. Note
 // that this only works for numerical values and the type of the value must match.
 func (cur *Cursor) AddAt(column string, amount interface{}) {
+	columnIndex := cur.updateChunkAt(column, cur.idx)
+	cur.txn.updates[columnIndex].Update = append(cur.txn.updates[columnIndex].Update, commit.Update{
+		Type:  commit.Add,
+		Index: cur.idx,
+		Value: amount,
+	})
+}
+
+func (cur *Cursor) updateChunk(idx uint32) {
+	chunk := idx >> chunkShift
+	cur.txn.dirty.Set(chunk)
+
+	if cur.txn.updates[cur.update].Current != int(chunk) {
+		cur.txn.updates[cur.update].Offsets = append(cur.txn.updates[cur.update].Offsets, len(cur.txn.updates[cur.update].Update))
+		cur.txn.updates[cur.update].Current = int(chunk)
+	}
+}
+
+func (cur *Cursor) updateChunkAt(column string, idx uint32) int {
+	chunk := idx >> chunkShift
+	cur.txn.dirty.Set(chunk)
+
 	for i, c := range cur.txn.updates {
 		if c.Column == column {
-			cur.txn.updates[i].Update = append(c.Update, commit.Update{
-				Type:  commit.Add,
-				Index: cur.idx,
-				Value: amount,
-			})
-			return
+			if c.Current != int(chunk) {
+				cur.txn.updates[i].Offsets = append(cur.txn.updates[i].Offsets, len(cur.txn.updates[i].Update))
+				cur.txn.updates[i].Current = int(chunk)
+			}
+			return i
 		}
 	}
 
 	// Create a new update queue
 	cur.txn.updates = append(cur.txn.updates, commit.Updates{
-		Column: column,
-		Update: []commit.Update{{
-			Type:  commit.Add,
-			Index: cur.idx,
-			Value: amount,
-		}},
+		Current: int(chunk),
+		Column:  column,
+		Offsets: []int{0},
 	})
+	return len(cur.txn.updates) - 1
 }

@@ -59,8 +59,9 @@ func (c *index) Update(updates []commit.Update) {
 }
 
 // Delete deletes a set of items from the column.
-func (c *index) Delete(items *bitmap.Bitmap) {
-	c.fill.AndNot(*items)
+func (c *index) Delete(offset int, items bitmap.Bitmap) {
+	fill := c.fill[offset:]
+	fill.AndNot(items)
 }
 
 // Value retrieves a value at a specified index.
