@@ -115,25 +115,28 @@ func (c *columnnumber) LoadUint64(idx uint32) (v uint64, ok bool) {
 }
 
 // FilterFloat64 filters down the values based on the specified predicate.
-func (c *columnnumber) FilterFloat64(index *bitmap.Bitmap, predicate func(v float64) bool) {
-	index.And(c.fill)
+func (c *columnnumber) FilterFloat64(offset uint32, index bitmap.Bitmap, predicate func(v float64) bool) {
+	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) bool {
+		idx = offset + idx
 		return idx < uint32(len(c.data)) && predicate(float64(c.data[idx]))
 	})
 }
 
 // FilterInt64 filters down the values based on the specified predicate.
-func (c *columnnumber) FilterInt64(index *bitmap.Bitmap, predicate func(v int64) bool) {
-	index.And(c.fill)
+func (c *columnnumber) FilterInt64(offset uint32, index bitmap.Bitmap, predicate func(v int64) bool) {
+	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) (match bool) {
+		idx = offset + idx
 		return idx < uint32(len(c.data)) && predicate(int64(c.data[idx]))
 	})
 }
 
 // FilterUint64 filters down the values based on the specified predicate.
-func (c *columnnumber) FilterUint64(index *bitmap.Bitmap, predicate func(v uint64) bool) {
-	index.And(c.fill)
+func (c *columnnumber) FilterUint64(offset uint32, index bitmap.Bitmap, predicate func(v uint64) bool) {
+	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) (match bool) {
+		idx = offset + idx
 		return idx < uint32(len(c.data)) && predicate(uint64(c.data[idx]))
 	})
 }

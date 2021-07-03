@@ -98,7 +98,7 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 
 		// FilterFloat64
 		index := bitmap.Bitmap{0xffff}
-		column.FilterFloat64(&index, func(v float64) bool {
+		column.FilterFloat64(0, index, func(v float64) bool {
 			return false
 		})
 		assert.Equal(t, 0, index.Count())
@@ -110,7 +110,7 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 
 		// FilterInt64
 		index = bitmap.Bitmap{0xffff}
-		column.FilterInt64(&index, func(v int64) bool {
+		column.FilterInt64(0, index, func(v int64) bool {
 			return false
 		})
 		assert.Equal(t, 0, index.Count())
@@ -122,7 +122,7 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 
 		// FilterUint64
 		index = bitmap.Bitmap{0xffff}
-		column.FilterUint64(&index, func(v uint64) bool {
+		column.FilterUint64(0, index, func(v uint64) bool {
 			return false
 		})
 		assert.Equal(t, 0, index.Count())
@@ -148,7 +148,7 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 
 		// FilterFloat64
 		index := bitmap.Bitmap{0xffff}
-		column.FilterString(&index, func(v string) bool {
+		column.FilterString(0, index, func(v string) bool {
 			return false
 		})
 		assert.Equal(t, 0, index.Count())

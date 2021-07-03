@@ -15,6 +15,8 @@ import (
 
 // --------------------------- Enum ----------------------------
 
+var _ Textual = new(columnEnum)
+
 // columnEnum represents a enumerable string column
 type columnEnum struct {
 	fill  bitmap.Bitmap     // The fill-list
@@ -125,7 +127,7 @@ func (c *columnEnum) LoadString(idx uint32) (v string, ok bool) {
 
 // FilterString filters down the values based on the specified predicate. The column for
 // this filter must be a string.
-func (c *columnEnum) FilterString(index *bitmap.Bitmap, predicate func(v string) bool) {
+func (c *columnEnum) FilterString(offset uint32, index bitmap.Bitmap, predicate func(v string) bool) {
 	cache := struct {
 		index uint32 // Last seen offset
 		value bool   // Last evaluated predicate
@@ -134,11 +136,12 @@ func (c *columnEnum) FilterString(index *bitmap.Bitmap, predicate func(v string)
 
 	// Do a quick ellimination of elements which are NOT contained in this column, this
 	// allows us not to check contains during the filter itself
-	index.And(c.fill)
+	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 
 	// Filters down the strings, if strings repeat we avoid reading every time by
 	// caching the last seen index/value combination.
 	index.Filter(func(idx uint32) bool {
+		idx = offset + idx
 		if idx < uint32(len(c.locs)) {
 			if at := c.locs[idx]; at != cache.index {
 				cache.index = at

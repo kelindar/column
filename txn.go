@@ -154,8 +154,14 @@ func (txn *Txn) WithFloat(column string, predicate func(v float64) bool) *Txn {
 		return txn
 	}
 
-	txn.rlockEach(func(_ uint32, index bitmap.Bitmap) {
-		c.Column.(Numeric).FilterFloat64(&index, predicate)
+	/* ESCAPES
+	.\txn.go:157:31: index escapes to heap:
+	.\txn.go:172:31: index escapes to heap:
+	.\txn.go:187:31: index escapes to heap:
+	.\txn.go:202:31: index escapes to heap:
+	*/
+	txn.rlockEach(func(offset uint32, index bitmap.Bitmap) {
+		c.Column.(Numeric).FilterFloat64(offset, index, predicate)
 	})
 	return txn
 }
@@ -169,8 +175,8 @@ func (txn *Txn) WithInt(column string, predicate func(v int64) bool) *Txn {
 		return txn
 	}
 
-	txn.rlockEach(func(_ uint32, index bitmap.Bitmap) {
-		c.Column.(Numeric).FilterInt64(&index, predicate)
+	txn.rlockEach(func(offset uint32, index bitmap.Bitmap) {
+		c.Column.(Numeric).FilterInt64(offset, index, predicate)
 	})
 	return txn
 }
@@ -184,8 +190,8 @@ func (txn *Txn) WithUint(column string, predicate func(v uint64) bool) *Txn {
 		return txn
 	}
 
-	txn.rlockEach(func(_ uint32, index bitmap.Bitmap) {
-		c.Column.(Numeric).FilterUint64(&index, predicate)
+	txn.rlockEach(func(offset uint32, index bitmap.Bitmap) {
+		c.Column.(Numeric).FilterUint64(offset, index, predicate)
 	})
 	return txn
 }
@@ -199,8 +205,8 @@ func (txn *Txn) WithString(column string, predicate func(v string) bool) *Txn {
 		return txn
 	}
 
-	txn.rlockEach(func(_ uint32, index bitmap.Bitmap) {
-		c.Column.(Textual).FilterString(&index, predicate)
+	txn.rlockEach(func(offset uint32, index bitmap.Bitmap) {
+		c.Column.(Textual).FilterString(offset, index, predicate)
 	})
 	return txn
 }

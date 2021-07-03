@@ -50,16 +50,16 @@ type Numeric interface {
 	LoadFloat64(uint32) (float64, bool)
 	LoadUint64(uint32) (uint64, bool)
 	LoadInt64(uint32) (int64, bool)
-	FilterFloat64(*bitmap.Bitmap, func(v float64) bool)
-	FilterUint64(*bitmap.Bitmap, func(v uint64) bool)
-	FilterInt64(*bitmap.Bitmap, func(v int64) bool)
+	FilterFloat64(uint32, bitmap.Bitmap, func(v float64) bool)
+	FilterUint64(uint32, bitmap.Bitmap, func(v uint64) bool)
+	FilterInt64(uint32, bitmap.Bitmap, func(v int64) bool)
 }
 
 // Textual represents a column that stores strings.
 type Textual interface {
 	Column
 	LoadString(uint32) (string, bool)
-	FilterString(*bitmap.Bitmap, func(v string) bool)
+	FilterString(uint32, bitmap.Bitmap, func(v string) bool)
 }
 
 // --------------------------- Constructors ----------------------------
@@ -191,6 +191,8 @@ func (c *column) Uint64(idx uint32) (v uint64, ok bool) {
 
 // --------------------------- Any ----------------------------
 
+var _ Textual = new(columnAny)
+
 // columnAny represents a generic column
 type columnAny struct {
 	fill bitmap.Bitmap // The fill-list
@@ -267,9 +269,10 @@ func (c *columnAny) LoadString(idx uint32) (string, bool) {
 
 // FilterString filters down the values based on the specified predicate. The column for
 // this filter must be a string.
-func (c *columnAny) FilterString(index *bitmap.Bitmap, predicate func(v string) bool) {
-	index.And(c.fill)
+func (c *columnAny) FilterString(offset uint32, index bitmap.Bitmap, predicate func(v string) bool) {
+	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) (match bool) {
+		idx = offset + idx
 		return idx < uint32(len(c.data)) && predicate(c.data[idx].(string))
 	})
 }
