@@ -373,7 +373,7 @@ func TestInsertParallel(t *testing.T) {
 	}
 
 	wg.Wait()
-	assert.Equal(t, 500, col.Count())
+	assert.Equal(t, 5000, col.Count())
 }
 
 // loadPlayers loads a list of players from the fixture

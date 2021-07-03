@@ -13,25 +13,10 @@ import (
 
 // --------------------------- Pool of Transactions ----------------------------
 
-// txns represents a pool of transactions
-/*var txns = &sync.Pool{
-	New: func() interface{} {
-		return &Txn{
-			index:   make(bitmap.Bitmap, 0, 4),
-			deletes: make(bitmap.Bitmap, 0, 4),
-			inserts: make(bitmap.Bitmap, 0, 4),
-			dirty:   make(bitmap.Bitmap, 0, 4),
-			updates: make([]commit.Updates, 0, 256),
-			columns: make([]columnCache, 0, 16),
-		}
-	},
-}*/
-
 var txns = newTxnPool()
 
 // aquireBitmap acquires a transaction for a transaction
 func aquireTxn(owner *Collection) *Txn {
-	//txn := txns.Get().(*Txn)
 	txn := txns.acquire()
 	txn.owner = owner
 	txn.columns = txn.columns[:0]
@@ -42,7 +27,6 @@ func aquireTxn(owner *Collection) *Txn {
 
 // releaseTxn releases a transaction back to the pool
 func releaseTxn(txn *Txn) {
-	//txns.Put(txn)
 	txns.release(txn)
 }
 
@@ -411,9 +395,6 @@ func (txn *Txn) commit() {
 		typ |= txn.commitUpdates(chunk, max)
 	})
 
-	// Update the collection's size
-	atomic.StoreUint64(&txn.owner.count, uint64(txn.owner.fill.Count()))
-
 	// If there's a writer, write into it before we clean up the transaction
 	if typ > 0 && txn.writer != nil {
 		txn.writer.Write(commit.Commit{
@@ -480,7 +461,10 @@ func (txn *Txn) commitDeletes(chunk uint32, fill bitmap.Bitmap) commit.Type {
 	})
 
 	// Clear the items in the collection and reinitialize the purge list
+	txn.owner.lock.Lock()
 	fill.AndNot(deletes)
+	atomic.StoreUint64(&txn.owner.count, uint64(txn.owner.fill.Count()))
+	txn.owner.lock.Unlock()
 	return commit.Delete
 }
 
@@ -497,6 +481,9 @@ func (txn *Txn) commitInserts(chunk uint32, fill bitmap.Bitmap) commit.Type {
 		inserts = txn.inserts[at : at+len(fill)]
 	}
 
+	txn.owner.lock.Lock()
 	fill.Or(inserts)
+	atomic.StoreUint64(&txn.owner.count, uint64(txn.owner.fill.Count()))
+	txn.owner.lock.Unlock()
 	return commit.Insert
 }

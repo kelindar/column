@@ -61,10 +61,6 @@ func main() {
 		})
 	}, runs*1000)
 
-	/*defer profile.Start(
-		profile.ProfilePath("."),
-	).Stop()*/
-
 	// update everyone
 	measure("update", "balance of everyone", func() {
 		updates := 0
