@@ -48,18 +48,18 @@ func releaseTxn(txn *Txn) {
 
 // txnPool is a pool of transactions which are retained for the lifetime of the process.
 type txnPool struct {
-	pool chan *Txn
+	txns chan *Txn
 }
 
 func newTxnPool() *txnPool {
 	return &txnPool{
-		pool: make(chan *Txn, 1024), // Max transactions pooled
+		txns: make(chan *Txn, 1024), // Max transactions pooled
 	}
 }
 
 func (p *txnPool) acquire() (txn *Txn) {
 	select {
-	case txn = <-p.pool:
+	case txn = <-p.txns:
 	default:
 		txn = &Txn{
 			index:   make(bitmap.Bitmap, 0, 4),
@@ -75,7 +75,7 @@ func (p *txnPool) acquire() (txn *Txn) {
 
 func (p *txnPool) release(txn *Txn) {
 	select {
-	case p.pool <- txn: // put back in pool
+	case p.txns <- txn: // put back in pool
 	default: // Release back to the GC
 	}
 }
