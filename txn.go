@@ -407,19 +407,29 @@ func (txn *Txn) commit() {
 	txn.owner.fill.Grow(max)
 	txn.owner.lock.Unlock()
 
+	// Commit chunk by chunk to reduce lock contentions
 	var typ commit.Type
-
-	// TODO: collection lock so we only commit 1 txn at a time, but still allow
-	// concurrent reads
-
 	txn.commitEach(func(chunk uint32, fill bitmap.Bitmap) {
 		typ |= txn.commitDeletes(chunk, fill)
 		typ |= txn.commitInserts(chunk, fill)
 		typ |= txn.commitUpdates(chunk, max)
+
+		// TODO: stream commits in chunks to keep consistency ?
+		// need to test with MULTIPLE chunks (large collection)
+
+		if typ > 0 && txn.writer != nil {
+			txn.writer.Write(commit.Commit{
+				Type:    typ,
+				Dirty:   txn.dirty,
+				Inserts: txn.inserts,
+				Deletes: txn.deletes,
+				Updates: txn.updates,
+			})
+		}
 	})
 
 	// If there's a writer, write into it before we clean up the transaction
-	if typ > 0 && txn.writer != nil {
+	/*if typ > 0 && txn.writer != nil {
 		txn.writer.Write(commit.Commit{
 			Type:    typ,
 			Dirty:   txn.dirty,
@@ -427,7 +437,7 @@ func (txn *Txn) commit() {
 			Deletes: txn.deletes,
 			Updates: txn.updates,
 		})
-	}
+	}*/
 }
 
 // commitUpdates applies the pending updates to the collection.
@@ -489,10 +499,10 @@ func (txn *Txn) commitDeletes(chunk uint32, fill bitmap.Bitmap) commit.Type {
 	})
 
 	// Clear the items in the collection and reinitialize the purge list
-	txn.owner.lock.Lock()
+	//txn.owner.lock.Lock()
 	fill.AndNot(deletes)
 	atomic.StoreUint64(&txn.owner.count, uint64(txn.owner.fill.Count()))
-	txn.owner.lock.Unlock()
+	//txn.owner.lock.Unlock()
 	return commit.Delete
 }
 
@@ -513,9 +523,9 @@ func (txn *Txn) commitInserts(chunk uint32, fill bitmap.Bitmap) commit.Type {
 		return 0
 	}
 
-	txn.owner.lock.Lock()
+	//txn.owner.lock.Lock()
 	fill.Or(inserts)
 	atomic.StoreUint64(&txn.owner.count, uint64(txn.owner.fill.Count()))
-	txn.owner.lock.Unlock()
+	//txn.owner.lock.Unlock()
 	return commit.Insert
 }

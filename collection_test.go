@@ -228,12 +228,12 @@ func runReplication(t *testing.T, updates, inserts int) {
 				}
 
 				// Randomly delete an item
-				if rand.Int31n(100) == 0 {
+				if rand.Int31n(5) == 0 {
 					primary.DeleteAt(uint32(rand.Int31n(int32(inserts - 1))))
 				}
 
 				// Randomly insert an item
-				if rand.Int31n(100) == 0 {
+				if rand.Int31n(5) == 0 {
 					primary.Insert(object)
 				}
 			}()

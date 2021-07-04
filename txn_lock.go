@@ -57,16 +57,16 @@ func (txn *Txn) rlockEachPair(other bitmap.Bitmap, f func(a, b bitmap.Bitmap)) {
 
 func (txn *Txn) commitEach(f func(chunk uint32, fill bitmap.Bitmap)) {
 	lock := txn.owner.slock
-	fill := txn.owner.fill
-
 	txn.dirty.Range(func(chunk uint32) {
+		lock.Lock(uint(chunk))
+
+		// Calculate start+end
 		start, end := chunk<<chunkShift, (chunk+1)<<chunkShift
-		if capacity := uint32(len(fill)) << 6; capacity < end {
+		if capacity := uint32(len(txn.owner.fill)) << 6; capacity < end {
 			end = capacity
 		}
 
-		lock.Lock(uint(chunk))
-		f(chunk, fill[start>>6:end>>6])
+		f(chunk, txn.owner.fill[start>>6:end>>6])
 		lock.Unlock(uint(chunk))
 	})
 }
