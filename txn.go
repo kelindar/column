@@ -15,33 +15,20 @@ import (
 
 var txns = newTxnPool()
 
-// aquireBitmap acquires a transaction for a transaction
-func aquireTxn(owner *Collection) *Txn {
-	txn := txns.acquire()
-	txn.owner = owner
-	txn.columns = txn.columns[:0]
-	txn.writer = owner.writer
-	owner.fill.Clone(&txn.index)
-	return txn
-}
-
-// releaseTxn releases a transaction back to the pool
-func releaseTxn(txn *Txn) {
-	txns.release(txn)
-}
-
 // txnPool is a pool of transactions which are retained for the lifetime of the process.
 type txnPool struct {
-	txns chan *Txn
+	txns  chan *Txn
+	pages chan commit.Updates
 }
 
 func newTxnPool() *txnPool {
 	return &txnPool{
-		txns: make(chan *Txn, 1024), // Max transactions pooled
+		txns:  make(chan *Txn, 1024),           // Max transactions pooled
+		pages: make(chan commit.Updates, 1024), // Max scratch pages pooled
 	}
 }
 
-func (p *txnPool) acquire() (txn *Txn) {
+func (p *txnPool) acquire(owner *Collection) (txn *Txn) {
 	select {
 	case txn = <-p.txns:
 	default:
@@ -54,13 +41,41 @@ func (p *txnPool) acquire() (txn *Txn) {
 			columns: make([]columnCache, 0, 16),
 		}
 	}
+
+	// Initialize
+	txn.owner = owner
+	txn.columns = txn.columns[:0]
+	txn.writer = owner.writer
+	owner.fill.Clone(&txn.index)
+	return
+}
+
+// acquirePage acquires a new page for a particular column and initializes it
+func (p *txnPool) acquirePage(columnName string) (page commit.Updates) {
+	select {
+	case page = <-p.pages:
+	default:
+		page = commit.Updates{}
+	}
+
+	// Initialize
+	page.Column = columnName
+	page.Current = -1
+	page.Update = page.Update[:0]
+	page.Offsets = page.Offsets[:0]
 	return
 }
 
 func (p *txnPool) release(txn *Txn) {
+	for i := range txn.updates {
+		p.pages <- txn.updates[i]
+	}
+
+	// Release the transaction to the pool or the GC
+	txn.updates = txn.updates[:0]
 	select {
-	case p.txns <- txn: // put back in pool
-	default: // Release back to the GC
+	case p.txns <- txn:
+	default:
 	}
 }
 
@@ -372,6 +387,10 @@ func (txn *Txn) reset() {
 // a transaction in order to perform partial rollbacks.
 func (txn *Txn) rollback() {
 	txn.reset()
+}
+
+func (txn *Txn) release() {
+	txns.release(txn)
 }
 
 // Commit commits the transaction by applying all pending updates and deletes to

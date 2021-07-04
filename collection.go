@@ -247,20 +247,20 @@ func (c *Collection) Fetch(idx uint32) (Selector, bool) {
 // executed after the iteration.
 func (c *Collection) Query(fn func(txn *Txn) error) error {
 	c.lock.RLock()
-	txn := aquireTxn(c)
+	txn := txns.acquire(c)
 	c.lock.RUnlock()
 
 	// Execute the query and keep the error for later
 	if err := fn(txn); err != nil {
 		txn.rollback()
-		releaseTxn(txn)
+		txn.release()
 		return err
 	}
 
 	// Now that the iteration has finished, we can range over the pending action
 	// queue and apply all of the actions that were requested by the Selector.
 	txn.commit()
-	releaseTxn(txn)
+	txn.release()
 	return nil
 }
 

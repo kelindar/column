@@ -28,12 +28,7 @@ func (txn *Txn) cursorFor(columnName string) (Cursor, error) {
 	// Create a new update queue for the selected column
 	if updateQueueIndex == -1 {
 		updateQueueIndex = len(txn.updates)
-		txn.updates = append(txn.updates, commit.Updates{
-			Column:  columnName,
-			Current: -1,
-			Update:  make([]commit.Update, 0, 64),
-			Offsets: []int{},
-		})
+		txn.updates = append(txn.updates, txns.acquirePage(columnName))
 	}
 
 	// Create a Cursor
@@ -187,6 +182,7 @@ func (cur *Cursor) Add(amount interface{}) {
 		Index: cur.idx,
 		Value: amount,
 	})
+
 }
 
 // UpdateAt updates a specified column value for the current item. The actual operation
@@ -239,11 +235,9 @@ func (cur *Cursor) updateChunkAt(column string, idx uint32) int {
 	}
 
 	// Create a new update queue
-	cur.txn.updates = append(cur.txn.updates, commit.Updates{
-		Column:  column,
-		Current: int(chunk),
-		Update:  make([]commit.Update, 0, 64),
-		Offsets: []int{0},
-	})
+	page := txns.acquirePage(column)
+	page.Offsets = append(page.Offsets, 0)
+	page.Current = int(chunk)
+	cur.txn.updates = append(cur.txn.updates, page)
 	return len(cur.txn.updates) - 1
 }

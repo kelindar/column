@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	amount, runs := 20000000, 50
+	amount, runs := 1000000, 5000
 	players := column.NewCollection(column.Options{
 		Capacity: amount,
 	})
