@@ -13,8 +13,6 @@ import (
 
 // --------------------------- Pool of Transactions ----------------------------
 
-var txns = newTxnPool()
-
 // txnPool is a pool of transactions which are retained for the lifetime of the process.
 type txnPool struct {
 	txns  chan *Txn
@@ -23,8 +21,8 @@ type txnPool struct {
 
 func newTxnPool() *txnPool {
 	return &txnPool{
-		txns:  make(chan *Txn, 1024),           // Max transactions pooled
-		pages: make(chan commit.Updates, 2048), // Max scratch pages pooled
+		txns:  make(chan *Txn, 256),            // Max transactions pooled
+		pages: make(chan commit.Updates, 1024), // Max scratch pages pooled
 	}
 }
 
@@ -393,7 +391,7 @@ func (txn *Txn) rollback() {
 }
 
 func (txn *Txn) release() {
-	txns.release(txn)
+	txn.owner.txns.release(txn)
 }
 
 // Commit commits the transaction by applying all pending updates and deletes to

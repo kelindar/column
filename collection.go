@@ -26,9 +26,10 @@ const (
 
 // Collection represents a collection of objects in a columnar format
 type Collection struct {
-	count  uint64       // The current count of elements
-	lock   sync.RWMutex // The global lock for both fill-list & transactions
-	slock  *smutex.SMutex128
+	count  uint64             // The current count of elements
+	txns   *txnPool           // The transaction pool
+	lock   sync.RWMutex       // The mutex to guard the fill-list
+	slock  *smutex.SMutex128  // The sharded mutex for the collection
 	cols   columns            // The map of columns
 	fill   bitmap.Bitmap      // The fill-list
 	size   int                // The initial size for new columns
@@ -68,6 +69,7 @@ func NewCollection(opts ...Options) *Collection {
 	ctx, cancel := context.WithCancel(context.Background())
 	store := &Collection{
 		cols:   makeColumns(8),
+		txns:   newTxnPool(),
 		size:   options.Capacity,
 		slock:  new(smutex.SMutex128),
 		fill:   make(bitmap.Bitmap, 0, options.Capacity>>6),
@@ -247,7 +249,7 @@ func (c *Collection) Fetch(idx uint32) (Selector, bool) {
 // executed after the iteration.
 func (c *Collection) Query(fn func(txn *Txn) error) error {
 	c.lock.RLock()
-	txn := txns.acquire(c)
+	txn := c.txns.acquire(c)
 	c.lock.RUnlock()
 
 	// Execute the query and keep the error for later
@@ -314,7 +316,7 @@ func (c *Collection) Replay(change commit.Commit) error {
 				}
 
 				// Add a new update queue
-				page := txns.acquirePage(log.Column)
+				page := c.txns.acquirePage(log.Column)
 				page.Offsets = append(page.Offsets, log.Offsets...)
 				page.Update = append(page.Update, log.Update...)
 

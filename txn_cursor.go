@@ -28,7 +28,7 @@ func (txn *Txn) cursorFor(columnName string) (Cursor, error) {
 	// Create a new update queue for the selected column
 	if updateQueueIndex == -1 {
 		updateQueueIndex = len(txn.updates)
-		txn.updates = append(txn.updates, txns.acquirePage(columnName))
+		txn.updates = append(txn.updates, txn.owner.txns.acquirePage(columnName))
 	}
 
 	// Create a Cursor
@@ -235,7 +235,7 @@ func (cur *Cursor) updateChunkAt(column string, idx uint32) int {
 	}
 
 	// Create a new update queue
-	page := txns.acquirePage(column)
+	page := cur.txn.owner.txns.acquirePage(column)
 	page.Offsets = append(page.Offsets, 0)
 	page.Current = int(chunk)
 	cur.txn.updates = append(cur.txn.updates, page)

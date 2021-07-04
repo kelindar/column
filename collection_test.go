@@ -168,7 +168,7 @@ func BenchmarkCollection(b *testing.B) {
 func TestReplicate(t *testing.T) {
 	for x := 0; x < 20; x++ {
 		rand.Seed(int64(x))
-		runReplication(t, 5000, 50)
+		runReplication(t, 10000, 500)
 	}
 }
 
