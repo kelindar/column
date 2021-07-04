@@ -19,8 +19,9 @@ func TestCommits(t *testing.T) {
 	commit2 := Commit{
 		Type: Store,
 		Updates: []Updates{{
-			Column: "test",
-			Update: []Update{{Type: Put, Index: 5, Value: "hi"}},
+			Column:  "test",
+			Offsets: []int{0},
+			Update:  []Update{{Type: Put, Index: 5, Value: "hi"}},
 		}},
 	}
 	commit3 := Commit{

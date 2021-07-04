@@ -294,6 +294,7 @@ func (c *Collection) vacuum(ctx context.Context, interval time.Duration) {
 // Replay replays a commit on a collection, applying the changes.
 func (c *Collection) Replay(change commit.Commit) error {
 	return c.Query(func(txn *Txn) error {
+		change.Dirty.Clone(&txn.dirty)
 
 		// If the change contains deletes, add them to the transaction
 		if change.Is(commit.Delete) {
@@ -308,25 +309,16 @@ func (c *Collection) Replay(change commit.Commit) error {
 		// If the change contains updates, add them to the transaction
 		if change.Is(commit.Store) {
 			for _, log := range change.Updates {
-
-				// If we already  have an existing update queue, append to that
-				for i, c := range txn.updates {
-					if c.Column == log.Column {
-						txn.updates[i].Update = append(txn.updates[i].Update, log.Update...)
-						return nil
-					}
+				if len(log.Update) == 0 {
+					continue
 				}
 
-				// Create a new update queue, we need to copy all of the updates since both
-				// transaction and commits are pooled.
-				updates := make([]commit.Update, 0, len(change.Updates))
-				updates = append(updates, log.Update...)
-
 				// Add a new update queue
-				txn.updates = append(txn.updates, commit.Updates{
-					Column: log.Column,
-					Update: updates,
-				})
+				page := txns.acquirePage(log.Column)
+				page.Offsets = append(page.Offsets, log.Offsets...)
+				page.Update = append(page.Update, log.Update...)
+
+				txn.updates = append(txn.updates, page)
 			}
 		}
 		return nil

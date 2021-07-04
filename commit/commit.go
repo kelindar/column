@@ -76,6 +76,7 @@ func (t Type) String() (op string) {
 type Commit struct {
 	Type    Type          // The type of the commit
 	Updates []Updates     // The update list
+	Dirty   bitmap.Bitmap // The dirty bitmap (TODO: rebuild instead?)
 	Deletes bitmap.Bitmap // The delete list
 	Inserts bitmap.Bitmap // The insert list
 }
@@ -90,13 +91,17 @@ func (c *Commit) Clone() (clone Commit) {
 	clone.Type = c.Type
 	clone.Deletes = append(clone.Deletes, c.Deletes...)
 	clone.Inserts = append(clone.Inserts, c.Inserts...)
+	clone.Dirty = append(clone.Dirty, c.Dirty...)
 	for _, u := range c.Updates {
 		if len(u.Update) > 0 {
-			ops := make([]Update, 0, len(u.Update))
-			ops = append(ops, u.Update...)
+			updates := make([]Update, 0, len(u.Update))
+			updates = append(updates, u.Update...)
+			offsets := make([]int, 0, len(u.Offsets))
+			offsets = append(offsets, u.Offsets...)
 			clone.Updates = append(clone.Updates, Updates{
-				Column: u.Column,
-				Update: ops,
+				Column:  u.Column,
+				Offsets: offsets,
+				Update:  updates,
 			})
 		}
 	}

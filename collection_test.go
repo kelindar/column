@@ -33,15 +33,15 @@ BenchmarkCollection/delete-all-8     	  189722	      6322 ns/op	       0 B/op	  
 
 /*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkCollection/insert-8         	 3421657	       353.1 ns/op	      27 B/op	       0 allocs/op
-BenchmarkCollection/fetch-8          	26670814	        44.16 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/scan-8           	    1816	    716519 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/count-8          	  725732	      1628 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/range-8          	    9998	    110163 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/update-at-8      	  768408	      1567 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/update-all-8     	     820	   1459053 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/delete-at-8      	 4854488	       244.9 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/delete-all-8     	  855492	      1301 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/insert-8         	 3911895	       308.1 ns/op	      27 B/op	       0 allocs/op
+BenchmarkCollection/fetch-8          	27249936	        43.95 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/scan-8           	    1810	    697293 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/count-8          	  724178	      1608 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/range-8          	   10000	    106545 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/update-at-8      	 2748211	       440.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/update-all-8     	     831	   1446154 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/delete-at-8      	 4934883	       243.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/delete-all-8     	  923438	      1301 ns/op	       0 B/op	       0 allocs/op
 */
 func BenchmarkCollection(b *testing.B) {
 	amount := 100000
@@ -165,8 +165,9 @@ func BenchmarkCollection(b *testing.B) {
 }
 
 // Test replication many times
-func xTestReplicate(t *testing.T) {
+func TestReplicate(t *testing.T) {
 	for x := 0; x < 20; x++ {
+		rand.Seed(int64(x))
 		runReplication(t, 5000, 50)
 	}
 }
@@ -197,7 +198,7 @@ func runReplication(t *testing.T, updates, inserts int) {
 		var done sync.WaitGroup
 		done.Add(1)
 		go func() {
-			defer done.Done()
+			defer done.Done() // Drained
 			for change := range writer {
 				assert.NoError(t, replica.Replay(change))
 			}
@@ -249,12 +250,14 @@ func runReplication(t *testing.T, updates, inserts int) {
 			return txn.Range("float64", func(v Cursor) {
 				v1, v2 := v.FloatAt("float64"), v.IntAt("int32")
 				if v1 != 0 {
-					clone, _ := replica.Fetch(v.idx)
+					clone, ok := replica.Fetch(v.idx)
+					assert.True(t, ok)
 					assert.Equal(t, v.FloatAt("float64"), clone.FloatAt("float64"))
 				}
 
 				if v2 != 0 {
-					clone, _ := replica.Fetch(v.idx)
+					clone, ok := replica.Fetch(v.idx)
+					assert.True(t, ok)
 					assert.Equal(t, v.IntAt("int32"), clone.IntAt("int32"))
 				}
 			})

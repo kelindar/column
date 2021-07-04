@@ -24,7 +24,7 @@ type txnPool struct {
 func newTxnPool() *txnPool {
 	return &txnPool{
 		txns:  make(chan *Txn, 1024),           // Max transactions pooled
-		pages: make(chan commit.Updates, 1024), // Max scratch pages pooled
+		pages: make(chan commit.Updates, 2048), // Max scratch pages pooled
 	}
 }
 
@@ -68,7 +68,10 @@ func (p *txnPool) acquirePage(columnName string) (page commit.Updates) {
 
 func (p *txnPool) release(txn *Txn) {
 	for i := range txn.updates {
-		p.pages <- txn.updates[i]
+		select {
+		case p.pages <- txn.updates[i]:
+		default:
+		}
 	}
 
 	// Release the transaction to the pool or the GC
@@ -400,13 +403,16 @@ func (txn *Txn) release() {
 func (txn *Txn) commit() {
 	defer txn.reset()
 
+	// Grow the size of the fill list
 	max, _ := txn.inserts.Max()
+	txn.owner.lock.Lock()
+	txn.owner.fill.Grow(max)
+	txn.owner.lock.Unlock()
+
 	var typ commit.Type
 
 	// TODO: collection lock so we only commit 1 txn at a time, but still allow
 	// concurrent reads
-
-	//fmt.Printf("Committing %d inserts, %d deletes\n", txn.inserts.Count(), txn.deletes.Count())
 
 	txn.commitEach(func(chunk uint32, fill bitmap.Bitmap) {
 		typ |= txn.commitDeletes(chunk, fill)
@@ -418,6 +424,7 @@ func (txn *Txn) commit() {
 	if typ > 0 && txn.writer != nil {
 		txn.writer.Write(commit.Commit{
 			Type:    typ,
+			Dirty:   txn.dirty,
 			Inserts: txn.inserts,
 			Deletes: txn.deletes,
 			Updates: txn.updates,
@@ -442,7 +449,7 @@ func (txn *Txn) commitUpdates(chunk, max uint32) (typ commit.Type) {
 		typ |= commit.Store
 		for i, offset := range u.Offsets {
 			if (u.Update[offset].Index >> chunkShift) != chunk {
-				continue // Not the right chunk
+				continue // Not the right chunk (TODO: optimize)
 			}
 
 			// Find the next offset
@@ -465,7 +472,7 @@ func (txn *Txn) commitUpdates(chunk, max uint32) (typ commit.Type) {
 // commitDeletes removes all of the entries marked as to be deleted
 func (txn *Txn) commitDeletes(chunk uint32, fill bitmap.Bitmap) commit.Type {
 	at := int(chunk << (chunkShift - 6))
-	if len(txn.deletes) < at {
+	if len(txn.deletes) <= at {
 		return 0 // Nothing to delete
 	}
 
@@ -473,6 +480,10 @@ func (txn *Txn) commitDeletes(chunk uint32, fill bitmap.Bitmap) commit.Type {
 	deletes := txn.deletes[at:]
 	if len(deletes) > at+len(fill) {
 		deletes = txn.deletes[at : at+len(fill)]
+	}
+
+	if deletes.Count() == 0 {
+		return 0
 	}
 
 	txn.owner.cols.Range(func(column *column) {
@@ -491,13 +502,17 @@ func (txn *Txn) commitDeletes(chunk uint32, fill bitmap.Bitmap) commit.Type {
 // visible by setting the fill list atomically in the collection.
 func (txn *Txn) commitInserts(chunk uint32, fill bitmap.Bitmap) commit.Type {
 	at := int(chunk << (chunkShift - 6))
-	if len(txn.inserts) < at {
+	if len(txn.inserts) <= at {
 		return 0
 	}
 
 	inserts := txn.inserts[at:]
 	if len(inserts) > at+len(fill) {
 		inserts = txn.inserts[at : at+len(fill)]
+	}
+
+	if inserts.Count() == 0 {
+		return 0
 	}
 
 	txn.owner.lock.Lock()
