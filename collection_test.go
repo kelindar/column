@@ -165,7 +165,7 @@ func BenchmarkCollection(b *testing.B) {
 }
 
 // Test replication many times
-func testReplicate(t *testing.T) {
+func xTestReplicate(t *testing.T) {
 	for x := 0; x < 20; x++ {
 		runReplication(t, 5000, 50)
 	}

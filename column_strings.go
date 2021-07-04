@@ -42,6 +42,7 @@ func (c *columnEnum) Grow(idx uint32) {
 	}
 
 	if idx < uint32(cap(c.locs)) {
+		c.fill.Grow(idx)
 		c.locs = c.locs[:idx+1]
 		return
 	}

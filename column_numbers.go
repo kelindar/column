@@ -32,6 +32,7 @@ func (c *columnFloat32) Grow(idx uint32) {
 	}
 
 	if idx < uint32(cap(c.data)) {
+		c.fill.Grow(idx)
 		c.data = c.data[:idx+1]
 		return
 	}
@@ -165,6 +166,7 @@ func (c *columnFloat64) Grow(idx uint32) {
 	}
 
 	if idx < uint32(cap(c.data)) {
+		c.fill.Grow(idx)
 		c.data = c.data[:idx+1]
 		return
 	}
@@ -298,6 +300,7 @@ func (c *columnInt) Grow(idx uint32) {
 	}
 
 	if idx < uint32(cap(c.data)) {
+		c.fill.Grow(idx)
 		c.data = c.data[:idx+1]
 		return
 	}
@@ -431,6 +434,7 @@ func (c *columnInt16) Grow(idx uint32) {
 	}
 
 	if idx < uint32(cap(c.data)) {
+		c.fill.Grow(idx)
 		c.data = c.data[:idx+1]
 		return
 	}
@@ -564,6 +568,7 @@ func (c *columnInt32) Grow(idx uint32) {
 	}
 
 	if idx < uint32(cap(c.data)) {
+		c.fill.Grow(idx)
 		c.data = c.data[:idx+1]
 		return
 	}
@@ -697,6 +702,7 @@ func (c *columnInt64) Grow(idx uint32) {
 	}
 
 	if idx < uint32(cap(c.data)) {
+		c.fill.Grow(idx)
 		c.data = c.data[:idx+1]
 		return
 	}
@@ -830,6 +836,7 @@ func (c *columnUint) Grow(idx uint32) {
 	}
 
 	if idx < uint32(cap(c.data)) {
+		c.fill.Grow(idx)
 		c.data = c.data[:idx+1]
 		return
 	}
@@ -963,6 +970,7 @@ func (c *columnUint16) Grow(idx uint32) {
 	}
 
 	if idx < uint32(cap(c.data)) {
+		c.fill.Grow(idx)
 		c.data = c.data[:idx+1]
 		return
 	}
@@ -1096,6 +1104,7 @@ func (c *columnUint32) Grow(idx uint32) {
 	}
 
 	if idx < uint32(cap(c.data)) {
+		c.fill.Grow(idx)
 		c.data = c.data[:idx+1]
 		return
 	}
@@ -1229,6 +1238,7 @@ func (c *columnUint64) Grow(idx uint32) {
 	}
 
 	if idx < uint32(cap(c.data)) {
+		c.fill.Grow(idx)
 		c.data = c.data[:idx+1]
 		return
 	}

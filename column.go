@@ -214,6 +214,7 @@ func (c *columnAny) Grow(idx uint32) {
 	}
 
 	if idx < uint32(cap(c.data)) {
+		c.fill.Grow(idx)
 		c.data = c.data[:idx+1]
 		return
 	}
