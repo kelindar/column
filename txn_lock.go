@@ -14,59 +14,63 @@ const (
 	chunkSize   = 1 << chunkShift
 )
 
+// chunkOf returns a part of a bitmap for the corresponding chunk
+func chunkOf(v bitmap.Bitmap, chunk uint32) bitmap.Bitmap {
+	const shift = chunkShift - 6
+	x1 := min(int32(chunk+1)<<shift, int32(len(v)))
+	x0 := min(int32(chunk)<<shift, x1)
+	return v[x0:x1]
+}
+
+// min returns a minimum of two numbers. Note that the Go compiler optimises it into
+// a branchless version (see https://github.com/golang/go/issues/11813) but for we
+// use this for stability (https://graphics.stanford.edu/~seander/bithacks.html)
+func min(v1, v2 int32) int32 {
+	return v2 + ((v1 - v2) & ((v1 - v2) >> 31))
+}
+
 // --------------------------- Locked Range ---------------------------
 
-// rlockEach iterates over index, chunk by chunk and ensures that each
+// rangeRead iterates over index, chunk by chunk and ensures that each
 // chunk is protected by an appropriate read lock.
-func (txn *Txn) rlockEach(f func(offset uint32, index bitmap.Bitmap)) {
+func (txn *Txn) rangeRead(f func(offset uint32, index bitmap.Bitmap)) {
 	limit := uint32(len(txn.index) >> bitmapShift)
 	lock := txn.owner.slock
 
 	for chunk := uint32(0); chunk <= limit; chunk++ {
-		at := chunk << bitmapShift
-		fill := txn.index[at:]
-		if len(fill) > bitmapSize {
-			fill = txn.index[at : at+bitmapSize]
-		}
-
 		lock.RLock(uint(chunk))
-		f(chunk<<chunkShift, fill)
+		f(chunk<<chunkShift, chunkOf(txn.index, chunk))
 		lock.RUnlock(uint(chunk))
 	}
 }
 
-// rlockEachPair iterates over the index and another bitmap, chunk by chunk and
+// rangeReadPair iterates over the index and another bitmap, chunk by chunk and
 // ensures that each chunk is protected by an appropriate read lock.
-func (txn *Txn) rlockEachPair(other bitmap.Bitmap, f func(a, b bitmap.Bitmap)) {
+func (txn *Txn) rangeReadPair(other bitmap.Bitmap, f func(a, b bitmap.Bitmap)) {
 	limit := uint32(len(txn.index) >> bitmapShift)
 	lock := txn.owner.slock
 
 	for chunk := uint32(0); chunk <= limit; chunk++ {
-		at := chunk << bitmapShift
-		dst, src := txn.index[at:], other[at:]
-		if len(dst) > bitmapSize {
-			dst = txn.index[at : at+bitmapSize]
-			src = other[at : at+bitmapSize]
-		}
-
 		lock.RLock(uint(chunk))
-		f(dst, src)
+		f(chunkOf(txn.index, chunk), chunkOf(other, chunk))
 		lock.RUnlock(uint(chunk))
 	}
 }
 
-func (txn *Txn) commitEach(f func(chunk uint32, fill bitmap.Bitmap)) {
+// rangeWrite ranges over the dirty chunks and acquires exclusive latches along
+// the way. This is used to commit a transaction.
+func (txn *Txn) rangeWrite(f func(chunk uint32, fill bitmap.Bitmap)) {
 	lock := txn.owner.slock
 	txn.dirty.Range(func(chunk uint32) {
 		lock.Lock(uint(chunk))
 
-		// Calculate start+end
-		start, end := chunk<<chunkShift, (chunk+1)<<chunkShift
-		if capacity := uint32(len(txn.owner.fill)) << 6; capacity < end {
-			end = capacity
-		}
+		// Compute the fill
+		txn.owner.lock.Lock()
+		fill := chunkOf(txn.owner.fill, chunk)
+		txn.owner.lock.Unlock()
 
-		f(chunk, txn.owner.fill[start>>6:end>>6])
+		// Call the delegate
+		f(chunk, fill)
 		lock.Unlock(uint(chunk))
 	})
 }

@@ -29,6 +29,28 @@ func BenchmarkColumn(b *testing.B) {
 			p.Value(5)
 		}
 	})
+
+	var temp bitmap.Bitmap
+	temp.Grow(2 * chunkSize)
+	b.Run("chunkOf", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			for i := 0; i < 100; i++ {
+				chunkOf(temp, 1)
+				chunkOf(temp, 1)
+				chunkOf(temp, 1)
+				chunkOf(temp, 1)
+				chunkOf(temp, 1)
+				chunkOf(temp, 1)
+				chunkOf(temp, 1)
+				chunkOf(temp, 1)
+				chunkOf(temp, 1)
+				chunkOf(temp, 1)
+			}
+		}
+	})
+
 }
 
 func TestColumns(t *testing.T) {

@@ -127,7 +127,7 @@ func (txn *Txn) columnAt(columnName string) (*column, bool) {
 func (txn *Txn) With(columns ...string) *Txn {
 	for _, columnName := range columns {
 		if idx, ok := txn.columnAt(columnName); ok {
-			txn.rlockEachPair(*idx.Column.Index(), func(dst, src bitmap.Bitmap) {
+			txn.rangeReadPair(*idx.Column.Index(), func(dst, src bitmap.Bitmap) {
 				dst.And(src)
 			})
 		} else {
@@ -141,7 +141,7 @@ func (txn *Txn) With(columns ...string) *Txn {
 func (txn *Txn) Without(columns ...string) *Txn {
 	for _, columnName := range columns {
 		if idx, ok := txn.columnAt(columnName); ok {
-			txn.rlockEachPair(*idx.Column.Index(), func(dst, src bitmap.Bitmap) {
+			txn.rangeReadPair(*idx.Column.Index(), func(dst, src bitmap.Bitmap) {
 				dst.AndNot(src)
 			})
 		}
@@ -153,7 +153,7 @@ func (txn *Txn) Without(columns ...string) *Txn {
 func (txn *Txn) Union(columns ...string) *Txn {
 	for _, columnName := range columns {
 		if idx, ok := txn.columnAt(columnName); ok {
-			txn.rlockEachPair(*idx.Column.Index(), func(dst, src bitmap.Bitmap) {
+			txn.rangeReadPair(*idx.Column.Index(), func(dst, src bitmap.Bitmap) {
 				dst.Or(src)
 			})
 		}
@@ -170,7 +170,7 @@ func (txn *Txn) WithValue(column string, predicate func(v interface{}) bool) *Tx
 		return txn
 	}
 
-	txn.rlockEach(func(_ uint32, index bitmap.Bitmap) {
+	txn.rangeRead(func(_ uint32, index bitmap.Bitmap) {
 		index.Filter(func(x uint32) (match bool) {
 			if v, ok := c.Value(x); ok {
 				match = predicate(v)
@@ -196,7 +196,7 @@ func (txn *Txn) WithFloat(column string, predicate func(v float64) bool) *Txn {
 	.\txn.go:187:31: index escapes to heap:
 	.\txn.go:202:31: index escapes to heap:
 	*/
-	txn.rlockEach(func(offset uint32, index bitmap.Bitmap) {
+	txn.rangeRead(func(offset uint32, index bitmap.Bitmap) {
 		c.Column.(Numeric).FilterFloat64(offset, index, predicate)
 	})
 	return txn
@@ -211,7 +211,7 @@ func (txn *Txn) WithInt(column string, predicate func(v int64) bool) *Txn {
 		return txn
 	}
 
-	txn.rlockEach(func(offset uint32, index bitmap.Bitmap) {
+	txn.rangeRead(func(offset uint32, index bitmap.Bitmap) {
 		c.Column.(Numeric).FilterInt64(offset, index, predicate)
 	})
 	return txn
@@ -226,7 +226,7 @@ func (txn *Txn) WithUint(column string, predicate func(v uint64) bool) *Txn {
 		return txn
 	}
 
-	txn.rlockEach(func(offset uint32, index bitmap.Bitmap) {
+	txn.rangeRead(func(offset uint32, index bitmap.Bitmap) {
 		c.Column.(Numeric).FilterUint64(offset, index, predicate)
 	})
 	return txn
@@ -241,7 +241,7 @@ func (txn *Txn) WithString(column string, predicate func(v string) bool) *Txn {
 		return txn
 	}
 
-	txn.rlockEach(func(offset uint32, index bitmap.Bitmap) {
+	txn.rangeRead(func(offset uint32, index bitmap.Bitmap) {
 		c.Column.(Textual).FilterString(offset, index, predicate)
 	})
 	return txn
@@ -320,7 +320,7 @@ func (txn *Txn) insert(object Object, expireAt int64) uint32 {
 // is flexible, it is not the most efficient way, consider Range() as an alternative
 // iteration method over a specific column which also supports modification.
 func (txn *Txn) Select(fn func(v Selector)) {
-	txn.rlockEach(func(offset uint32, index bitmap.Bitmap) {
+	txn.rangeRead(func(offset uint32, index bitmap.Bitmap) {
 		index.Range(func(x uint32) {
 			fn(Selector{
 				idx: offset + x,
@@ -361,7 +361,7 @@ func (txn *Txn) Range(column string, fn func(v Cursor)) error {
 		return err
 	}
 
-	txn.rlockEach(func(offset uint32, index bitmap.Bitmap) {
+	txn.rangeRead(func(offset uint32, index bitmap.Bitmap) {
 		index.Range(func(x uint32) {
 			cur.idx = offset + x
 			fn(cur)
@@ -409,7 +409,7 @@ func (txn *Txn) commit() {
 
 	// Commit chunk by chunk to reduce lock contentions
 	var typ commit.Type
-	txn.commitEach(func(chunk uint32, fill bitmap.Bitmap) {
+	txn.rangeWrite(func(chunk uint32, fill bitmap.Bitmap) {
 		typ |= txn.commitDeletes(chunk, fill)
 		typ |= txn.commitInserts(chunk, fill)
 		typ |= txn.commitUpdates(chunk, max)
@@ -499,10 +499,10 @@ func (txn *Txn) commitDeletes(chunk uint32, fill bitmap.Bitmap) commit.Type {
 	})
 
 	// Clear the items in the collection and reinitialize the purge list
-	//txn.owner.lock.Lock()
+	txn.owner.lock.Lock()
 	fill.AndNot(deletes)
 	atomic.StoreUint64(&txn.owner.count, uint64(txn.owner.fill.Count()))
-	//txn.owner.lock.Unlock()
+	txn.owner.lock.Unlock()
 	return commit.Delete
 }
 
@@ -523,9 +523,9 @@ func (txn *Txn) commitInserts(chunk uint32, fill bitmap.Bitmap) commit.Type {
 		return 0
 	}
 
-	//txn.owner.lock.Lock()
+	txn.owner.lock.Lock()
 	fill.Or(inserts)
 	atomic.StoreUint64(&txn.owner.count, uint64(txn.owner.fill.Count()))
-	//txn.owner.lock.Unlock()
+	txn.owner.lock.Unlock()
 	return commit.Insert
 }
