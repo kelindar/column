@@ -410,8 +410,12 @@ func (txn *Txn) commit() {
 	// Commit chunk by chunk to reduce lock contentions
 	var typ commit.Type
 	txn.rangeWrite(func(chunk uint32, fill bitmap.Bitmap) {
-		typ |= txn.commitDeletes(chunk, fill)
-		typ |= txn.commitInserts(chunk, fill)
+		deletes := chunkOf(txn.deletes, chunk)
+		inserts := chunkOf(txn.inserts, chunk)
+
+		//typ |= txn.commitDeletes(chunk, fill)
+		//typ |= txn.commitInserts(chunk, fill)
+		typ |= txn.commitBitmaps(chunk, fill, deletes, inserts)
 		typ |= txn.commitUpdates(chunk, max)
 
 		// TODO: stream commits in chunks to keep consistency ?
@@ -422,8 +426,8 @@ func (txn *Txn) commit() {
 				Type:    typ,
 				Chunk:   chunk,
 				Dirty:   txn.dirty,
-				Inserts: txn.inserts,
-				Deletes: txn.deletes,
+				Inserts: inserts,
+				Deletes: deletes,
 				Updates: txn.updates,
 			})
 		}
@@ -478,55 +482,28 @@ func (txn *Txn) commitUpdates(chunk, max uint32) (typ commit.Type) {
 	return
 }
 
-// commitDeletes removes all of the entries marked as to be deleted
-func (txn *Txn) commitDeletes(chunk uint32, fill bitmap.Bitmap) commit.Type {
-	at := int(chunk << (chunkShift - 6))
-	if len(txn.deletes) <= at {
-		return 0 // Nothing to delete
+func (txn *Txn) commitBitmaps(chunk uint32, fill, deletes, inserts bitmap.Bitmap) (typ commit.Type) {
+	if len(inserts) > 0 {
+		typ |= commit.Insert
 	}
 
-	// Apply a batch delete on all of the columns
-	deletes := txn.deletes[at:]
-	if len(deletes) > at+len(fill) {
-		deletes = txn.deletes[at : at+len(fill)]
+	if len(deletes) > 0 {
+		typ |= commit.Delete
+		at := int(chunk << (chunkShift - 6))
+		txn.owner.cols.Range(func(column *column) {
+			column.Delete(at, deletes)
+		})
 	}
 
-	if deletes.Count() == 0 {
-		return 0
+	if typ == 0 {
+		return
 	}
 
-	txn.owner.cols.Range(func(column *column) {
-		column.Delete(at, deletes)
-	})
-
-	// Clear the items in the collection and reinitialize the purge list
 	txn.owner.lock.Lock()
 	fill.AndNot(deletes)
-	atomic.StoreUint64(&txn.owner.count, uint64(txn.owner.fill.Count()))
-	txn.owner.lock.Unlock()
-	return commit.Delete
-}
-
-// commitInserts inserts all of the entries marked as to be inserted. This just makes them
-// visible by setting the fill list atomically in the collection.
-func (txn *Txn) commitInserts(chunk uint32, fill bitmap.Bitmap) commit.Type {
-	at := int(chunk << (chunkShift - 6))
-	if len(txn.inserts) <= at {
-		return 0
-	}
-
-	inserts := txn.inserts[at:]
-	if len(inserts) > at+len(fill) {
-		inserts = txn.inserts[at : at+len(fill)]
-	}
-
-	if inserts.Count() == 0 {
-		return 0
-	}
-
-	txn.owner.lock.Lock()
 	fill.Or(inserts)
 	atomic.StoreUint64(&txn.owner.count, uint64(txn.owner.fill.Count()))
 	txn.owner.lock.Unlock()
-	return commit.Insert
+
+	return
 }
