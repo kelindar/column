@@ -10,11 +10,13 @@ import (
 	"math"
 	"math/rand"
 	"os"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/kelindar/async"
 	"github.com/kelindar/column/commit"
 	"github.com/stretchr/testify/assert"
 )
@@ -168,12 +170,12 @@ func BenchmarkCollection(b *testing.B) {
 func TestReplicate(t *testing.T) {
 	for x := 0; x < 20; x++ {
 		rand.Seed(int64(x))
-		runReplication(t, 10000, 500)
+		runReplication(t, 10000, 50, runtime.NumCPU())
 	}
 }
 
 // runReplication runs a concurrent replication test
-func runReplication(t *testing.T, updates, inserts int) {
+func runReplication(t *testing.T, updates, inserts, concurrency int) {
 	t.Run(fmt.Sprintf("replicate-%v-%v", updates, inserts), func(t *testing.T) {
 		writer := make(commit.Channel, 1024)
 		object := map[string]interface{}{
@@ -209,11 +211,15 @@ func runReplication(t *testing.T, updates, inserts int) {
 			primary.Insert(object)
 		}
 
+		work := make(chan async.Task)
+		pool := async.Consume(context.Background(), 50, work)
+		defer pool.Cancel()
+
 		// Random concurrent updates
 		var wg sync.WaitGroup
 		wg.Add(updates)
 		for i := 0; i < updates; i++ {
-			go func() {
+			work <- async.NewTask(func(ctx context.Context) (interface{}, error) {
 				defer wg.Done()
 
 				// Randomly update a column
@@ -236,7 +242,8 @@ func runReplication(t *testing.T, updates, inserts int) {
 				if rand.Int31n(5) == 0 {
 					primary.Insert(object)
 				}
-			}()
+				return nil, nil
+			})
 		}
 
 		// Replay all of the changes into the replica
