@@ -20,7 +20,7 @@ func TestCommits(t *testing.T) {
 		Type: Store,
 		Updates: []Updates{{
 			Column:  "test",
-			Offsets: []int{0},
+			Offsets: []int32{0},
 			Update:  []Update{{Type: Put, Index: 5, Value: "hi"}},
 		}},
 	}

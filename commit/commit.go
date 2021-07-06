@@ -31,7 +31,7 @@ type Update struct {
 type Updates struct {
 	Column  string   // The column name
 	Update  []Update // The update queue
-	Offsets []int    // The offsets of chunks
+	Offsets []int32  // The offsets of chunks
 	Current int      // The current chunk
 }
 
@@ -75,6 +75,7 @@ func (t Type) String() (op string) {
 // in the same transaction, it would result in multiple commits per transaction.
 type Commit struct {
 	Type    Type          // The type of the commit
+	Chunk   uint32        // The chunk number
 	Updates []Updates     // The update list
 	Dirty   bitmap.Bitmap // The dirty bitmap (TODO: rebuild instead?)
 	Deletes bitmap.Bitmap // The delete list
@@ -89,6 +90,7 @@ func (c *Commit) Is(t Type) bool {
 // Clone clones a commit into a new one
 func (c *Commit) Clone() (clone Commit) {
 	clone.Type = c.Type
+	clone.Chunk = c.Chunk
 	clone.Deletes = append(clone.Deletes, c.Deletes...)
 	clone.Inserts = append(clone.Inserts, c.Inserts...)
 	clone.Dirty = append(clone.Dirty, c.Dirty...)
@@ -96,7 +98,7 @@ func (c *Commit) Clone() (clone Commit) {
 		if len(u.Update) > 0 {
 			updates := make([]Update, 0, len(u.Update))
 			updates = append(updates, u.Update...)
-			offsets := make([]int, 0, len(u.Offsets))
+			offsets := make([]int32, 0, len(u.Offsets))
 			offsets = append(offsets, u.Offsets...)
 			clone.Updates = append(clone.Updates, Updates{
 				Column:  u.Column,

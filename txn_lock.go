@@ -22,9 +22,7 @@ func chunkOf(v bitmap.Bitmap, chunk uint32) bitmap.Bitmap {
 	return v[x0:x1]
 }
 
-// min returns a minimum of two numbers. Note that the Go compiler optimises it into
-// a branchless version (see https://github.com/golang/go/issues/11813) but for we
-// use this for stability (https://graphics.stanford.edu/~seander/bithacks.html)
+// min returns a minimum of two numbers without branches.
 func min(v1, v2 int32) int32 {
 	return v2 + ((v1 - v2) & ((v1 - v2) >> 31))
 }

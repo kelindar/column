@@ -420,6 +420,7 @@ func (txn *Txn) commit() {
 		if typ > 0 && txn.writer != nil {
 			txn.writer.Write(commit.Commit{
 				Type:    typ,
+				Chunk:   chunk,
 				Dirty:   txn.dirty,
 				Inserts: txn.inserts,
 				Deletes: txn.deletes,

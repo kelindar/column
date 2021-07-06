@@ -13,39 +13,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// BenchmarkColumn/fetch-8          	100000000	        11.01 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkColumn/chunkOf-8       	 8715824	       137.6 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkColumn(b *testing.B) {
-	b.Run("fetch", func(b *testing.B) {
-		p := makeAny()
-		p.Grow(10)
-		p.Update([]commit.Update{{
-			Type:  commit.Put,
-			Index: 5,
-			Value: "hello",
-		}})
-		b.ReportAllocs()
-		b.ResetTimer()
-		for n := 0; n < b.N; n++ {
-			p.Value(5)
-		}
-	})
-
-	var temp bitmap.Bitmap
-	temp.Grow(2 * chunkSize)
 	b.Run("chunkOf", func(b *testing.B) {
+		var temp bitmap.Bitmap
+		temp.Grow(2 * chunkSize)
+
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
 			for i := 0; i < 100; i++ {
-				chunkOf(temp, 1)
-				chunkOf(temp, 1)
-				chunkOf(temp, 1)
-				chunkOf(temp, 1)
-				chunkOf(temp, 1)
-				chunkOf(temp, 1)
-				chunkOf(temp, 1)
-				chunkOf(temp, 1)
-				chunkOf(temp, 1)
 				chunkOf(temp, 1)
 			}
 		}

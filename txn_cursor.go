@@ -215,7 +215,7 @@ func (cur *Cursor) updateChunk(idx uint32) {
 
 	cur.txn.dirty.Set(chunk)
 	if cur.txn.updates[cur.update].Current != int(chunk) {
-		cur.txn.updates[cur.update].Offsets = append(cur.txn.updates[cur.update].Offsets, len(cur.txn.updates[cur.update].Update))
+		cur.txn.updates[cur.update].Offsets = append(cur.txn.updates[cur.update].Offsets, int32(len(cur.txn.updates[cur.update].Update)))
 		cur.txn.updates[cur.update].Current = int(chunk)
 	}
 }
@@ -227,7 +227,7 @@ func (cur *Cursor) updateChunkAt(column string, idx uint32) int {
 	for i, c := range cur.txn.updates {
 		if c.Column == column {
 			if c.Current != int(chunk) {
-				cur.txn.updates[i].Offsets = append(cur.txn.updates[i].Offsets, len(cur.txn.updates[i].Update))
+				cur.txn.updates[i].Offsets = append(cur.txn.updates[i].Offsets, int32(len(cur.txn.updates[i].Update)))
 				cur.txn.updates[i].Current = int(chunk)
 			}
 			return i
