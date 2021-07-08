@@ -23,11 +23,28 @@ func BenchmarkQueue(b *testing.B) {
 		for n := 0; n < b.N; n++ {
 			q = q[:0]
 			for i := uint32(0); i < count; i++ {
-				q = append(q, Update{Type: Put, Index: i, Value: 999})
+				q = append(q, Update{Type: Put, Index: i, Value: i})
 			}
 
 			for _, u := range q {
 				_ = u.Value
+			}
+		}
+	})
+
+	b.Run("rw-any", func(b *testing.B) {
+		q := NewQueue(count)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			q.Reset()
+			for i := uint32(0); i < count; i++ {
+				q.Put(Put, i, i)
+			}
+
+			var op Operation
+			for q.Next(&op) {
+				_ = op.Uint32()
 			}
 		}
 	})
@@ -39,7 +56,7 @@ func BenchmarkQueue(b *testing.B) {
 		for n := 0; n < b.N; n++ {
 			q.Reset()
 			for i := uint32(0); i < count; i++ {
-				q.PutUint16(Put, i, 999)
+				q.PutUint16(Put, i, uint16(i))
 			}
 
 			var op Operation
@@ -56,7 +73,7 @@ func BenchmarkQueue(b *testing.B) {
 		for n := 0; n < b.N; n++ {
 			q.Reset()
 			for i := uint32(0); i < count; i++ {
-				q.PutUint32(Put, i, 999)
+				q.PutUint32(Put, i, i)
 			}
 
 			var op Operation
@@ -73,7 +90,7 @@ func BenchmarkQueue(b *testing.B) {
 		for n := 0; n < b.N; n++ {
 			q.Reset()
 			for i := uint32(0); i < count; i++ {
-				q.PutUint64(Put, i, 999)
+				q.PutUint64(Put, i, uint64(i))
 			}
 
 			var op Operation
@@ -109,7 +126,7 @@ func TestRandom(t *testing.T) {
 
 	q := NewQueue(1024)
 	for i := uint32(0); i < 1000; i++ {
-		q.PutUint64(Put, seq[i], rand.Uint64())
+		q.PutUint32(Put, seq[i], uint32(rand.Int31()))
 	}
 
 	i := 0

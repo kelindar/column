@@ -2,6 +2,7 @@ package commit
 
 import (
 	"encoding/binary"
+	"fmt"
 
 	"github.com/kelindar/bitmap"
 )
@@ -57,9 +58,9 @@ func (q *Queue) Next(dst *Operation) bool {
 		return false // TODO: can just keep the number of elements somewhere to avoid this branch
 	}
 
-	// If the first bit is set to one, this means thatthe offset is one and we
+	// If the first bit is set, this means that the delta is one and we
 	// can skip reading the actual offset. (special case)
-	if q.buffer[q.tail] > 0x80 {
+	if q.buffer[q.tail] >= 0x80 {
 		size := int64(2 << ((q.buffer[q.tail] & 0x60) >> 5))
 		dst.Kind = UpdateType(q.buffer[q.tail] & 0x1f)
 		dst.Data = q.buffer[q.tail+1 : q.tail+1+size]
@@ -71,6 +72,20 @@ func (q *Queue) Next(dst *Operation) bool {
 	dst.Kind, dst.Data = q.readValue()
 	dst.Offset += q.readOffset()
 	return true
+}
+
+// Put appends a value of any supported type onto the queue.
+func (q *Queue) Put(op UpdateType, idx uint32, value interface{}) {
+	switch v := value.(type) {
+	case uint64:
+		q.PutUint64(op, idx, v)
+	case uint32:
+		q.PutUint32(op, idx, v)
+	case uint16:
+		q.PutUint16(op, idx, v)
+	default:
+		panic(fmt.Errorf("column: unsupported type %T", value))
+	}
 }
 
 // PutUint64 appends a uint64 value.
@@ -135,13 +150,21 @@ func (q *Queue) PutUint32(op UpdateType, idx uint32, value uint32) {
 func (q *Queue) PutUint16(op UpdateType, idx uint32, value uint16) {
 	delta := int32(idx) - q.last
 	q.last = int32(idx)
-	switch delta {
-	case 1:
-		q.buffer = append(q.buffer, byte(op)+0x80, byte(value>>8), byte(value))
-	default:
-		q.buffer = append(q.buffer, byte(op), byte(value>>8), byte(value))
-		q.writeOffset(uint32(delta))
+	if delta == 1 {
+		q.buffer = append(q.buffer,
+			byte(op)+0x80,
+			byte(value>>8),
+			byte(value),
+		)
+		return
 	}
+
+	q.buffer = append(q.buffer,
+		byte(op),
+		byte(value>>8),
+		byte(value),
+	)
+	q.writeOffset(uint32(delta))
 }
 
 // writeOffset writes the offset at the current head.
