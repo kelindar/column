@@ -135,10 +135,12 @@ func BenchmarkCollection(b *testing.B) {
 	b.Run("update-all", func(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
+		balance := 0.0
 		for n := 0; n < b.N; n++ {
 			players.Query(func(txn *Txn) error {
 				txn.Range("balance", func(v Cursor) {
-					v.Update(1.0)
+					v.Update(balance)
+					balance += 1.0
 				})
 				return nil
 			})
