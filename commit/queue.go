@@ -47,27 +47,41 @@ func (q *Queue) Reset() {
 	q.last = 0
 }
 
+// Next reads the current operation and returns false if there is no more
+// operations in the queue.
+func (q *Queue) Next(dst *Operation) bool {
+	if head := int64(len(q.buffer)); q.tail >= head {
+		return false // TODO: can just keep the number of elements somewhere to avoid this branch
+	}
+
+	// If the first bit is set to one, this means thatthe offset is one and we
+	// can skip reading the actual offset. (special case)
+	if q.buffer[q.tail] > 0x80 {
+		size := int64(2 << ((q.buffer[q.tail] & 0x60) >> 5))
+		dst.Kind = UpdateType(q.buffer[q.tail] & 0x1f)
+		dst.Data = q.buffer[q.tail+1 : q.tail+1+size]
+		dst.Offset++
+		q.tail += size + 1
+		return true
+	}
+
+	dst.Offset += q.readOffset()
+	dst.Kind, dst.Data = q.readValue()
+	return true
+}
+
 // AppendUint64 appends a uint64 value.
 func (q *Queue) AppendUint64(op UpdateType, idx uint32, value uint64) {
 	delta := int32(idx) - q.last
 	q.last = int32(idx)
-	if delta == 1 {
-		q.buffer = append(q.buffer,
-			byte(op)+0x40+0x80,
-			byte(value>>56),
-			byte(value>>48),
-			byte(value>>40),
-			byte(value>>32),
-			byte(value>>24),
-			byte(value>>16),
-			byte(value>>8),
-			byte(value),
-		)
-		return
+	head := byte(op) + 0x40 + 0x80
+	if delta != 1 {
+		q.writeOffset(uint32(idx))
+		head = byte(op) + 0x40
 	}
 
 	q.buffer = append(q.buffer,
-		byte(op)+0x40,
+		head,
 		byte(value>>56),
 		byte(value>>48),
 		byte(value>>40),
@@ -77,53 +91,42 @@ func (q *Queue) AppendUint64(op UpdateType, idx uint32, value uint64) {
 		byte(value>>8),
 		byte(value),
 	)
-	q.writeOffset(uint32(idx))
 }
 
 // AppendUint32 appends a uint32 value.
 func (q *Queue) AppendUint32(op UpdateType, idx uint32, value uint32) {
 	delta := int32(idx) - q.last
 	q.last = int32(idx)
-	if delta == 1 {
-		q.buffer = append(q.buffer,
-			byte(op)+0x20+0x80,
-			byte(value>>24),
-			byte(value>>16),
-			byte(value>>8),
-			byte(value),
-		)
-		return
+	head := byte(op) + 0x20 + 0x80
+	if delta != 1 {
+		q.writeOffset(uint32(idx))
+		head = byte(op) + 0x20
 	}
 
 	q.buffer = append(q.buffer,
-		byte(op)+0x20,
+		head,
 		byte(value>>24),
 		byte(value>>16),
 		byte(value>>8),
 		byte(value),
 	)
-	q.writeOffset(uint32(idx))
 }
 
 // AppendUint16 appends a uint16 value.
 func (q *Queue) AppendUint16(op UpdateType, idx uint32, value uint16) {
 	delta := int32(idx) - q.last
 	q.last = int32(idx)
-	if delta == 1 {
-		q.buffer = append(q.buffer,
-			byte(op)+0x80,
-			byte(value>>8),
-			byte(value),
-		)
-		return
+	head := byte(op) + 0x80
+	if delta != 1 {
+		q.writeOffset(uint32(idx))
+		head = byte(op)
 	}
 
 	q.buffer = append(q.buffer,
-		byte(op),
+		head,
 		byte(value>>8),
 		byte(value),
 	)
-	q.writeOffset(uint32(idx))
 }
 
 // writeOffset writes the offset at the current head.
@@ -189,26 +192,4 @@ func (q *Queue) readValue() (kind UpdateType, data []byte) {
 	data = q.buffer[q.tail+1 : q.tail+1+size]
 	q.tail += size + 1
 	return
-}
-
-// Next reads the current operation
-func (q *Queue) Next(dst *Operation) bool {
-	if head := int64(len(q.buffer)); q.tail >= head {
-		return false // TODO: can just keep the number of elements somewhere to avoid this branch
-	}
-
-	// If the first bit is set to one, this means thatthe offset is one and we
-	// can skip reading the actual offset. (special case)
-	if q.buffer[q.tail] > 0x80 {
-		size := int64(2 << ((q.buffer[q.tail] & 0x60) >> 5))
-		dst.Kind = UpdateType(q.buffer[q.tail] & 0x1f)
-		dst.Data = q.buffer[q.tail+1 : q.tail+1+size]
-		dst.Offset++
-		q.tail += size + 1
-		return true
-	}
-
-	dst.Kind, dst.Data = q.readValue()
-	dst.Offset += q.readOffset()
-	return true
 }
