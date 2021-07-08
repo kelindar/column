@@ -103,7 +103,7 @@ func (q *Queue) PutUint64(op UpdateType, idx uint32, value uint64) {
 		byte(value>>8),
 		byte(value),
 	)
-	q.writeOffset(uint32(idx))
+	q.writeOffset(uint32(delta))
 }
 
 // PutUint32 appends a uint32 value.
@@ -128,7 +128,7 @@ func (q *Queue) PutUint32(op UpdateType, idx uint32, value uint32) {
 		byte(value>>8),
 		byte(value),
 	)
-	q.writeOffset(uint32(idx))
+	q.writeOffset(uint32(delta))
 }
 
 // PutUint16 appends a uint16 value.
@@ -140,7 +140,7 @@ func (q *Queue) PutUint16(op UpdateType, idx uint32, value uint16) {
 		q.buffer = append(q.buffer, byte(op)+0x80, byte(value>>8), byte(value))
 	default:
 		q.buffer = append(q.buffer, byte(op), byte(value>>8), byte(value))
-		q.writeOffset(uint32(idx))
+		q.writeOffset(uint32(delta))
 	}
 }
 

@@ -1,6 +1,7 @@
 package commit
 
 import (
+	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -96,6 +97,26 @@ func TestQueue(t *testing.T) {
 		assert.Equal(t, Put, op.Kind)
 		assert.Equal(t, i, int(op.Offset))
 		assert.Equal(t, int(i*2), int(op.Uint64()))
+		i++
+	}
+}
+
+func TestRandom(t *testing.T) {
+	seq := make([]uint32, 1024)
+	for i := 0; i < len(seq); i++ {
+		seq[i] = uint32(rand.Int31n(10000000))
+	}
+
+	q := NewQueue(1024)
+	for i := uint32(0); i < 1000; i++ {
+		q.PutUint64(Put, seq[i], rand.Uint64())
+	}
+
+	i := 0
+	var op Operation
+	for q.Next(&op) {
+		assert.Equal(t, Put, op.Kind)
+		assert.Equal(t, int(seq[i]), int(op.Offset))
 		i++
 	}
 }
