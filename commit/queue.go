@@ -13,14 +13,17 @@ type Operation struct {
 	Data   []byte
 }
 
+// Uint16 reads a uint16 value.
 func (op Operation) Uint16() uint16 {
 	return binary.BigEndian.Uint16(op.Data)
 }
 
+// Uint32 reads a uint32 value.
 func (op Operation) Uint32() uint32 {
 	return binary.BigEndian.Uint32(op.Data)
 }
 
+// Uint64 reads a uint64 value.
 func (op Operation) Uint64() uint64 {
 	return binary.BigEndian.Uint64(op.Data)
 }
@@ -65,23 +68,32 @@ func (q *Queue) Next(dst *Operation) bool {
 		return true
 	}
 
-	dst.Offset += q.readOffset()
 	dst.Kind, dst.Data = q.readValue()
+	dst.Offset += q.readOffset()
 	return true
 }
 
-// AppendUint64 appends a uint64 value.
-func (q *Queue) AppendUint64(op UpdateType, idx uint32, value uint64) {
+// PutUint64 appends a uint64 value.
+func (q *Queue) PutUint64(op UpdateType, idx uint32, value uint64) {
 	delta := int32(idx) - q.last
 	q.last = int32(idx)
-	head := byte(op) + 0x40 + 0x80
-	if delta != 1 {
-		q.writeOffset(uint32(idx))
-		head = byte(op) + 0x40
+	if delta == 1 {
+		q.buffer = append(q.buffer,
+			byte(op)+0x40+0x80,
+			byte(value>>56),
+			byte(value>>48),
+			byte(value>>40),
+			byte(value>>32),
+			byte(value>>24),
+			byte(value>>16),
+			byte(value>>8),
+			byte(value),
+		)
+		return
 	}
 
 	q.buffer = append(q.buffer,
-		head,
+		byte(op)+0x40,
 		byte(value>>56),
 		byte(value>>48),
 		byte(value>>40),
@@ -91,42 +103,45 @@ func (q *Queue) AppendUint64(op UpdateType, idx uint32, value uint64) {
 		byte(value>>8),
 		byte(value),
 	)
+	q.writeOffset(uint32(idx))
 }
 
-// AppendUint32 appends a uint32 value.
-func (q *Queue) AppendUint32(op UpdateType, idx uint32, value uint32) {
+// PutUint32 appends a uint32 value.
+func (q *Queue) PutUint32(op UpdateType, idx uint32, value uint32) {
 	delta := int32(idx) - q.last
 	q.last = int32(idx)
-	head := byte(op) + 0x20 + 0x80
-	if delta != 1 {
-		q.writeOffset(uint32(idx))
-		head = byte(op) + 0x20
+	if delta == 1 {
+		q.buffer = append(q.buffer,
+			byte(op)+0x20+0x80,
+			byte(value>>24),
+			byte(value>>16),
+			byte(value>>8),
+			byte(value),
+		)
+		return
 	}
 
 	q.buffer = append(q.buffer,
-		head,
+		byte(op)+0x20,
 		byte(value>>24),
 		byte(value>>16),
 		byte(value>>8),
 		byte(value),
 	)
+	q.writeOffset(uint32(idx))
 }
 
-// AppendUint16 appends a uint16 value.
-func (q *Queue) AppendUint16(op UpdateType, idx uint32, value uint16) {
+// PutUint16 appends a uint16 value.
+func (q *Queue) PutUint16(op UpdateType, idx uint32, value uint16) {
 	delta := int32(idx) - q.last
 	q.last = int32(idx)
-	head := byte(op) + 0x80
-	if delta != 1 {
+	switch delta {
+	case 1:
+		q.buffer = append(q.buffer, byte(op)+0x80, byte(value>>8), byte(value))
+	default:
+		q.buffer = append(q.buffer, byte(op), byte(value>>8), byte(value))
 		q.writeOffset(uint32(idx))
-		head = byte(op)
 	}
-
-	q.buffer = append(q.buffer,
-		head,
-		byte(value>>8),
-		byte(value),
-	)
 }
 
 // writeOffset writes the offset at the current head.
@@ -144,10 +159,6 @@ func (q *Queue) writeOffset(delta uint32) {
 // This would lead to negative values not being packed well, but given the
 // rarity of negative values in the data, this is acceptable.
 func (q *Queue) readOffset() int32 {
-
-	// Special case, if the offset is one, then the current byte contains the
-	// operation type and the value size. Otherwise, we do our varint thing.
-
 	b := uint32(q.buffer[q.tail])
 	if b < 0x80 {
 		q.tail++

@@ -8,10 +8,10 @@ import (
 
 /*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkQueue/rw-baseline-8         	     676	   1728737 ns/op	       0 B/op	       0 allocs/op
-BenchmarkQueue/rw-u16-8              	     408	   2952627 ns/op	   25299 B/op	       0 allocs/op
-BenchmarkQueue/rw-u32-8              	     165	   7163215 ns/op	  151427 B/op	       0 allocs/op
-BenchmarkQueue/rw-u64-8              	     160	   7405664 ns/op	  261939 B/op	       0 allocs/op
+BenchmarkQueue/rw-baseline-8         	     638	   1892620 ns/op	       2 B/op	       0 allocs/op
+BenchmarkQueue/rw-u16-8              	     405	   2939654 ns/op	   25486 B/op	       0 allocs/op
+BenchmarkQueue/rw-u32-8              	     164	   7215495 ns/op	  152351 B/op	       0 allocs/op
+BenchmarkQueue/rw-u64-8              	     160	   7328651 ns/op	  261940 B/op	       0 allocs/op
 */
 func BenchmarkQueue(b *testing.B) {
 	const count = 1000000
@@ -38,7 +38,7 @@ func BenchmarkQueue(b *testing.B) {
 		for n := 0; n < b.N; n++ {
 			q.Reset()
 			for i := uint32(0); i < count; i++ {
-				q.AppendUint16(Put, i, 999)
+				q.PutUint16(Put, i, 999)
 			}
 
 			var op Operation
@@ -55,7 +55,7 @@ func BenchmarkQueue(b *testing.B) {
 		for n := 0; n < b.N; n++ {
 			q.Reset()
 			for i := uint32(0); i < count; i++ {
-				q.AppendUint32(Put, i, 999)
+				q.PutUint32(Put, i, 999)
 			}
 
 			var op Operation
@@ -72,7 +72,7 @@ func BenchmarkQueue(b *testing.B) {
 		for n := 0; n < b.N; n++ {
 			q.Reset()
 			for i := uint32(0); i < count; i++ {
-				q.AppendUint64(Put, i, 999)
+				q.PutUint64(Put, i, 999)
 			}
 
 			var op Operation
@@ -86,7 +86,7 @@ func BenchmarkQueue(b *testing.B) {
 func TestQueue(t *testing.T) {
 	q := NewQueue(1024)
 	for i := uint32(0); i < 10; i++ {
-		q.AppendUint64(Put, i, 2*uint64(i))
+		q.PutUint64(Put, i, 2*uint64(i))
 	}
 
 	i := 0
