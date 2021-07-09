@@ -10,10 +10,11 @@ import (
 
 /*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkQueue/rw-baseline-8         	     638	   1892620 ns/op	       2 B/op	       0 allocs/op
-BenchmarkQueue/rw-u16-8              	     405	   2939654 ns/op	   25486 B/op	       0 allocs/op
-BenchmarkQueue/rw-u32-8              	     164	   7215495 ns/op	  152351 B/op	       0 allocs/op
-BenchmarkQueue/rw-u64-8              	     160	   7328651 ns/op	  261940 B/op	       0 allocs/op
+BenchmarkQueue/rw-baseline-8         	     100	  11909863 ns/op	 3998997 B/op	  999744 allocs/op
+BenchmarkQueue/rw-any-8              	      56	  18175307 ns/op	 4445179 B/op	  999744 allocs/op
+BenchmarkQueue/rw-u16-8              	     181	   6549557 ns/op	       2 B/op	       0 allocs/op
+BenchmarkQueue/rw-u32-8              	     184	   6452655 ns/op	       2 B/op	       0 allocs/op
+BenchmarkQueue/rw-u64-8              	     181	   6627228 ns/op	       2 B/op	       0 allocs/op
 */
 func BenchmarkQueue(b *testing.B) {
 	const count = 1000000
@@ -35,6 +36,7 @@ func BenchmarkQueue(b *testing.B) {
 
 	b.Run("rw-any", func(b *testing.B) {
 		q := NewQueue(count)
+		r := NewReader()
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
@@ -43,15 +45,15 @@ func BenchmarkQueue(b *testing.B) {
 				q.Put(Put, i, i)
 			}
 
-			r := NewReader(q.buffer)
-			for r.Next() {
+			for r.Seek(q); r.Next(); {
 				_ = r.Uint32()
 			}
 		}
 	})
 
 	b.Run("rw-u16", func(b *testing.B) {
-		q := NewQueue(count)
+		q := NewQueue(count * 10)
+		r := NewReader()
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
@@ -59,16 +61,15 @@ func BenchmarkQueue(b *testing.B) {
 			for i := uint32(0); i < count; i++ {
 				q.PutUint16(Put, i, uint16(i))
 			}
-
-			r := NewReader(q.buffer)
-			for r.Next() {
+			for r.Seek(q); r.Next(); {
 				_ = r.Uint16()
 			}
 		}
 	})
 
 	b.Run("rw-u32", func(b *testing.B) {
-		q := NewQueue(count)
+		q := NewQueue(count * 10)
+		r := NewReader()
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
@@ -76,16 +77,15 @@ func BenchmarkQueue(b *testing.B) {
 			for i := uint32(0); i < count; i++ {
 				q.PutUint32(Put, i, i)
 			}
-
-			r := NewReader(q.buffer)
-			for r.Next() {
+			for r.Seek(q); r.Next(); {
 				_ = r.Uint32()
 			}
 		}
 	})
 
 	b.Run("rw-u64", func(b *testing.B) {
-		q := NewQueue(count)
+		q := NewQueue(count * 10)
+		r := NewReader()
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
@@ -93,9 +93,7 @@ func BenchmarkQueue(b *testing.B) {
 			for i := uint32(0); i < count; i++ {
 				q.PutUint64(Put, i, uint64(i))
 			}
-
-			r := NewReader(q.buffer)
-			for r.Next() {
+			for r.Seek(q); r.Next(); {
 				_ = r.Uint64()
 			}
 		}
@@ -103,7 +101,7 @@ func BenchmarkQueue(b *testing.B) {
 }
 
 func TestQueue(t *testing.T) {
-	q := NewQueue(1024)
+	q := NewQueue(0)
 	for i := uint32(0); i < 10; i++ {
 		q.PutUint64(Put, i, 2*uint64(i))
 	}
@@ -111,8 +109,8 @@ func TestQueue(t *testing.T) {
 	i := 0
 	assert.Equal(t, 91, len(q.buffer))
 
-	r := NewReader(q.buffer)
-	for r.Next() {
+	r := NewReader()
+	for r.Seek(q); r.Next(); {
 		assert.Equal(t, Put, r.Kind)
 		assert.Equal(t, i, int(r.Offset))
 		assert.Equal(t, int(i*2), int(r.Uint64()))
@@ -126,14 +124,14 @@ func TestRandom(t *testing.T) {
 		seq[i] = uint32(rand.Int31n(10000000))
 	}
 
-	q := NewQueue(1024)
+	q := NewQueue(0)
 	for i := uint32(0); i < 1000; i++ {
 		q.PutUint32(Put, seq[i], uint32(rand.Int31()))
 	}
 
 	i := 0
-	r := NewReader(q.buffer)
-	for r.Next() {
+	r := NewReader()
+	for r.Seek(q); r.Next(); {
 		assert.Equal(t, Put, r.Kind)
 		assert.Equal(t, int(seq[i]), int(r.Offset))
 		i++

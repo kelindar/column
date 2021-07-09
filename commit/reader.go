@@ -3,7 +3,10 @@
 
 package commit
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"math"
+)
 
 // Reader represnts a commit log reader (iterator).
 type Reader struct {
@@ -15,21 +18,35 @@ type Reader struct {
 }
 
 // NewReader creates a new reader for a commit log.
-func NewReader(buffer []byte) *Reader {
+func NewReader() *Reader {
 	return &Reader{
-		head:   0,
-		buffer: buffer,
+		head: 0,
 	}
 }
 
-// Reset resets the reader so it can be reused.
-func (r *Reader) Reset() {
-	r.buffer = r.buffer[:0]
+// Seek resets the reader so it can be reused.
+func (r *Reader) Seek(q *Queue) {
+	r.buffer = q.buffer
 	r.head = 0
 	r.i0 = 0
 	r.i1 = 0
 	r.Offset = 0
 	r.Kind = Put
+}
+
+// Int16 reads a uint16 value.
+func (r *Reader) Int16() int16 {
+	return int16(binary.BigEndian.Uint16(r.buffer[r.i0:r.i1]))
+}
+
+// Int32 reads a uint32 value.
+func (r *Reader) Int32() int32 {
+	return int32(binary.BigEndian.Uint32(r.buffer[r.i0:r.i1]))
+}
+
+// Int64 reads a uint64 value.
+func (r *Reader) Int64() int64 {
+	return int64(binary.BigEndian.Uint64(r.buffer[r.i0:r.i1]))
 }
 
 // Uint16 reads a uint16 value.
@@ -45,6 +62,16 @@ func (r *Reader) Uint32() uint32 {
 // Uint64 reads a uint64 value.
 func (r *Reader) Uint64() uint64 {
 	return binary.BigEndian.Uint64(r.buffer[r.i0:r.i1])
+}
+
+// Float32 reads a float32 value.
+func (r *Reader) Float32() float32 {
+	return math.Float32frombits(binary.BigEndian.Uint32(r.buffer[r.i0:r.i1]))
+}
+
+// Float64 reads a float64 value.
+func (r *Reader) Float64() float64 {
+	return math.Float64frombits(binary.BigEndian.Uint64(r.buffer[r.i0:r.i1]))
 }
 
 // Next reads the current operation and returns false if there is no more
