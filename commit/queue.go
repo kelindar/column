@@ -9,13 +9,14 @@ import (
 
 // Reader represnts a commit log reader (iterator).
 type Reader struct {
-	pos    int    // The read position
-	buffer []byte // The log slice
-	Offset int32
-	Value  []byte
-	Kind   UpdateType
+	pos    int        // The read position
+	i0, i1 int        // The value start and end
+	buffer []byte     // The log slice
+	Offset int32      // The current offset
+	Kind   UpdateType // The current operation type
 }
 
+// NewReader creates a new reader for a commit log.
 func NewReader(buffer []byte) *Reader {
 	return &Reader{
 		pos:    0,
@@ -27,24 +28,25 @@ func NewReader(buffer []byte) *Reader {
 func (r *Reader) Reset() {
 	r.buffer = r.buffer[:0]
 	r.pos = 0
+	r.i0 = 0
+	r.i1 = 0
 	r.Offset = 0
-	r.Value = nil
 	r.Kind = Put
 }
 
 // Uint16 reads a uint16 value.
 func (r *Reader) Uint16() uint16 {
-	return binary.BigEndian.Uint16(r.Value)
+	return binary.BigEndian.Uint16(r.buffer[r.i0:r.i1])
 }
 
 // Uint32 reads a uint32 value.
 func (r *Reader) Uint32() uint32 {
-	return binary.BigEndian.Uint32(r.Value)
+	return binary.BigEndian.Uint32(r.buffer[r.i0:r.i1])
 }
 
 // Uint64 reads a uint64 value.
 func (r *Reader) Uint64() uint64 {
-	return binary.BigEndian.Uint64(r.Value)
+	return binary.BigEndian.Uint64(r.buffer[r.i0:r.i1])
 }
 
 // Next reads the current operation and returns false if there is no more
@@ -59,7 +61,8 @@ func (r *Reader) Next() bool {
 	if r.buffer[r.pos] >= 0x80 {
 		size := int(2 << ((r.buffer[r.pos] & 0x60) >> 5))
 		r.Kind = UpdateType(r.buffer[r.pos] & 0x1f)
-		r.Value = r.buffer[r.pos+1 : r.pos+1+size]
+		r.i0 = r.pos + 1
+		r.i1 = r.pos + 1 + size
 		r.Offset++
 		r.pos += size + 1
 		return true
@@ -119,7 +122,8 @@ func (r *Reader) readOffset() {
 func (r *Reader) readValue() {
 	size := int(2 << ((r.buffer[r.pos] & 0x60) >> 5))
 	r.Kind = UpdateType(r.buffer[r.pos] & 0x1f)
-	r.Value = r.buffer[r.pos+1 : r.pos+1+size]
+	r.i0 = r.pos + 1
+	r.i1 = r.pos + 1 + size
 	r.pos += size + 1
 }
 
