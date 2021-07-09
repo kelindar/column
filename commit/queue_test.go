@@ -43,9 +43,9 @@ func BenchmarkQueue(b *testing.B) {
 				q.Put(Put, i, i)
 			}
 
-			var op Operation
-			for q.Next(&op) {
-				_ = op.Uint32()
+			r := NewReader(q.buffer)
+			for r.Next() {
+				_ = r.Uint32()
 			}
 		}
 	})
@@ -60,9 +60,9 @@ func BenchmarkQueue(b *testing.B) {
 				q.PutUint16(Put, i, uint16(i))
 			}
 
-			var op Operation
-			for q.Next(&op) {
-				_ = op.Uint16()
+			r := NewReader(q.buffer)
+			for r.Next() {
+				_ = r.Uint16()
 			}
 		}
 	})
@@ -77,9 +77,9 @@ func BenchmarkQueue(b *testing.B) {
 				q.PutUint32(Put, i, i)
 			}
 
-			var op Operation
-			for q.Next(&op) {
-				_ = op.Uint32()
+			r := NewReader(q.buffer)
+			for r.Next() {
+				_ = r.Uint32()
 			}
 		}
 	})
@@ -94,9 +94,9 @@ func BenchmarkQueue(b *testing.B) {
 				q.PutUint64(Put, i, uint64(i))
 			}
 
-			var op Operation
-			for q.Next(&op) {
-				_ = op.Uint64()
+			r := NewReader(q.buffer)
+			for r.Next() {
+				_ = r.Uint64()
 			}
 		}
 	})
@@ -110,11 +110,12 @@ func TestQueue(t *testing.T) {
 
 	i := 0
 	assert.Equal(t, 91, len(q.buffer)) // 10 x 10bytes
-	var op Operation
-	for q.Next(&op) {
-		assert.Equal(t, Put, op.Kind)
-		assert.Equal(t, i, int(op.Offset))
-		assert.Equal(t, int(i*2), int(op.Uint64()))
+
+	r := NewReader(q.buffer)
+	for r.Next() {
+		assert.Equal(t, Put, r.Kind)
+		assert.Equal(t, i, int(r.Offset))
+		assert.Equal(t, int(i*2), int(r.Uint64()))
 		i++
 	}
 }
@@ -131,14 +132,15 @@ func TestRandom(t *testing.T) {
 	}
 
 	i := 0
-	var op Operation
-	for q.Next(&op) {
-		assert.Equal(t, Put, op.Kind)
-		assert.Equal(t, int(seq[i]), int(op.Offset))
+	r := NewReader(q.buffer)
+	for r.Next() {
+		assert.Equal(t, Put, r.Kind)
+		assert.Equal(t, int(seq[i]), int(r.Offset))
 		i++
 	}
 }
 
 func TestQueueSize(t *testing.T) {
-	assert.LessOrEqual(t, 64, int(unsafe.Sizeof(Queue{})))
+	assert.LessOrEqual(t, int(unsafe.Sizeof(Reader{})), 64)
+	assert.LessOrEqual(t, int(unsafe.Sizeof(Queue{})), 64)
 }
