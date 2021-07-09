@@ -59,12 +59,14 @@ func (r *Reader) Next() bool {
 	// If the first bit is set, this means that the delta is one and we
 	// can skip reading the actual offset. (special case)
 	if r.buffer[r.head] >= 0x80 {
-		size := int(2 << ((r.buffer[r.head] & 0x60) >> 5))
-		r.Kind = UpdateType(r.buffer[r.head] & 0x1f)
-		r.i0 = r.head + 1
-		r.i1 = r.head + 1 + size
+		head := r.buffer[r.head]
+		size := int(2 << ((head & 0x60) >> 5))
+		r.Kind = UpdateType(head & 0x1f)
 		r.Offset++
-		r.head += size + 1
+		r.head++
+		r.i0 = r.head
+		r.head += size
+		r.i1 = r.head
 		return true
 	}
 
@@ -122,9 +124,10 @@ func (r *Reader) readOffset() {
 func (r *Reader) readValue() {
 	size := int(2 << ((r.buffer[r.head] & 0x60) >> 5))
 	r.Kind = UpdateType(r.buffer[r.head] & 0x1f)
-	r.i0 = r.head + 1
-	r.i1 = r.head + 1 + size
-	r.head += size + 1
+	r.head++
+	r.i0 = r.head
+	r.head += size
+	r.i1 = r.head
 }
 
 // --------------------------- Delta log ----------------------------
