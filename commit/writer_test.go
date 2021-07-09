@@ -21,25 +21,3 @@ func TestWriterChannel(t *testing.T) {
 	assert.Equal(t, Delete, out.Type)
 	assert.Equal(t, bitmap.Bitmap{0xff}, out.Deletes)
 }
-
-func TestNegate(t *testing.T) {
-	for i := -10000; i < 10000; i += 1000 {
-		assert.Equal(t, negateBaseline(int32(i)), negateBranchless(int32(i)))
-	}
-}
-
-func negateBranchless(v int32) uint32 {
-	ux := uint32(v) << 1
-	if v < 0 {
-		ux = ^ux
-	}
-	return ux
-}
-
-func negateBaseline(v int32) uint32 {
-	ux := uint32(v) << 1
-	if v < 0 {
-		ux = ^ux
-	}
-	return ux
-}

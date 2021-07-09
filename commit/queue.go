@@ -3,9 +3,9 @@ package commit
 import (
 	"encoding/binary"
 	"fmt"
-
-	"github.com/kelindar/bitmap"
 )
+
+// --------------------------- Single Op ----------------------------
 
 // Operation represnts an operation in the queue.
 type Operation struct {
@@ -29,12 +29,15 @@ func (op Operation) Uint64() uint64 {
 	return binary.BigEndian.Uint64(op.Data)
 }
 
+// --------------------------- Delta log ----------------------------
+
 // Queue represents a queue of delta operations.
 type Queue struct {
-	fill   bitmap.Bitmap // The fill list
-	tail   int64         // The tail (read) offset
-	last   int32         // The last offset written
-	buffer []byte        // The destination buffer
+	tail   int    // The tail (read) offset
+	last   int    // The last offset written
+	buffer []byte // The destination buffer
+	Chunk  int    // The chunk for the queue
+	Column string // The column for the queue
 }
 
 // NewQueue creates a new queue to store individual operations.
@@ -46,6 +49,8 @@ func NewQueue(capacity int) *Queue {
 
 // Reset ressets the queue so it can be re-used.
 func (q *Queue) Reset() {
+	q.Column = ""
+	q.Chunk = 0
 	q.buffer = q.buffer[:0]
 	q.tail = 0
 	q.last = 0
@@ -54,14 +59,14 @@ func (q *Queue) Reset() {
 // Next reads the current operation and returns false if there is no more
 // operations in the queue.
 func (q *Queue) Next(dst *Operation) bool {
-	if head := int64(len(q.buffer)); q.tail >= head {
+	if head := len(q.buffer); q.tail >= head {
 		return false // TODO: can just keep the number of elements somewhere to avoid this branch
 	}
 
 	// If the first bit is set, this means that the delta is one and we
 	// can skip reading the actual offset. (special case)
 	if q.buffer[q.tail] >= 0x80 {
-		size := int64(2 << ((q.buffer[q.tail] & 0x60) >> 5))
+		size := int(2 << ((q.buffer[q.tail] & 0x60) >> 5))
 		dst.Kind = UpdateType(q.buffer[q.tail] & 0x1f)
 		dst.Data = q.buffer[q.tail+1 : q.tail+1+size]
 		dst.Offset++
@@ -90,8 +95,8 @@ func (q *Queue) Put(op UpdateType, idx uint32, value interface{}) {
 
 // PutUint64 appends a uint64 value.
 func (q *Queue) PutUint64(op UpdateType, idx uint32, value uint64) {
-	delta := int32(idx) - q.last
-	q.last = int32(idx)
+	delta := int(idx) - q.last
+	q.last = int(idx)
 	if delta == 1 {
 		q.buffer = append(q.buffer,
 			byte(op)+0x40+0x80,
@@ -123,8 +128,8 @@ func (q *Queue) PutUint64(op UpdateType, idx uint32, value uint64) {
 
 // PutUint32 appends a uint32 value.
 func (q *Queue) PutUint32(op UpdateType, idx uint32, value uint32) {
-	delta := int32(idx) - q.last
-	q.last = int32(idx)
+	delta := int(idx) - q.last
+	q.last = int(idx)
 	if delta == 1 {
 		q.buffer = append(q.buffer,
 			byte(op)+0x20+0x80,
@@ -148,8 +153,8 @@ func (q *Queue) PutUint32(op UpdateType, idx uint32, value uint32) {
 
 // PutUint16 appends a uint16 value.
 func (q *Queue) PutUint16(op UpdateType, idx uint32, value uint16) {
-	delta := int32(idx) - q.last
-	q.last = int32(idx)
+	delta := int(idx) - q.last
+	q.last = int(idx)
 	if delta == 1 {
 		q.buffer = append(q.buffer,
 			byte(op)+0x80,
@@ -221,7 +226,7 @@ func (q *Queue) readOffset() int32 {
 
 // readValue reads the operation type and the value at the current position.
 func (q *Queue) readValue() (kind UpdateType, data []byte) {
-	size := int64(2 << ((q.buffer[q.tail] & 0x60) >> 5))
+	size := int(2 << ((q.buffer[q.tail] & 0x60) >> 5))
 	kind = UpdateType(q.buffer[q.tail] & 0x1f)
 	data = q.buffer[q.tail+1 : q.tail+1+size]
 	q.tail += size + 1

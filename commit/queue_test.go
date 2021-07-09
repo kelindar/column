@@ -3,6 +3,7 @@ package commit
 import (
 	"math/rand"
 	"testing"
+	"unsafe"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -136,4 +137,8 @@ func TestRandom(t *testing.T) {
 		assert.Equal(t, int(seq[i]), int(op.Offset))
 		i++
 	}
+}
+
+func TestQueueSize(t *testing.T) {
+	assert.LessOrEqual(t, 64, int(unsafe.Sizeof(Queue{})))
 }
