@@ -38,7 +38,7 @@ func BenchmarkQueue(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			q.Reset()
+			q.Reset("test")
 			for i := uint32(0); i < count; i++ {
 				q.Put(Put, i, i)
 			}
@@ -55,7 +55,7 @@ func BenchmarkQueue(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			q.Reset()
+			q.Reset("test")
 			for i := uint32(0); i < count; i++ {
 				q.PutUint16(Put, i, uint16(i))
 			}
@@ -72,7 +72,7 @@ func BenchmarkQueue(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			q.Reset()
+			q.Reset("test")
 			for i := uint32(0); i < count; i++ {
 				q.PutUint32(Put, i, i)
 			}
@@ -89,7 +89,7 @@ func BenchmarkQueue(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			q.Reset()
+			q.Reset("test")
 			for i := uint32(0); i < count; i++ {
 				q.PutUint64(Put, i, uint64(i))
 			}
@@ -142,5 +142,5 @@ func TestRandom(t *testing.T) {
 
 func TestQueueSize(t *testing.T) {
 	assert.LessOrEqual(t, int(unsafe.Sizeof(Reader{})), 64)
-	assert.LessOrEqual(t, int(unsafe.Sizeof(Queue{})), 64)
+	assert.LessOrEqual(t, int(unsafe.Sizeof(Queue{})), 80)
 }
