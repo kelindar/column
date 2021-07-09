@@ -109,7 +109,7 @@ func TestQueue(t *testing.T) {
 	}
 
 	i := 0
-	assert.Equal(t, 91, len(q.buffer)) // 10 x 10bytes
+	assert.Equal(t, 91, len(q.buffer))
 
 	r := NewReader(q.buffer)
 	for r.Next() {

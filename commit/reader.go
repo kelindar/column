@@ -51,24 +51,19 @@ func (r *Reader) Uint64() uint64 {
 // operations in the log.
 func (r *Reader) Next() bool {
 	if r.head >= len(r.buffer) {
-		return false // TODO: can just keep the number of elements somewhere to avoid this branch
+		return false
 	}
 
 	// If the first bit is set, this means that the delta is one and we
 	// can skip reading the actual offset. (special case)
-	if r.buffer[r.head] >= 0x80 {
-		head := r.buffer[r.head]
-		size := int(2 << ((head & 0x60) >> 5))
-		r.Kind = UpdateType(head & 0x1f)
+	head := r.buffer[r.head]
+	if head >= 0x80 {
+		r.readValue(head)
 		r.Offset++
-		r.head++
-		r.i0 = r.head
-		r.head += size
-		r.i1 = r.head
 		return true
 	}
 
-	r.readValue()
+	r.readValue(head)
 	r.readOffset()
 	return true
 }
@@ -119,9 +114,9 @@ func (r *Reader) readOffset() {
 }
 
 // readValue reads the operation type and the value at the current position.
-func (r *Reader) readValue() {
-	size := int(2 << ((r.buffer[r.head] & 0x60) >> 5))
-	r.Kind = UpdateType(r.buffer[r.head] & 0x1f)
+func (r *Reader) readValue(v byte) {
+	size := int(2 << ((v & 0x60) >> 5))
+	r.Kind = UpdateType(v & 0x1f)
 	r.head++
 	r.i0 = r.head
 	r.head += size
