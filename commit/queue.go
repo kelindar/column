@@ -9,7 +9,7 @@ import (
 
 // Reader represnts a commit log reader (iterator).
 type Reader struct {
-	pos    int        // The read position
+	head   int        // The read position
 	i0, i1 int        // The value start and end
 	buffer []byte     // The log slice
 	Offset int32      // The current offset
@@ -19,7 +19,7 @@ type Reader struct {
 // NewReader creates a new reader for a commit log.
 func NewReader(buffer []byte) *Reader {
 	return &Reader{
-		pos:    0,
+		head:   0,
 		buffer: buffer,
 	}
 }
@@ -27,7 +27,7 @@ func NewReader(buffer []byte) *Reader {
 // Reset resets the reader so it can be reused.
 func (r *Reader) Reset() {
 	r.buffer = r.buffer[:0]
-	r.pos = 0
+	r.head = 0
 	r.i0 = 0
 	r.i1 = 0
 	r.Offset = 0
@@ -52,19 +52,19 @@ func (r *Reader) Uint64() uint64 {
 // Next reads the current operation and returns false if there is no more
 // operations in the log.
 func (r *Reader) Next() bool {
-	if r.pos >= len(r.buffer) {
+	if r.head >= len(r.buffer) {
 		return false // TODO: can just keep the number of elements somewhere to avoid this branch
 	}
 
 	// If the first bit is set, this means that the delta is one and we
 	// can skip reading the actual offset. (special case)
-	if r.buffer[r.pos] >= 0x80 {
-		size := int(2 << ((r.buffer[r.pos] & 0x60) >> 5))
-		r.Kind = UpdateType(r.buffer[r.pos] & 0x1f)
-		r.i0 = r.pos + 1
-		r.i1 = r.pos + 1 + size
+	if r.buffer[r.head] >= 0x80 {
+		size := int(2 << ((r.buffer[r.head] & 0x60) >> 5))
+		r.Kind = UpdateType(r.buffer[r.head] & 0x1f)
+		r.i0 = r.head + 1
+		r.i1 = r.head + 1 + size
 		r.Offset++
-		r.pos += size + 1
+		r.head += size + 1
 		return true
 	}
 
@@ -78,41 +78,41 @@ func (r *Reader) Next() bool {
 // This would lead to negative values not being packed well, but given the
 // rarity of negative values in the data, this is acceptable.
 func (r *Reader) readOffset() {
-	b := uint32(r.buffer[r.pos])
+	b := uint32(r.buffer[r.head])
 	if b < 0x80 {
-		r.pos++
+		r.head++
 		r.Offset += int32(b)
 		return
 	}
 
 	x := b & 0x7f
-	b = uint32(r.buffer[r.pos+1])
+	b = uint32(r.buffer[r.head+1])
 	if b < 0x80 {
-		r.pos += 2
+		r.head += 2
 		r.Offset += int32(x | (b << 7))
 		return
 	}
 
 	x |= (b & 0x7f) << 7
-	b = uint32(r.buffer[r.pos+2])
+	b = uint32(r.buffer[r.head+2])
 	if b < 0x80 {
-		r.pos += 3
+		r.head += 3
 		r.Offset += int32(x | (b << 14))
 		return
 	}
 
 	x |= (b & 0x7f) << 14
-	b = uint32(r.buffer[r.pos+3])
+	b = uint32(r.buffer[r.head+3])
 	if b < 0x80 {
-		r.pos += 4
+		r.head += 4
 		r.Offset += int32(x | (b << 21))
 		return
 	}
 
 	x |= (b & 0x7f) << 21
-	b = uint32(r.buffer[r.pos+4])
+	b = uint32(r.buffer[r.head+4])
 	if b < 0x80 {
-		r.pos += 5
+		r.head += 5
 		r.Offset += int32(x | (b << 28))
 		return
 	}
@@ -120,11 +120,11 @@ func (r *Reader) readOffset() {
 
 // readValue reads the operation type and the value at the current position.
 func (r *Reader) readValue() {
-	size := int(2 << ((r.buffer[r.pos] & 0x60) >> 5))
-	r.Kind = UpdateType(r.buffer[r.pos] & 0x1f)
-	r.i0 = r.pos + 1
-	r.i1 = r.pos + 1 + size
-	r.pos += size + 1
+	size := int(2 << ((r.buffer[r.head] & 0x60) >> 5))
+	r.Kind = UpdateType(r.buffer[r.head] & 0x1f)
+	r.i0 = r.head + 1
+	r.i1 = r.head + 1 + size
+	r.head += size + 1
 }
 
 // --------------------------- Delta log ----------------------------
