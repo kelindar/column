@@ -5,7 +5,15 @@ import (
 	"math"
 )
 
-const chunkShift = 14 // 16K
+const (
+	chunkShift = 14     // 16K elements
+	size1      = 0      // 1 byte in size
+	size2      = 1 << 4 // 2 bytes in size
+	size4      = 2 << 4 // 4 bytes in size
+	size8      = 3 << 4 // 8 bytes in size
+	isNext     = 1 << 7 // is immediate next
+	isBlob     = 1 << 6 // is variable-size blob
+)
 
 // --------------------------- Delta log ----------------------------
 
@@ -56,7 +64,7 @@ func (q *Queue) PutUint64(op UpdateType, idx uint32, value uint64) {
 	q.last = int32(idx)
 	if delta == 1 {
 		q.buffer = append(q.buffer,
-			byte(op)+0x40+0x80,
+			byte(op)+size8+isNext,
 			byte(value>>56), byte(value>>48), byte(value>>40), byte(value>>32),
 			byte(value>>24), byte(value>>16), byte(value>>8), byte(value),
 		)
@@ -64,7 +72,7 @@ func (q *Queue) PutUint64(op UpdateType, idx uint32, value uint64) {
 	}
 
 	q.buffer = append(q.buffer,
-		byte(op)+0x40,
+		byte(op)+size8,
 		byte(value>>56), byte(value>>48), byte(value>>40), byte(value>>32),
 		byte(value>>24), byte(value>>16), byte(value>>8), byte(value),
 	)
@@ -78,13 +86,14 @@ func (q *Queue) PutUint32(op UpdateType, idx uint32, value uint32) {
 	q.last = int32(idx)
 	if delta == 1 {
 		q.buffer = append(q.buffer,
-			byte(op)+0x20+0x80, byte(value>>24), byte(value>>16), byte(value>>8), byte(value),
+			byte(op)+size4+isNext,
+			byte(value>>24), byte(value>>16), byte(value>>8), byte(value),
 		)
 		return
 	}
 
 	q.buffer = append(q.buffer,
-		byte(op)+0x20,
+		byte(op)+size4,
 		byte(value>>24), byte(value>>16), byte(value>>8), byte(value),
 	)
 	q.writeOffset(uint32(delta))
@@ -96,11 +105,11 @@ func (q *Queue) PutUint16(op UpdateType, idx uint32, value uint16) {
 	delta := int32(idx) - q.last
 	q.last = int32(idx)
 	if delta == 1 {
-		q.buffer = append(q.buffer, byte(op)+0x80, byte(value>>8), byte(value))
+		q.buffer = append(q.buffer, byte(op)+size2+isNext, byte(value>>8), byte(value))
 		return
 	}
 
-	q.buffer = append(q.buffer, byte(op), byte(value>>8), byte(value))
+	q.buffer = append(q.buffer, byte(op)+size2, byte(value>>8), byte(value))
 	q.writeOffset(uint32(delta))
 }
 
@@ -127,6 +136,28 @@ func (q *Queue) PutFloat64(op UpdateType, idx uint32, value float64) {
 // PutFloat32 appends an int32 value.
 func (q *Queue) PutFloat32(op UpdateType, idx uint32, value float32) {
 	q.PutUint32(op, idx, math.Float32bits(value))
+}
+
+// PutBinary appends a binary value.
+func (q *Queue) PutBinary(op UpdateType, idx uint32, value []byte) {
+	/*	q.writeChunk(idx)
+		delta := int32(idx) - q.last
+		q.last = int32(idx)
+		if delta == 1 {
+			q.buffer = append(q.buffer,
+				byte(op)+0x40+isNext,
+				byte(value>>56), byte(value>>48), byte(value>>40), byte(value>>32),
+				byte(value>>24), byte(value>>16), byte(value>>8), byte(value),
+			)
+			return
+		}
+
+		q.buffer = append(q.buffer,
+			byte(op)+0x40,
+			byte(value>>56), byte(value>>48), byte(value>>40), byte(value>>32),
+			byte(value>>24), byte(value>>16), byte(value>>8), byte(value),
+		)
+		q.writeOffset(uint32(delta))*/
 }
 
 // writeOffset writes the offset at the current head.

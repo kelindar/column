@@ -84,7 +84,7 @@ func (r *Reader) Next() bool {
 	// If the first bit is set, this means that the delta is one and we
 	// can skip reading the actual offset. (special case)
 	head := r.buffer[r.head]
-	if head >= 0x80 {
+	if head >= isNext {
 		r.readValue(head)
 		r.Offset++
 		return true
@@ -142,8 +142,8 @@ func (r *Reader) readOffset() {
 
 // readValue reads the operation type and the value at the current position.
 func (r *Reader) readValue(v byte) {
-	size := int(2 << ((v & 0x60) >> 5))
-	r.Kind = UpdateType(v & 0x1f)
+	size := int(1 << ((v & 0x30) >> 4))
+	r.Kind = UpdateType(v & 0xf)
 	r.head++
 	r.i0 = r.head
 	r.head += size
