@@ -6,6 +6,7 @@ package commit
 import (
 	"encoding/binary"
 	"math"
+	"unsafe"
 )
 
 // Reader represnts a commit log reader (iterator).
@@ -74,6 +75,17 @@ func (r *Reader) Float64() float64 {
 	return math.Float64frombits(binary.BigEndian.Uint64(r.buffer[r.i0:r.i1]))
 }
 
+// String reads a string value.
+func (r *Reader) String() string {
+	b := r.buffer[r.i0:r.i1]
+	return *(*string)(unsafe.Pointer(&b))
+}
+
+// Bytes reads a binary value.
+func (r *Reader) Bytes() []byte {
+	return r.buffer[r.i0:r.i1]
+}
+
 // Next reads the current operation and returns false if there is no more
 // operations in the log.
 func (r *Reader) Next() bool {
@@ -81,18 +93,37 @@ func (r *Reader) Next() bool {
 		return false
 	}
 
-	// If the first bit is set, this means that the delta is one and we
-	// can skip reading the actual offset. (special case)
 	head := r.buffer[r.head]
-	if head >= isNext {
-		r.readValue(head)
+	switch head & 0xc0 {
+
+	// If this is a variable-size value but not a next neighbour, read the
+	// string and its offset.
+	case isString:
+		r.readString(head)
+		r.readOffset()
+		return true
+
+	// If this is both a variable-size value and a next neighbour, read the
+	// string and skip the offset.
+	case isNext | isString:
+		r.readString(head)
 		r.Offset++
 		return true
-	}
 
-	r.readValue(head)
-	r.readOffset()
-	return true
+	// If the first bit is set, this means that the delta is one and we
+	// can skip reading the actual offset. (special case)
+	case isNext:
+		r.readFixed(head)
+		r.Offset++
+		return true
+
+	// If it's not a string nor it is an immediate neighbor, we need to read
+	// the full offset.
+	default:
+		r.readFixed(head)
+		r.readOffset()
+		return true
+	}
 }
 
 // readOffset reads the signed variable-size integer at the current tail. While
@@ -140,11 +171,22 @@ func (r *Reader) readOffset() {
 	}
 }
 
-// readValue reads the operation type and the value at the current position.
-func (r *Reader) readValue(v byte) {
+// readFixed reads the fixed-size value at the current position.
+func (r *Reader) readFixed(v byte) {
 	size := int(1 << ((v & 0x30) >> 4))
 	r.Kind = UpdateType(v & 0xf)
 	r.head++
+	r.i0 = r.head
+	r.head += size
+	r.i1 = r.head
+}
+
+// readString reads the operation type and the value at the current position.
+func (r *Reader) readString(v byte) {
+	_ = r.buffer[r.head+2]
+	size := int(r.buffer[r.head+2]) | int(r.buffer[r.head+1])<<8
+	r.Kind = UpdateType(v & 0xf)
+	r.head += 3
 	r.i0 = r.head
 	r.head += size
 	r.i1 = r.head

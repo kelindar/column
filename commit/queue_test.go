@@ -34,68 +34,63 @@ func BenchmarkQueue(b *testing.B) {
 		}
 	})
 
-	b.Run("rw-any", func(b *testing.B) {
-		q := NewQueue(count)
-		r := NewReader()
-		b.ReportAllocs()
-		b.ResetTimer()
-		for n := 0; n < b.N; n++ {
-			q.Reset("test")
-			for i := uint32(0); i < count; i++ {
-				q.Put(Put, i, i)
-			}
-
-			for r.Seek(q); r.Next(); {
-				_ = r.Uint32()
-			}
+	run("rw-any", b, count, func(q *Queue, r *Reader) {
+		for i := uint32(0); i < count; i++ {
+			q.Put(Put, i, i)
+		}
+		for r.Seek(q); r.Next(); {
+			_ = r.Uint32()
 		}
 	})
 
-	b.Run("rw-u16", func(b *testing.B) {
-		q := NewQueue(count * 10)
-		r := NewReader()
-		b.ReportAllocs()
-		b.ResetTimer()
-		for n := 0; n < b.N; n++ {
-			q.Reset("test")
-			for i := uint32(0); i < count; i++ {
-				q.PutUint16(Put, i, uint16(i))
-			}
-			for r.Seek(q); r.Next(); {
-				_ = r.Uint16()
-			}
+	run("rw-u16", b, count, func(q *Queue, r *Reader) {
+		for i := uint32(0); i < count; i++ {
+			q.PutUint16(Put, i, uint16(i))
+		}
+		for r.Seek(q); r.Next(); {
+			_ = r.Uint16()
 		}
 	})
 
-	b.Run("rw-u32", func(b *testing.B) {
-		q := NewQueue(count * 10)
-		r := NewReader()
-		b.ReportAllocs()
-		b.ResetTimer()
-		for n := 0; n < b.N; n++ {
-			q.Reset("test")
-			for i := uint32(0); i < count; i++ {
-				q.PutUint32(Put, i, i)
-			}
-			for r.Seek(q); r.Next(); {
-				_ = r.Uint32()
-			}
+	run("rw-u32", b, count, func(q *Queue, r *Reader) {
+		for i := uint32(0); i < count; i++ {
+			q.PutUint32(Put, i, i)
+		}
+		for r.Seek(q); r.Next(); {
+			_ = r.Uint32()
 		}
 	})
 
-	b.Run("rw-u64", func(b *testing.B) {
-		q := NewQueue(count * 10)
+	run("rw-u64", b, count, func(q *Queue, r *Reader) {
+		for i := uint32(0); i < count; i++ {
+			q.PutUint64(Put, i, uint64(i))
+		}
+		for r.Seek(q); r.Next(); {
+			_ = r.Uint64()
+		}
+	})
+
+	run("rw-str", b, count, func(q *Queue, r *Reader) {
+		for i := uint32(0); i < count; i++ {
+			q.PutString(Put, i, "hello world")
+		}
+		for r.Seek(q); r.Next(); {
+			_ = r.String()
+		}
+	})
+
+}
+
+// Run runs a single benchmark
+func run(name string, b *testing.B, count int, fn func(q *Queue, r *Reader)) {
+	b.Run(name, func(b *testing.B) {
+		q := NewQueue(count * 20)
 		r := NewReader()
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
 			q.Reset("test")
-			for i := uint32(0); i < count; i++ {
-				q.PutUint64(Put, i, uint64(i))
-			}
-			for r.Seek(q); r.Next(); {
-				_ = r.Uint64()
-			}
+			fn(q, r)
 		}
 	})
 }
@@ -141,4 +136,69 @@ func TestRandom(t *testing.T) {
 func TestQueueSize(t *testing.T) {
 	assert.LessOrEqual(t, int(unsafe.Sizeof(Reader{})), 64)
 	assert.LessOrEqual(t, int(unsafe.Sizeof(Queue{})), 80)
+}
+
+func TestReadWrite(t *testing.T) {
+	q := NewQueue(0)
+	q.PutInt16(Put, 10, 100)
+	q.PutInt16(Put, 11, 100)
+	q.PutInt32(Put, 20, 200)
+	q.PutInt32(Put, 21, 200)
+	q.PutInt64(Put, 30, 300)
+	q.PutInt64(Put, 31, 300)
+	q.PutUint16(Put, 40, 400)
+	q.PutUint16(Put, 41, 400)
+	q.PutUint32(Put, 50, 500)
+	q.PutUint32(Put, 51, 500)
+	q.PutUint64(Put, 60, 600)
+	q.PutUint64(Put, 61, 600)
+	q.PutFloat32(Put, 70, 700)
+	q.PutFloat32(Put, 71, 700)
+	q.PutFloat64(Put, 80, 800)
+	q.PutFloat64(Put, 81, 800)
+	q.PutString(Put, 90, "900")
+	q.PutString(Put, 91, "hello world")
+	q.PutBytes(Put, 100, []byte("binary"))
+
+	r := NewReader()
+	r.Seek(q)
+	assert.True(t, r.Next())
+	assert.Equal(t, int16(100), r.Int16())
+	assert.True(t, r.Next())
+	assert.Equal(t, int16(100), r.Int16())
+	assert.True(t, r.Next())
+	assert.Equal(t, int32(200), r.Int32())
+	assert.True(t, r.Next())
+	assert.Equal(t, int32(200), r.Int32())
+	assert.True(t, r.Next())
+	assert.Equal(t, int64(300), r.Int64())
+	assert.True(t, r.Next())
+	assert.Equal(t, int64(300), r.Int64())
+	assert.True(t, r.Next())
+	assert.Equal(t, uint16(400), r.Uint16())
+	assert.True(t, r.Next())
+	assert.Equal(t, uint16(400), r.Uint16())
+	assert.True(t, r.Next())
+	assert.Equal(t, uint32(500), r.Uint32())
+	assert.True(t, r.Next())
+	assert.Equal(t, uint32(500), r.Uint32())
+	assert.True(t, r.Next())
+	assert.Equal(t, uint64(600), r.Uint64())
+	assert.True(t, r.Next())
+	assert.Equal(t, uint64(600), r.Uint64())
+	assert.True(t, r.Next())
+	assert.Equal(t, float32(700), r.Float32())
+	assert.True(t, r.Next())
+	assert.Equal(t, float32(700), r.Float32())
+	assert.True(t, r.Next())
+	assert.Equal(t, float64(800), r.Float64())
+	assert.True(t, r.Next())
+	assert.Equal(t, float64(800), r.Float64())
+	assert.True(t, r.Next())
+	assert.Equal(t, "900", r.String())
+	assert.True(t, r.Next())
+	assert.Equal(t, "hello world", r.String())
+	assert.True(t, r.Next())
+	assert.Equal(t, "binary", string(r.Bytes()))
+	assert.False(t, r.Next())
 }

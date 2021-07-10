@@ -3,6 +3,8 @@ package commit
 import (
 	"fmt"
 	"math"
+	"reflect"
+	"unsafe"
 )
 
 const (
@@ -12,7 +14,7 @@ const (
 	size4      = 2 << 4 // 4 bytes in size
 	size8      = 3 << 4 // 8 bytes in size
 	isNext     = 1 << 7 // is immediate next
-	isBlob     = 1 << 6 // is variable-size blob
+	isString   = 1 << 6 // is variable-size string
 )
 
 // --------------------------- Delta log ----------------------------
@@ -64,7 +66,7 @@ func (q *Queue) PutUint64(op UpdateType, idx uint32, value uint64) {
 	q.last = int32(idx)
 	if delta == 1 {
 		q.buffer = append(q.buffer,
-			byte(op)+size8+isNext,
+			byte(op)|size8|isNext,
 			byte(value>>56), byte(value>>48), byte(value>>40), byte(value>>32),
 			byte(value>>24), byte(value>>16), byte(value>>8), byte(value),
 		)
@@ -72,7 +74,7 @@ func (q *Queue) PutUint64(op UpdateType, idx uint32, value uint64) {
 	}
 
 	q.buffer = append(q.buffer,
-		byte(op)+size8,
+		byte(op)|size8,
 		byte(value>>56), byte(value>>48), byte(value>>40), byte(value>>32),
 		byte(value>>24), byte(value>>16), byte(value>>8), byte(value),
 	)
@@ -86,14 +88,14 @@ func (q *Queue) PutUint32(op UpdateType, idx uint32, value uint32) {
 	q.last = int32(idx)
 	if delta == 1 {
 		q.buffer = append(q.buffer,
-			byte(op)+size4+isNext,
+			byte(op)|size4|isNext,
 			byte(value>>24), byte(value>>16), byte(value>>8), byte(value),
 		)
 		return
 	}
 
 	q.buffer = append(q.buffer,
-		byte(op)+size4,
+		byte(op)|size4,
 		byte(value>>24), byte(value>>16), byte(value>>8), byte(value),
 	)
 	q.writeOffset(uint32(delta))
@@ -105,11 +107,11 @@ func (q *Queue) PutUint16(op UpdateType, idx uint32, value uint16) {
 	delta := int32(idx) - q.last
 	q.last = int32(idx)
 	if delta == 1 {
-		q.buffer = append(q.buffer, byte(op)+size2+isNext, byte(value>>8), byte(value))
+		q.buffer = append(q.buffer, byte(op)|size2|isNext, byte(value>>8), byte(value))
 		return
 	}
 
-	q.buffer = append(q.buffer, byte(op)+size2, byte(value>>8), byte(value))
+	q.buffer = append(q.buffer, byte(op)|size2, byte(value>>8), byte(value))
 	q.writeOffset(uint32(delta))
 }
 
@@ -138,26 +140,37 @@ func (q *Queue) PutFloat32(op UpdateType, idx uint32, value float32) {
 	q.PutUint32(op, idx, math.Float32bits(value))
 }
 
-// PutBinary appends a binary value.
-func (q *Queue) PutBinary(op UpdateType, idx uint32, value []byte) {
-	/*	q.writeChunk(idx)
-		delta := int32(idx) - q.last
-		q.last = int32(idx)
-		if delta == 1 {
-			q.buffer = append(q.buffer,
-				byte(op)+0x40+isNext,
-				byte(value>>56), byte(value>>48), byte(value>>40), byte(value>>32),
-				byte(value>>24), byte(value>>16), byte(value>>8), byte(value),
-			)
-			return
-		}
+// PutBytes appends a binary value.
+func (q *Queue) PutBytes(op UpdateType, idx uint32, value []byte) {
+	q.writeChunk(idx)
+	delta := int32(idx) - q.last
+	q.last = int32(idx)
 
+	// Write a 2-byte length (max 65K slices)
+	length := len(value)
+
+	if delta == 1 {
 		q.buffer = append(q.buffer,
-			byte(op)+0x40,
-			byte(value>>56), byte(value>>48), byte(value>>40), byte(value>>32),
-			byte(value>>24), byte(value>>16), byte(value>>8), byte(value),
+			byte(op)|size2|isString|isNext,
+			byte(length>>8), byte(length),
 		)
-		q.writeOffset(uint32(delta))*/
+		q.buffer = append(q.buffer, value...)
+		return
+	}
+
+	q.buffer = append(q.buffer,
+		byte(op)|size2|isString,
+		byte(length>>8), byte(length),
+	)
+
+	// Write the the data itself and the offset
+	q.buffer = append(q.buffer, value...)
+	q.writeOffset(uint32(delta))
+}
+
+// PutString appends a string value.
+func (q *Queue) PutString(op UpdateType, idx uint32, value string) {
+	q.PutBytes(op, idx, toBytes(value))
 }
 
 // writeOffset writes the offset at the current head.
@@ -176,4 +189,16 @@ func (q *Queue) writeChunk(idx uint32) {
 		q.chunks = append(q.chunks, int32(len(q.buffer)))
 		q.chunk = chunk
 	}
+}
+
+// toBytes converts a string to a byte slice without allocating.
+func toBytes(v string) (b []byte) {
+	strHeader := (*reflect.StringHeader)(unsafe.Pointer(&v))
+	byteHeader := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+	byteHeader.Data = strHeader.Data
+
+	l := len(v)
+	byteHeader.Len = l
+	byteHeader.Cap = l
+	return
 }
