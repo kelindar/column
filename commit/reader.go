@@ -26,8 +26,8 @@ func NewReader() *Reader {
 }
 
 // Seek resets the reader so it can be reused.
-func (r *Reader) Seek(q *Queue) {
-	r.buffer = q.buffer
+func (r *Reader) Seek(b *Buffer) {
+	r.buffer = b.buffer
 	r.head = 0
 	r.i0 = 0
 	r.i1 = 0
