@@ -9,18 +9,9 @@ import (
 
 // --------------------------- Update Type ----------------------------
 
-// UpdateType represents a type of an update operation.
-type UpdateType uint8
-
-// Various update operations supported.
-const (
-	Put UpdateType = iota // Put stores a value regardless of a previous value
-	Add                   // Add increments the current stored value by the amount
-)
-
 // Update represents an update operation
 type Update struct {
-	Type  UpdateType  // The type of an update operation
+	Type  OpType      // The type of an update operation
 	Index uint32      // The index to update/delete
 	Value interface{} // The value to update to
 }

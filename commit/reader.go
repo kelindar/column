@@ -11,11 +11,11 @@ import (
 
 // Reader represnts a commit log reader (iterator).
 type Reader struct {
-	head   int        // The read position
-	i0, i1 int        // The value start and end
-	buffer []byte     // The log slice
-	Offset int32      // The current offset
-	Kind   UpdateType // The current operation type
+	head   int    // The read position
+	i0, i1 int    // The value start and end
+	buffer []byte // The log slice
+	Offset int32  // The current offset
+	Kind   OpType // The current operation type
 }
 
 // NewReader creates a new reader for a commit log.
@@ -208,7 +208,7 @@ func (r *Reader) readOffset() {
 // readFixed reads the fixed-size value at the current position.
 func (r *Reader) readFixed(v byte) {
 	size := int(1 << ((v & 0x30) >> 4))
-	r.Kind = UpdateType(v & 0xf)
+	r.Kind = OpType(v & 0xf)
 	r.head++
 	r.i0 = r.head
 	r.head += size
@@ -219,7 +219,7 @@ func (r *Reader) readFixed(v byte) {
 func (r *Reader) readString(v byte) {
 	_ = r.buffer[r.head+2]
 	size := int(r.buffer[r.head+2]) | int(r.buffer[r.head+1])<<8
-	r.Kind = UpdateType(v & 0xf)
+	r.Kind = OpType(v & 0xf)
 	r.head += 3
 	r.i0 = r.head
 	r.head += size

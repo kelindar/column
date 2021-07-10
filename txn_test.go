@@ -6,7 +6,6 @@ package column
 import (
 	"fmt"
 	"testing"
-	"unsafe"
 
 	"github.com/kelindar/bitmap"
 	"github.com/stretchr/testify/assert"
@@ -390,8 +389,4 @@ func TestMin(t *testing.T) {
 			assert.Equal(t, int(tc.expect), int(min(tc.v1, tc.v2)))
 		})
 	}
-}
-
-func TestTxnSize(t *testing.T) {
-	assert.LessOrEqual(t, int(unsafe.Sizeof(Txn{})), 64)
 }

@@ -16,6 +16,17 @@ const (
 	isString   = 1 << 6 // is variable-size string
 )
 
+// --------------------------- Operation Type ----------------------------
+
+// OpType represents a type of an operation.
+type OpType uint8
+
+// Various update operations supported.
+const (
+	Put OpType = iota // Put stores a value regardless of a previous value
+	Add               // Add increments the current stored value by the amount
+)
+
 // --------------------------- Delta log ----------------------------
 
 // Buffer represents a buffer of delta operations.
@@ -52,7 +63,7 @@ func (b *Buffer) Reset(column string) {
 }
 
 // PutUint64 appends a uint64 value.
-func (b *Buffer) PutUint64(op UpdateType, idx uint32, value uint64) {
+func (b *Buffer) PutUint64(op OpType, idx uint32, value uint64) {
 	b.writeChunk(idx)
 	delta := int32(idx) - b.last
 	b.last = int32(idx)
@@ -74,7 +85,7 @@ func (b *Buffer) PutUint64(op UpdateType, idx uint32, value uint64) {
 }
 
 // PutUint32 appends a uint32 value.
-func (b *Buffer) PutUint32(op UpdateType, idx uint32, value uint32) {
+func (b *Buffer) PutUint32(op OpType, idx uint32, value uint32) {
 	b.writeChunk(idx)
 	delta := int32(idx) - b.last
 	b.last = int32(idx)
@@ -94,7 +105,7 @@ func (b *Buffer) PutUint32(op UpdateType, idx uint32, value uint32) {
 }
 
 // PutUint16 appends a uint16 value.
-func (b *Buffer) PutUint16(op UpdateType, idx uint32, value uint16) {
+func (b *Buffer) PutUint16(op OpType, idx uint32, value uint16) {
 	b.writeChunk(idx)
 	delta := int32(idx) - b.last
 	b.last = int32(idx)
@@ -108,7 +119,7 @@ func (b *Buffer) PutUint16(op UpdateType, idx uint32, value uint16) {
 }
 
 // PutBool appends a boolean value.
-func (b *Buffer) PutBool(op UpdateType, idx uint32, value bool) {
+func (b *Buffer) PutBool(op OpType, idx uint32, value bool) {
 	b.writeChunk(idx)
 	delta := int32(idx) - b.last
 	b.last = int32(idx)
@@ -129,32 +140,32 @@ func (b *Buffer) PutBool(op UpdateType, idx uint32, value bool) {
 }
 
 // PutInt64 appends an int64 value.
-func (b *Buffer) PutInt64(op UpdateType, idx uint32, value int64) {
+func (b *Buffer) PutInt64(op OpType, idx uint32, value int64) {
 	b.PutUint64(op, idx, uint64(value))
 }
 
 // PutInt32 appends an int32 value.
-func (b *Buffer) PutInt32(op UpdateType, idx uint32, value int32) {
+func (b *Buffer) PutInt32(op OpType, idx uint32, value int32) {
 	b.PutUint32(op, idx, uint32(value))
 }
 
 // PutInt16 appends an int16 value.
-func (b *Buffer) PutInt16(op UpdateType, idx uint32, value int16) {
+func (b *Buffer) PutInt16(op OpType, idx uint32, value int16) {
 	b.PutUint16(op, idx, uint16(value))
 }
 
 // PutFloat64 appends a float64 value.
-func (b *Buffer) PutFloat64(op UpdateType, idx uint32, value float64) {
+func (b *Buffer) PutFloat64(op OpType, idx uint32, value float64) {
 	b.PutUint64(op, idx, math.Float64bits(value))
 }
 
 // PutFloat32 appends an int32 value.
-func (b *Buffer) PutFloat32(op UpdateType, idx uint32, value float32) {
+func (b *Buffer) PutFloat32(op OpType, idx uint32, value float32) {
 	b.PutUint32(op, idx, math.Float32bits(value))
 }
 
 // PutBytes appends a binary value.
-func (b *Buffer) PutBytes(op UpdateType, idx uint32, value []byte) {
+func (b *Buffer) PutBytes(op OpType, idx uint32, value []byte) {
 	b.writeChunk(idx)
 	delta := int32(idx) - b.last
 	b.last = int32(idx)
@@ -181,7 +192,7 @@ func (b *Buffer) PutBytes(op UpdateType, idx uint32, value []byte) {
 }
 
 // PutString appends a string value.
-func (b *Buffer) PutString(op UpdateType, idx uint32, value string) {
+func (b *Buffer) PutString(op OpType, idx uint32, value string) {
 	b.PutBytes(op, idx, toBytes(value))
 }
 
