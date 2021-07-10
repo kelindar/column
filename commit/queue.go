@@ -115,6 +115,27 @@ func (q *Queue) PutUint16(op UpdateType, idx uint32, value uint16) {
 	q.writeOffset(uint32(delta))
 }
 
+// PutBool appends a boolean value.
+func (q *Queue) PutBool(op UpdateType, idx uint32, value bool) {
+	q.writeChunk(idx)
+	delta := int32(idx) - q.last
+	q.last = int32(idx)
+
+	// let the compiler do its magic: https://github.com/golang/go/issues/6011
+	v := 0
+	if value {
+		v = 1
+	}
+
+	if delta == 1 {
+		q.buffer = append(q.buffer, byte(op)|size1|isNext, byte(v))
+		return
+	}
+
+	q.buffer = append(q.buffer, byte(op)|size1, byte(v))
+	q.writeOffset(uint32(delta))
+}
+
 // PutInt64 appends an int64 value.
 func (q *Queue) PutInt64(op UpdateType, idx uint32, value int64) {
 	q.PutUint64(op, idx, uint64(value))
@@ -148,7 +169,6 @@ func (q *Queue) PutBytes(op UpdateType, idx uint32, value []byte) {
 
 	// Write a 2-byte length (max 65K slices)
 	length := len(value)
-
 	if delta == 1 {
 		q.buffer = append(q.buffer,
 			byte(op)|size2|isString|isNext,

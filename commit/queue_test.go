@@ -159,6 +159,8 @@ func TestReadWrite(t *testing.T) {
 	q.PutString(Put, 90, "900")
 	q.PutString(Put, 91, "hello world")
 	q.PutBytes(Put, 100, []byte("binary"))
+	q.PutBool(Put, 110, true)
+	q.PutBool(Put, 111, false)
 
 	r := NewReader()
 	r.Seek(q)
@@ -200,5 +202,9 @@ func TestReadWrite(t *testing.T) {
 	assert.Equal(t, "hello world", r.String())
 	assert.True(t, r.Next())
 	assert.Equal(t, "binary", string(r.Bytes()))
+	assert.True(t, r.Next())
+	assert.Equal(t, true, r.Bool())
+	assert.True(t, r.Next())
+	assert.Equal(t, false, r.Bool())
 	assert.False(t, r.Next())
 }

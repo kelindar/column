@@ -86,6 +86,11 @@ func (r *Reader) Bytes() []byte {
 	return r.buffer[r.i0:r.i1]
 }
 
+// Bool reads a boolean value.
+func (r *Reader) Bool() bool {
+	return r.buffer[r.i0] != 0
+}
+
 // Next reads the current operation and returns false if there is no more
 // operations in the log.
 func (r *Reader) Next() bool {
