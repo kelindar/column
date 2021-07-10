@@ -20,14 +20,17 @@ type Reader struct {
 
 // NewReader creates a new reader for a commit log.
 func NewReader() *Reader {
-	return &Reader{
-		head: 0,
-	}
+	return &Reader{}
 }
 
 // Seek resets the reader so it can be reused.
 func (r *Reader) Seek(b *Buffer) {
-	r.buffer = b.buffer
+	r.use(b.buffer)
+}
+
+// Use sets the buffer and resets the reader.
+func (r *Reader) use(buffer []byte) {
+	r.buffer = buffer
 	r.head = 0
 	r.i0 = 0
 	r.i1 = 0
@@ -90,6 +93,32 @@ func (r *Reader) Bytes() []byte {
 func (r *Reader) Bool() bool {
 	return r.buffer[r.i0] != 0
 }
+
+// --------------------------- Chunk Iterator ----------------------------
+
+// Range iterates over parts of the buffer which match the specified chunk.
+func (r *Reader) Range(buf *Buffer, chunk uint32, fn func(*Reader)) {
+	for i, c := range buf.chunks {
+		if c.Chunk != chunk {
+			continue // Not the right chunk, skip it
+		}
+
+		// Find the next offset
+		offset := c.Start
+		buffer := buf.buffer[offset:]
+		if len(buf.chunks) > i+1 {
+			until := uint32(buf.chunks[i+1].Start)
+			buffer = buf.buffer[offset:until]
+		}
+
+		// Set the reader to the subset buffer and call the delegate
+		r.use(buffer)
+		r.Offset = int32(c.Value)
+		fn(r)
+	}
+}
+
+// --------------------------- Next Iterator ----------------------------
 
 // Next reads the current operation and returns false if there is no more
 // operations in the log.

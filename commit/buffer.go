@@ -1,7 +1,6 @@
 package commit
 
 import (
-	"fmt"
 	"math"
 	"reflect"
 	"unsafe"
@@ -21,12 +20,19 @@ const (
 
 // Buffer represents a buffer of delta operations.
 type Buffer struct {
-	last   int32   // The last offset writte
-	chunk  int32   // The current chunk
-	buffer []byte  // The destination buffer
-	chunks []int32 // The offsets of chunks
-	_      [8]byte // padding
-	Column string  // The column for the queue
+	last   int32    // The last offset writte
+	chunk  uint32   // The current chunk
+	buffer []byte   // The destination buffer
+	chunks []header // The offsets of chunks
+	_      [8]byte  // padding
+	Column string   // The column for the queue
+}
+
+// header represents a chunk metadata header.
+type header struct {
+	Chunk uint32 // The chunk number
+	Start uint32 // The offset at which the chunk starts in the buffer
+	Value uint32 // The previous offset value for delta
 }
 
 // NewBuffer creates a new queue to store individual operations.
@@ -41,22 +47,8 @@ func (b *Buffer) Reset(column string) {
 	b.chunks = b.chunks[:0]
 	b.buffer = b.buffer[:0]
 	b.last = 0
-	b.chunk = -1
+	b.chunk = math.MaxUint32
 	b.Column = column
-}
-
-// Put appends a value of any supported type onto the queue.
-func (b *Buffer) Put(op UpdateType, idx uint32, value interface{}) {
-	switch v := value.(type) {
-	case uint64:
-		b.PutUint64(op, idx, v)
-	case uint32:
-		b.PutUint32(op, idx, v)
-	case uint16:
-		b.PutUint16(op, idx, v)
-	default:
-		panic(fmt.Errorf("column: unsupported type %T", value))
-	}
 }
 
 // PutUint64 appends a uint64 value.
@@ -205,9 +197,13 @@ func (b *Buffer) writeOffset(delta uint32) {
 
 // writeChunk writes a chunk if changed
 func (b *Buffer) writeChunk(idx uint32) {
-	if chunk := int32(idx >> chunkShift); b.chunk != chunk {
-		b.chunks = append(b.chunks, int32(len(b.buffer)))
+	if chunk := idx >> chunkShift; b.chunk != chunk {
 		b.chunk = chunk
+		b.chunks = append(b.chunks, header{
+			Chunk: chunk,
+			Start: uint32(len(b.buffer)),
+			Value: uint32(b.last),
+		})
 	}
 }
 

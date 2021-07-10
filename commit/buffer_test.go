@@ -1,7 +1,6 @@
 package commit
 
 import (
-	"math/rand"
 	"testing"
 	"unsafe"
 
@@ -11,7 +10,6 @@ import (
 /*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
 BenchmarkQueue/rw-baseline-8         	      97	  11718873 ns/op	 3998997 B/op	  999744 allocs/op
-BenchmarkQueue/rw-any-8              	      66	  17999300 ns/op	 3998993 B/op	  999744 allocs/op
 BenchmarkQueue/rw-u16-8              	     168	   6981673 ns/op	       3 B/op	       0 allocs/op
 BenchmarkQueue/rw-u32-8              	     172	   6878112 ns/op	       3 B/op	       0 allocs/op
 BenchmarkQueue/rw-u64-8              	     170	   6974754 ns/op	       3 B/op	       0 allocs/op
@@ -32,15 +30,6 @@ func BenchmarkQueue(b *testing.B) {
 			for _, u := range q {
 				_ = u.Value
 			}
-		}
-	})
-
-	run("rw-any", b, count, func(buf *Buffer, r *Reader) {
-		for i := uint32(0); i < count; i++ {
-			buf.Put(Put, i, i)
-		}
-		for r.Seek(buf); r.Next(); {
-			_ = r.Uint32()
 		}
 	})
 
@@ -96,46 +85,8 @@ func run(name string, b *testing.B, count int, fn func(buf *Buffer, r *Reader)) 
 	})
 }
 
-func TestQueue(t *testing.T) {
-	buf := NewBuffer(0)
-	for i := uint32(0); i < 10; i++ {
-		buf.PutUint64(Put, i, 2*uint64(i))
-	}
-
-	i := 0
-	assert.Equal(t, 91, len(buf.buffer))
-
-	r := NewReader()
-	for r.Seek(buf); r.Next(); {
-		assert.Equal(t, Put, r.Kind)
-		assert.Equal(t, i, int(r.Offset))
-		assert.Equal(t, int(i*2), int(r.Uint64()))
-		i++
-	}
-}
-
-func TestRandom(t *testing.T) {
-	seq := make([]uint32, 1024)
-	for i := 0; i < len(seq); i++ {
-		seq[i] = uint32(rand.Int31n(10000000))
-	}
-
-	buf := NewBuffer(0)
-	for i := uint32(0); i < 1000; i++ {
-		buf.PutUint32(Put, seq[i], uint32(rand.Int31()))
-	}
-
-	i := 0
-	r := NewReader()
-	for r.Seek(buf); r.Next(); {
-		assert.Equal(t, Put, r.Kind)
-		assert.Equal(t, int(seq[i]), int(r.Offset))
-		i++
-	}
-}
-
 func TestSizeof(t *testing.T) {
-	assert.LessOrEqual(t, int(unsafe.Sizeof(Reader{})), 64)
+	assert.LessOrEqual(t, int(unsafe.Sizeof(Reader{})), 80)
 	assert.LessOrEqual(t, int(unsafe.Sizeof(Buffer{})), 80)
 }
 
