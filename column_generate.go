@@ -1,33 +1,31 @@
-// +build ignore
-
 package column
 
 import (
-	"github.com/cheekybits/genny/generic"
 	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
+	"github.com/mauricelam/genny/generic"
 )
 
-type number generic.Number
+// --------------------------- Numbers ----------------------------
 
-// --------------------------- numbers ----------------------------
+type Number = generic.Number
 
-// columnnumber represents a generic column
-type columnnumber struct {
+// columnNumber represents a generic column
+type columnNumber struct {
 	fill bitmap.Bitmap // The fill-list
-	data []number      // The actual values
+	data []Number      // The actual values
 }
 
-// makenumbers creates a new vector or numbers
-func makenumbers() Column {
-	return &columnnumber{
+// makeNumbers creates a new vector for Numbers
+func makeNumbers() Column {
+	return &columnNumber{
 		fill: make(bitmap.Bitmap, 0, 4),
-		data: make([]number, 0, 64),
+		data: make([]Number, 0, 64),
 	}
 }
 
 // Grow grows the size of the column until we have enough to store
-func (c *columnnumber) Grow(idx uint32) {
+func (c *columnNumber) Grow(idx uint32) {
 	if idx < uint32(len(c.data)) {
 		return
 	}
@@ -39,25 +37,25 @@ func (c *columnnumber) Grow(idx uint32) {
 	}
 
 	c.fill.Grow(idx)
-	clone := make([]number, idx+1, capacityFor(idx+1))
+	clone := make([]Number, idx+1, capacityFor(idx+1))
 	copy(clone, c.data)
 	c.data = clone
 }
 
 // Update performs a series of updates at once
-func (c *columnnumber) Update(updates []commit.Update) {
+func (c *columnNumber) Update(updates []commit.Update) {
 
 	// Range over all of the updates, and depending on the operation perform the action
 	for i, u := range updates {
 		c.fill[u.Index>>6] |= 1 << (u.Index & 0x3f) // Set the bit without grow
 		switch u.Type {
 		case commit.Put:
-			c.data[u.Index] = u.Value.(number)
+			c.data[u.Index] = u.Value.(Number)
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
 		case commit.Add:
-			value := c.data[u.Index] + u.Value.(number)
+			value := c.data[u.Index] + u.Value.(Number)
 			c.data[u.Index] = value
 			updates[i] = commit.Update{
 				Type:  commit.Put,
@@ -68,25 +66,43 @@ func (c *columnnumber) Update(updates []commit.Update) {
 	}
 }
 
+// Apply applies a set of operations to the column.
+func (c *columnNumber) Apply(r *commit.Reader) {
+	for r.Next() {
+		c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
+		switch r.Type {
+		case commit.Put:
+			c.data[r.Offset] = Number(r.AsNumber())
+
+		// If this is an atomic increment/decrement, we need to change the operation to
+		// the final value, since after this update an index needs to be recalculated.
+		case commit.Add:
+			value := c.data[r.Offset] + Number(r.AsNumber())
+			c.data[r.Offset] = value
+			r.SwapNumber(value)
+		}
+	}
+}
+
 // Delete deletes a set of items from the column.
-func (c *columnnumber) Delete(offset int, items bitmap.Bitmap) {
+func (c *columnNumber) Delete(offset int, items bitmap.Bitmap) {
 	fill := c.fill[offset:]
 	fill.AndNot(items)
 }
 
 // Contains checks whether the column has a value at a specified index.
-func (c *columnnumber) Contains(idx uint32) bool {
+func (c *columnNumber) Contains(idx uint32) bool {
 	return c.fill.Contains(idx)
 }
 
 // Index returns the fill list for the column
-func (c *columnnumber) Index() *bitmap.Bitmap {
+func (c *columnNumber) Index() *bitmap.Bitmap {
 	return &c.fill
 }
 
 // Value retrieves a value at a specified index
-func (c *columnnumber) Value(idx uint32) (v interface{}, ok bool) {
-	v = number(0)
+func (c *columnNumber) Value(idx uint32) (v interface{}, ok bool) {
+	v = Number(0)
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = c.data[idx], true
 	}
@@ -94,7 +110,7 @@ func (c *columnnumber) Value(idx uint32) (v interface{}, ok bool) {
 }
 
 // LoadFloat64 retrieves a float64 value at a specified index
-func (c *columnnumber) LoadFloat64(idx uint32) (v float64, ok bool) {
+func (c *columnNumber) LoadFloat64(idx uint32) (v float64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = float64(c.data[idx]), true
 	}
@@ -102,7 +118,7 @@ func (c *columnnumber) LoadFloat64(idx uint32) (v float64, ok bool) {
 }
 
 // LoadInt64 retrieves an int64 value at a specified index
-func (c *columnnumber) LoadInt64(idx uint32) (v int64, ok bool) {
+func (c *columnNumber) LoadInt64(idx uint32) (v int64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = int64(c.data[idx]), true
 	}
@@ -110,7 +126,7 @@ func (c *columnnumber) LoadInt64(idx uint32) (v int64, ok bool) {
 }
 
 // LoadUint64 retrieves an uint64 value at a specified index
-func (c *columnnumber) LoadUint64(idx uint32) (v uint64, ok bool) {
+func (c *columnNumber) LoadUint64(idx uint32) (v uint64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = uint64(c.data[idx]), true
 	}
@@ -118,7 +134,7 @@ func (c *columnnumber) LoadUint64(idx uint32) (v uint64, ok bool) {
 }
 
 // FilterFloat64 filters down the values based on the specified predicate.
-func (c *columnnumber) FilterFloat64(offset uint32, index bitmap.Bitmap, predicate func(v float64) bool) {
+func (c *columnNumber) FilterFloat64(offset uint32, index bitmap.Bitmap, predicate func(v float64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) bool {
 		idx = offset + idx
@@ -127,7 +143,7 @@ func (c *columnnumber) FilterFloat64(offset uint32, index bitmap.Bitmap, predica
 }
 
 // FilterInt64 filters down the values based on the specified predicate.
-func (c *columnnumber) FilterInt64(offset uint32, index bitmap.Bitmap, predicate func(v int64) bool) {
+func (c *columnNumber) FilterInt64(offset uint32, index bitmap.Bitmap, predicate func(v int64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) (match bool) {
 		idx = offset + idx
@@ -136,7 +152,7 @@ func (c *columnnumber) FilterInt64(offset uint32, index bitmap.Bitmap, predicate
 }
 
 // FilterUint64 filters down the values based on the specified predicate.
-func (c *columnnumber) FilterUint64(offset uint32, index bitmap.Bitmap, predicate func(v uint64) bool) {
+func (c *columnNumber) FilterUint64(offset uint32, index bitmap.Bitmap, predicate func(v uint64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) (match bool) {
 		idx = offset + idx

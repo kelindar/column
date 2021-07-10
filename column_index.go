@@ -58,6 +58,22 @@ func (c *index) Update(updates []commit.Update) {
 	}
 }
 
+// Apply applies a set of operations to the column.
+func (c *index) Apply(r *commit.Reader) {
+	/*for r.Next() {
+
+		if r.Type == commit.Put {
+			if c.rule(u.Value) {
+				c.fill.Set(u.Index)
+			} else {
+				c.fill.Remove(u.Index)
+			}
+		}
+	}*/
+
+	panic("not implemented")
+}
+
 // Delete deletes a set of items from the column.
 func (c *index) Delete(offset int, items bitmap.Bitmap) {
 	fill := c.fill[offset:]

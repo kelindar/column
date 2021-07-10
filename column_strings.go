@@ -73,6 +73,27 @@ func (c *columnEnum) Update(updates []commit.Update) {
 	}
 }
 
+// Apply applies a set of operations to the column.
+func (c *columnEnum) Apply(r *commit.Reader) {
+	for r.Next() {
+		if r.Type == commit.Put {
+
+			// Attempt to find if we already have the location of this value from the
+			// cache, and if we don't, find it and set the offset for faster lookup.
+			value := r.AsString()
+			offset, cached := c.cache[value]
+			if !cached {
+				offset = c.findOrAdd(value)
+				c.cache[value] = offset
+			}
+
+			// Set the value at the index
+			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
+			c.locs[r.Offset] = offset
+		}
+	}
+}
+
 // Search for the string or adds it and returns the offset
 func (c *columnEnum) findOrAdd(v string) uint32 {
 	value := toBytes(v)

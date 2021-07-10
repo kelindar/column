@@ -38,7 +38,7 @@ func BenchmarkQueue(b *testing.B) {
 			buf.PutUint16(Put, i, uint16(i))
 		}
 		for r.Seek(buf); r.Next(); {
-			_ = r.Uint16()
+			_ = r.AsUint16()
 		}
 	})
 
@@ -47,7 +47,7 @@ func BenchmarkQueue(b *testing.B) {
 			buf.PutUint32(Put, i, i)
 		}
 		for r.Seek(buf); r.Next(); {
-			_ = r.Uint32()
+			_ = r.AsUint32()
 		}
 	})
 
@@ -56,7 +56,7 @@ func BenchmarkQueue(b *testing.B) {
 			buf.PutUint64(Put, i, uint64(i))
 		}
 		for r.Seek(buf); r.Next(); {
-			_ = r.Uint64()
+			_ = r.AsUint64()
 		}
 	})
 
@@ -65,7 +65,7 @@ func BenchmarkQueue(b *testing.B) {
 			buf.PutString(Put, i, "hello world")
 		}
 		for r.Seek(buf); r.Next(); {
-			_ = r.String()
+			_ = r.AsString()
 		}
 	})
 
@@ -117,46 +117,46 @@ func TestReadWrite(t *testing.T) {
 	r := NewReader()
 	r.Seek(buf)
 	assert.True(t, r.Next())
-	assert.Equal(t, int16(100), r.Int16())
+	assert.Equal(t, int16(100), r.AsInt16())
 	assert.True(t, r.Next())
-	assert.Equal(t, int16(100), r.Int16())
+	assert.Equal(t, int16(100), r.AsInt16())
 	assert.True(t, r.Next())
-	assert.Equal(t, int32(200), r.Int32())
+	assert.Equal(t, int32(200), r.AsInt32())
 	assert.True(t, r.Next())
-	assert.Equal(t, int32(200), r.Int32())
+	assert.Equal(t, int32(200), r.AsInt32())
 	assert.True(t, r.Next())
-	assert.Equal(t, int64(300), r.Int64())
+	assert.Equal(t, int64(300), r.AsInt64())
 	assert.True(t, r.Next())
-	assert.Equal(t, int64(300), r.Int64())
+	assert.Equal(t, int64(300), r.AsInt64())
 	assert.True(t, r.Next())
-	assert.Equal(t, uint16(400), r.Uint16())
+	assert.Equal(t, uint16(400), r.AsUint16())
 	assert.True(t, r.Next())
-	assert.Equal(t, uint16(400), r.Uint16())
+	assert.Equal(t, uint16(400), r.AsUint16())
 	assert.True(t, r.Next())
-	assert.Equal(t, uint32(500), r.Uint32())
+	assert.Equal(t, uint32(500), r.AsUint32())
 	assert.True(t, r.Next())
-	assert.Equal(t, uint32(500), r.Uint32())
+	assert.Equal(t, uint32(500), r.AsUint32())
 	assert.True(t, r.Next())
-	assert.Equal(t, uint64(600), r.Uint64())
+	assert.Equal(t, uint64(600), r.AsUint64())
 	assert.True(t, r.Next())
-	assert.Equal(t, uint64(600), r.Uint64())
+	assert.Equal(t, uint64(600), r.AsUint64())
 	assert.True(t, r.Next())
-	assert.Equal(t, float32(700), r.Float32())
+	assert.Equal(t, float32(700), r.AsFloat32())
 	assert.True(t, r.Next())
-	assert.Equal(t, float32(700), r.Float32())
+	assert.Equal(t, float32(700), r.AsFloat32())
 	assert.True(t, r.Next())
-	assert.Equal(t, float64(800), r.Float64())
+	assert.Equal(t, float64(800), r.AsFloat64())
 	assert.True(t, r.Next())
-	assert.Equal(t, float64(800), r.Float64())
+	assert.Equal(t, float64(800), r.AsFloat64())
 	assert.True(t, r.Next())
-	assert.Equal(t, "900", r.String())
+	assert.Equal(t, "900", r.AsString())
 	assert.True(t, r.Next())
-	assert.Equal(t, "hello world", r.String())
+	assert.Equal(t, "hello world", r.AsString())
 	assert.True(t, r.Next())
-	assert.Equal(t, "binary", string(r.Bytes()))
+	assert.Equal(t, "binary", string(r.AsBytes()))
 	assert.True(t, r.Next())
-	assert.Equal(t, true, r.Bool())
+	assert.Equal(t, true, r.AsBool())
 	assert.True(t, r.Next())
-	assert.Equal(t, false, r.Bool())
+	assert.Equal(t, false, r.AsBool())
 	assert.False(t, r.Next())
 }

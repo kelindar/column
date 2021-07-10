@@ -22,9 +22,9 @@ func TestQueue(t *testing.T) {
 
 	r := NewReader()
 	for r.Seek(buf); r.Next(); {
-		assert.Equal(t, Put, r.Kind)
+		assert.Equal(t, Put, r.Type)
 		assert.Equal(t, i, int(r.Offset))
-		assert.Equal(t, int(i*2), int(r.Uint64()))
+		assert.Equal(t, int(i*2), int(r.AsUint64()))
 		i++
 	}
 }
@@ -43,7 +43,7 @@ func TestRandom(t *testing.T) {
 	i := 0
 	r := NewReader()
 	for r.Seek(buf); r.Next(); {
-		assert.Equal(t, Put, r.Kind)
+		assert.Equal(t, Put, r.Type)
 		assert.Equal(t, int(seq[i]), int(r.Offset))
 		i++
 	}
@@ -66,7 +66,7 @@ func TestRange(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		r.Range(buf, uint32(i), func(r *Reader) {
 			for r.Next() {
-				assert.Equal(t, Put, r.Kind)
+				assert.Equal(t, Put, r.Type)
 				assert.Equal(t, i, int(r.Offset>>chunkShift))
 			}
 		})

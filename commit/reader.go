@@ -15,7 +15,7 @@ type Reader struct {
 	i0, i1 int    // The value start and end
 	buffer []byte // The log slice
 	Offset int32  // The current offset
-	Kind   OpType // The current operation type
+	Type   OpType // The current operation type
 }
 
 // NewReader creates a new reader for a commit log.
@@ -35,63 +35,157 @@ func (r *Reader) use(buffer []byte) {
 	r.i0 = 0
 	r.i1 = 0
 	r.Offset = 0
-	r.Kind = Put
+	r.Type = Put
 }
 
-// Int16 reads a uint16 value.
-func (r *Reader) Int16() int16 {
+// --------------------------- Value Read ----------------------------
+
+// AsInt16 reads a uint16 value.
+func (r *Reader) AsInt16() int16 {
 	return int16(binary.BigEndian.Uint16(r.buffer[r.i0:r.i1]))
 }
 
-// Int32 reads a uint32 value.
-func (r *Reader) Int32() int32 {
+// AsInt32 reads a uint32 value.
+func (r *Reader) AsInt32() int32 {
 	return int32(binary.BigEndian.Uint32(r.buffer[r.i0:r.i1]))
 }
 
-// Int64 reads a uint64 value.
-func (r *Reader) Int64() int64 {
+// AsInt64 reads a uint64 value.
+func (r *Reader) AsInt64() int64 {
 	return int64(binary.BigEndian.Uint64(r.buffer[r.i0:r.i1]))
 }
 
-// Uint16 reads a uint16 value.
-func (r *Reader) Uint16() uint16 {
+// AsInt reads a uint64 value.
+func (r *Reader) AsInt() int {
+	return int(binary.BigEndian.Uint64(r.buffer[r.i0:r.i1]))
+}
+
+// AsUint16 reads a uint16 value.
+func (r *Reader) AsUint16() uint16 {
 	return binary.BigEndian.Uint16(r.buffer[r.i0:r.i1])
 }
 
-// Uint32 reads a uint32 value.
-func (r *Reader) Uint32() uint32 {
+// AsUint32 reads a uint32 value.
+func (r *Reader) AsUint32() uint32 {
 	return binary.BigEndian.Uint32(r.buffer[r.i0:r.i1])
 }
 
-// Uint64 reads a uint64 value.
-func (r *Reader) Uint64() uint64 {
+// AsUint64 reads a uint64 value.
+func (r *Reader) AsUint64() uint64 {
 	return binary.BigEndian.Uint64(r.buffer[r.i0:r.i1])
 }
 
-// Float32 reads a float32 value.
-func (r *Reader) Float32() float32 {
+// AsUint reads a uint64 value.
+func (r *Reader) AsUint() uint {
+	return uint(binary.BigEndian.Uint64(r.buffer[r.i0:r.i1]))
+}
+
+// AsFloat32 reads a float32 value.
+func (r *Reader) AsFloat32() float32 {
 	return math.Float32frombits(binary.BigEndian.Uint32(r.buffer[r.i0:r.i1]))
 }
 
-// Float64 reads a float64 value.
-func (r *Reader) Float64() float64 {
+// AsFloat64 reads a float64 value.
+func (r *Reader) AsFloat64() float64 {
 	return math.Float64frombits(binary.BigEndian.Uint64(r.buffer[r.i0:r.i1]))
 }
 
-// String reads a string value.
-func (r *Reader) String() string {
+// AsNumber reads a float64 value.
+func (r *Reader) AsNumber() float64 {
+	return r.AsFloat64()
+}
+
+// AsString reads a string value.
+func (r *Reader) AsString() string {
 	b := r.buffer[r.i0:r.i1]
 	return *(*string)(unsafe.Pointer(&b))
 }
 
-// Bytes reads a binary value.
-func (r *Reader) Bytes() []byte {
+// AsBytes reads a binary value.
+func (r *Reader) AsBytes() []byte {
 	return r.buffer[r.i0:r.i1]
 }
 
-// Bool reads a boolean value.
-func (r *Reader) Bool() bool {
+// AsBool reads a boolean value.
+func (r *Reader) AsBool() bool {
 	return r.buffer[r.i0] != 0
+}
+
+// --------------------------- Value Swap ----------------------------
+
+// SwapInt16 swaps a uint16 value with a new one.
+func (r *Reader) SwapInt16(v int16) {
+	binary.BigEndian.PutUint16(r.buffer[r.i0:r.i1], uint16(v))
+}
+
+// SwapInt32 swaps a uint32 value with a new one.
+func (r *Reader) SwapInt32(v int32) {
+	binary.BigEndian.PutUint32(r.buffer[r.i0:r.i1], uint32(v))
+}
+
+// SwapInt64 swaps a uint64 value with a new one.
+func (r *Reader) SwapInt64(v int64) {
+	binary.BigEndian.PutUint64(r.buffer[r.i0:r.i1], uint64(v))
+}
+
+// SwapInt swaps a uint64 value with a new one.
+func (r *Reader) SwapInt(v int) {
+	binary.BigEndian.PutUint64(r.buffer[r.i0:r.i1], uint64(v))
+}
+
+// SwapUint16 swaps a uint16 value with a new one.
+func (r *Reader) SwapUint16(v uint16) {
+	binary.BigEndian.PutUint16(r.buffer[r.i0:r.i1], v)
+}
+
+// SwapUint32 swaps a uint32 value with a new one.
+func (r *Reader) SwapUint32(v uint32) {
+	binary.BigEndian.PutUint32(r.buffer[r.i0:r.i1], v)
+}
+
+// SwapUint64 swaps a uint64 value with a new one.
+func (r *Reader) SwapUint64(v uint64) {
+	binary.BigEndian.PutUint64(r.buffer[r.i0:r.i1], v)
+}
+
+// SwapUint swaps a uint64 value with a new one.
+func (r *Reader) SwapUint(v uint) {
+	binary.BigEndian.PutUint64(r.buffer[r.i0:r.i1], uint64(v))
+}
+
+// SwapFloat32 swaps a float32 value with a new one.
+func (r *Reader) SwapFloat32(v float32) {
+	binary.BigEndian.PutUint32(r.buffer[r.i0:r.i1], math.Float32bits(v))
+}
+
+// SwapFloat64 swaps a float64 value with a new one.
+func (r *Reader) SwapFloat64(v float64) {
+	binary.BigEndian.PutUint64(r.buffer[r.i0:r.i1], math.Float64bits(v))
+}
+
+// SwapNumber swaps a float64 value with a new one.
+func (r *Reader) SwapNumber(v interface{}) {
+	binary.BigEndian.PutUint64(r.buffer[r.i0:r.i1], math.Float64bits(v.(float64)))
+}
+
+// SwapString swaps a string value with a new one.
+func (r *Reader) SwapString(v string) {
+	b := *(*[]byte)(unsafe.Pointer(&v))
+	r.SwapBytes(b)
+}
+
+// SwapBytes swaps a binary value with a new one.
+func (r *Reader) SwapBytes(b []byte) {
+	copy(r.buffer[r.i0:r.i1], b)
+}
+
+// SwapBool swaps a boolean value with a new one.
+func (r *Reader) SwapBool(b bool) {
+	if b {
+		r.buffer[r.i0] = 1
+	} else {
+		r.buffer[r.i0] = 0
+	}
 }
 
 // --------------------------- Chunk Iterator ----------------------------
@@ -208,7 +302,7 @@ func (r *Reader) readOffset() {
 // readFixed reads the fixed-size value at the current position.
 func (r *Reader) readFixed(v byte) {
 	size := int(1 << ((v & 0x30) >> 4))
-	r.Kind = OpType(v & 0xf)
+	r.Type = OpType(v & 0xf)
 	r.head++
 	r.i0 = r.head
 	r.head += size
@@ -219,7 +313,7 @@ func (r *Reader) readFixed(v byte) {
 func (r *Reader) readString(v byte) {
 	_ = r.buffer[r.head+2]
 	size := int(r.buffer[r.head+2]) | int(r.buffer[r.head+1])<<8
-	r.Kind = OpType(v & 0xf)
+	r.Type = OpType(v & 0xf)
 	r.head += 3
 	r.i0 = r.head
 	r.head += size

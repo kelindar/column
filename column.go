@@ -1,7 +1,7 @@
 // Copyright (c) Roman Atachiants and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
-//go:generate genny -pkg=column -in=column_generate.go -out=column_numbers.go gen "number=float32,float64,int,int16,int32,int64,uint,uint16,uint32,uint64"
+//go:generate genny -pkg=column -in=column_generate.go -out=column_numbers.go gen "Number=float32,float64,int,int16,int32,int64,uint,uint16,uint32,uint64"
 
 package column
 
@@ -38,6 +38,7 @@ func typeOf(column Column) (typ columnType) {
 type Column interface {
 	Grow(idx uint32)
 	Update(updates []commit.Update)
+	Apply(*commit.Reader)
 	Delete(offset int, items bitmap.Bitmap)
 	Value(idx uint32) (interface{}, bool)
 	Contains(idx uint32) bool
@@ -237,6 +238,11 @@ func (c *columnAny) Update(updates []commit.Update) {
 	}
 }
 
+// Apply applies a set of operations to the column.
+func (c *columnAny) Apply(r *commit.Reader) {
+	panic("not implemented")
+}
+
 // Delete deletes a set of items from the column.
 func (c *columnAny) Delete(offset int, items bitmap.Bitmap) {
 	fill := c.fill[offset:]
@@ -308,6 +314,18 @@ func (c *columnBool) Update(updates []commit.Update) {
 			c.data.Set(u.Index)
 		} else {
 			c.data.Remove(u.Index)
+		}
+	}
+}
+
+// Apply applies a set of operations to the column.
+func (c *columnBool) Apply(r *commit.Reader) {
+	for r.Next() {
+		c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
+		if r.AsBool() {
+			c.data.Set(uint32(r.Offset))
+		} else {
+			c.data.Remove(uint32(r.Offset))
 		}
 	}
 }
