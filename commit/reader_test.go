@@ -24,7 +24,7 @@ func TestQueue(t *testing.T) {
 	for r.Seek(buf); r.Next(); {
 		assert.Equal(t, Put, r.Type)
 		assert.Equal(t, i, int(r.Offset))
-		assert.Equal(t, int(i*2), int(r.AsUint64()))
+		assert.Equal(t, int(i*2), int(r.Uint64()))
 		i++
 	}
 }

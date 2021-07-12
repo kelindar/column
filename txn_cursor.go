@@ -9,6 +9,20 @@ import (
 	"github.com/kelindar/column/commit"
 )
 
+// bufferFor loads or creates a buffer for a given column.
+func (txn *Txn) bufferFor(columnName string) *commit.Buffer {
+	for _, c := range txn.updates {
+		if c.Column == columnName {
+			return c
+		}
+	}
+
+	// Create a new buffer
+	buffer := txn.owner.txns.acquirePage(columnName)
+	txn.updates = append(txn.updates, buffer)
+	return buffer
+}
+
 // cursorFor returns a cursor for a specified column
 func (txn *Txn) cursorFor(columnName string) (Cursor, error) {
 	c, ok := txn.columnAt(columnName)
@@ -16,25 +30,10 @@ func (txn *Txn) cursorFor(columnName string) (Cursor, error) {
 		return Cursor{}, fmt.Errorf("column: specified column '%v' does not exist", columnName)
 	}
 
-	// Attempt to find the existing update queue index for this column
-	updateQueueIndex := -1
-	for i, c := range txn.updates {
-		if c.Column == columnName {
-			updateQueueIndex = i
-			break
-		}
-	}
-
-	// Create a new update queue for the selected column
-	if updateQueueIndex == -1 {
-		updateQueueIndex = len(txn.updates)
-		txn.updates = append(txn.updates, txn.owner.txns.acquirePage(columnName))
-	}
-
 	// Create a Cursor
 	return Cursor{
 		column: c,
-		update: int16(updateQueueIndex),
+		update: txn.bufferFor(columnName),
 		Selector: Selector{
 			txn: txn,
 		},
@@ -114,8 +113,13 @@ func (cur *Selector) BoolAt(column string) bool {
 // Cursor represents a iteration Selector that is bound to a specific column.
 type Cursor struct {
 	Selector
-	update int16   // The index of the update queue
-	column *column // The selected column
+	update *commit.Buffer // The index of the update queue
+	column *column        // The selected column
+}
+
+// Index returns the current index of the cursor.
+func (cur *Cursor) Index() uint32 {
+	return cur.idx
 }
 
 // Value reads a value for a current row at a given column.
@@ -137,15 +141,15 @@ func (cur *Cursor) Float() (out float64) {
 }
 
 // Int reads an int64 value for a current row at a given column.
-func (cur *Cursor) Int() (out int64) {
-	out, _ = cur.column.Int64(cur.idx)
-	return
+func (cur *Cursor) Int() int {
+	out, _ := cur.column.Int64(cur.idx)
+	return int(out)
 }
 
 // Uint reads a uint64 value for a current row at a given column.
-func (cur *Cursor) Uint() (out uint64) {
-	out, _ = cur.column.Uint64(cur.idx)
-	return
+func (cur *Cursor) Uint() uint {
+	out, _ := cur.column.Uint64(cur.idx)
+	return uint(out)
 }
 
 // Bool reads a boolean value for a current row at a given column.
@@ -165,79 +169,69 @@ func (cur *Cursor) Delete() {
 // Update updates a column value for the current item. The actual operation
 // will be queued and executed once the current the transaction completes.
 func (cur *Cursor) Update(value interface{}) {
-	cur.updateChunk(cur.idx)
-	cur.txn.updates[cur.update].Update = append(cur.txn.updates[cur.update].Update, commit.Update{
-		Type:  commit.Put,
-		Index: cur.idx,
-		Value: value,
-	})
-}
-
-// Add atomically increments/decrements the current value by the specified amount. Note
-// that this only works for numerical values and the type of the value must match.
-func (cur *Cursor) Add(amount interface{}) {
-	cur.updateChunk(cur.idx)
-	cur.txn.updates[cur.update].Update = append(cur.txn.updates[cur.update].Update, commit.Update{
-		Type:  commit.Add,
-		Index: cur.idx,
-		Value: amount,
-	})
-
+	cur.txn.dirty.Set(cur.idx >> chunkShift)
+	cur.update.PutAny(commit.Put, cur.idx, value)
 }
 
 // UpdateAt updates a specified column value for the current item. The actual operation
 // will be queued and executed once the current the transaction completes.
 func (cur *Cursor) UpdateAt(column string, value interface{}) {
-	columnIndex := cur.updateChunkAt(column, cur.idx)
-	cur.txn.updates[columnIndex].Update = append(cur.txn.updates[columnIndex].Update, commit.Update{
-		Type:  commit.Put,
-		Index: cur.idx,
-		Value: value,
-	})
+	cur.txn.dirty.Set(cur.idx >> chunkShift)
+	cur.txn.bufferFor(column).PutAny(commit.Put, cur.idx, value)
 }
 
-// Add atomically increments/decrements the column value by the specified amount. Note
+// UpdateString updates a column value for the current item. The actual operation
+// will be queued and executed once the current the transaction completes.
+func (cur *Cursor) UpdateString(value string) {
+	cur.txn.dirty.Set(cur.idx >> chunkShift)
+	cur.update.PutString(commit.Put, cur.idx, value)
+}
+
+// UpdateStringAt updates a specified column value for the current item. The actual operation
+// will be queued and executed once the current the transaction completes.
+func (cur *Cursor) UpdateStringAt(column string, value string) {
+	cur.txn.dirty.Set(cur.idx >> chunkShift)
+	cur.txn.bufferFor(column).PutString(commit.Put, cur.idx, value)
+}
+
+// UpdateBool updates a column value for the current item. The actual operation
+// will be queued and executed once the current the transaction completes.
+func (cur *Cursor) UpdateBool(value bool) {
+	cur.txn.dirty.Set(cur.idx >> chunkShift)
+	cur.update.PutBool(commit.Put, cur.idx, value)
+}
+
+// UpdateBoolAt updates a specified column value for the current item. The actual operation
+// will be queued and executed once the current the transaction completes.
+func (cur *Cursor) UpdateBoolAt(column string, value bool) {
+	cur.txn.dirty.Set(cur.idx >> chunkShift)
+	cur.txn.bufferFor(column).PutBool(commit.Put, cur.idx, value)
+}
+
+// UpdateFloat64 updates a column value for the current item. The actual operation
+// will be queued and executed once the current the transaction completes.
+func (cur *Cursor) UpdateFloat64(value float64) {
+	cur.txn.dirty.Set(cur.idx >> chunkShift)
+	cur.update.PutFloat64(commit.Put, cur.idx, value)
+}
+
+// AddFloat64 atomically increments/decrements the current value by the specified amount. Note
 // that this only works for numerical values and the type of the value must match.
-func (cur *Cursor) AddAt(column string, amount interface{}) {
-	columnIndex := cur.updateChunkAt(column, cur.idx)
-	cur.txn.updates[columnIndex].Update = append(cur.txn.updates[columnIndex].Update, commit.Update{
-		Type:  commit.Add,
-		Index: cur.idx,
-		Value: amount,
-	})
+func (cur *Cursor) AddFloat64(amount float64) {
+	cur.txn.dirty.Set(cur.idx >> chunkShift)
+	cur.update.PutFloat64(commit.Add, cur.idx, amount)
 }
 
-func (cur *Cursor) updateChunk(idx uint32) {
-	chunk := idx >> chunkShift
-	if cur.txn.dirty.Contains(chunk) {
-		return
-	}
-
-	cur.txn.dirty.Set(chunk)
-	if cur.txn.updates[cur.update].Current != int(chunk) {
-		cur.txn.updates[cur.update].Offsets = append(cur.txn.updates[cur.update].Offsets, int32(len(cur.txn.updates[cur.update].Update)))
-		cur.txn.updates[cur.update].Current = int(chunk)
-	}
+// UpdateFloat64At updates a specified column value for the current item. The actual operation
+// will be queued and executed once the current the transaction completes.
+func (cur *Cursor) UpdateFloat64At(column string, value float64) {
+	cur.txn.dirty.Set(cur.idx >> chunkShift)
+	cur.txn.bufferFor(column).PutFloat64(commit.Put, cur.idx, value)
 }
 
-func (cur *Cursor) updateChunkAt(column string, idx uint32) int {
-	chunk := idx >> chunkShift
-	cur.txn.dirty.Set(chunk)
-
-	for i, c := range cur.txn.updates {
-		if c.Column == column {
-			if c.Current != int(chunk) {
-				cur.txn.updates[i].Offsets = append(cur.txn.updates[i].Offsets, int32(len(cur.txn.updates[i].Update)))
-				cur.txn.updates[i].Current = int(chunk)
-			}
-			return i
-		}
-	}
-
-	// Create a new update queue
-	page := cur.txn.owner.txns.acquirePage(column)
-	page.Offsets = append(page.Offsets, 0)
-	page.Current = int(chunk)
-	cur.txn.updates = append(cur.txn.updates, page)
-	return len(cur.txn.updates) - 1
+// AddFloat64At atomically increments/decrements the column value by the specified amount. Note
+// that this only works for numerical values and the type of the value must match.
+func (cur *Cursor) AddFloat64At(column string, amount float64) {
+	cur.txn.dirty.Set(cur.idx >> chunkShift)
+	cur.txn.bufferFor(column).PutFloat64(commit.Add, cur.idx, amount)
 }

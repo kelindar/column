@@ -37,7 +37,7 @@ func TestColumns(t *testing.T) {
 	}{
 		{column: ForEnum(), value: "mage"},
 		{column: ForBool(), value: true},
-		{column: ForAny(), value: "test"},
+		{column: ForString(), value: "test"},
 		{column: ForInt(), value: int(99)},
 		{column: ForInt16(), value: int16(99)},
 		{column: ForInt32(), value: int32(99)},
@@ -63,12 +63,8 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 		column.Grow(uint32(i))
 	}
 
-	column.Grow(9)
-	column.Update([]commit.Update{{
-		Type:  commit.Put,
-		Index: 9,
-		Value: value,
-	}})
+	// Add a value
+	applyChanges(column, Update{commit.Put, 9, value})
 
 	// Assert the value
 	v, ok := column.Value(9)
@@ -81,11 +77,9 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 	column.Delete(0, bitmap.Bitmap{0xffffffffffffffff})
 	_, ok = column.Value(9)
 	assert.False(t, ok)
-	column.Update([]commit.Update{{
-		Type:  commit.Put,
-		Index: 9,
-		Value: value,
-	}})
+
+	// Apply updates
+	applyChanges(column, Update{commit.Put, 9, value})
 
 	// Assert Numeric
 	if column, ok := column.(Numeric); ok {
@@ -127,11 +121,12 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 		assert.Equal(t, 0, index.Count())
 
 		// Atomic Add
-		column.Update([]commit.Update{
-			{Type: commit.Put, Index: 1, Value: value},
-			{Type: commit.Put, Index: 2, Value: value},
-			{Type: commit.Add, Index: 1, Value: value},
-		})
+		applyChanges(column,
+			Update{Type: commit.Put, Index: 1, Value: value},
+			Update{Type: commit.Put, Index: 2, Value: value},
+			Update{Type: commit.Add, Index: 1, Value: value},
+		)
+
 		assert.True(t, column.Contains(1))
 		assert.True(t, column.Contains(2))
 		//v, _ := column.LoadInt64(1)
@@ -156,14 +151,10 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 }
 
 func TestColumnOrder(t *testing.T) {
-	p := makeAny()
+	p := ForUint32()
 	p.Grow(199)
 	for i := uint32(100); i < 200; i++ {
-		p.Update([]commit.Update{{
-			Type:  commit.Put,
-			Index: i,
-			Value: i,
-		}})
+		applyChanges(p, Update{Type: commit.Put, Index: i, Value: i})
 	}
 
 	for i := uint32(100); i < 200; i++ {
@@ -176,11 +167,7 @@ func TestColumnOrder(t *testing.T) {
 		var deletes bitmap.Bitmap
 		deletes.Set(i)
 		p.Delete(0, deletes)
-		p.Update([]commit.Update{{
-			Type:  commit.Put,
-			Index: i,
-			Value: i,
-		}})
+		applyChanges(p, Update{Type: commit.Put, Index: i, Value: i})
 	}
 
 	for i := uint32(100); i < 200; i++ {
@@ -191,9 +178,34 @@ func TestColumnOrder(t *testing.T) {
 }
 
 func TestFromKind(t *testing.T) {
-	for i := 0; i < 26; i++ {
-		column := ForKind(reflect.Kind(i))
+	for _, v := range []reflect.Kind{
+		reflect.Int, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Bool, reflect.String,
+		reflect.Float32, reflect.Float64,
+	} {
+		column := ForKind(v)
 		_, ok := column.Value(100)
 		assert.False(t, ok)
 	}
+	for i := 0; i < 26; i++ {
+
+	}
+}
+
+func applyChanges(column Column, updates ...Update) {
+	buf := commit.NewBuffer(10)
+	for _, u := range updates {
+		buf.PutAny(u.Type, u.Index, u.Value)
+	}
+
+	r := new(commit.Reader)
+	r.Seek(buf)
+	column.Apply(r)
+}
+
+type Update struct {
+	Type  commit.OpType
+	Index uint32
+	Value interface{}
 }

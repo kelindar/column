@@ -67,7 +67,7 @@ func main() {
 		players.Query(func(txn *column.Txn) error {
 			return txn.Range("balance", func(v column.Cursor) {
 				updates++
-				v.Update(1000.0)
+				v.UpdateFloat64(1000.0)
 			})
 		})
 		fmt.Printf("-> updated %v rows\n", updates)
@@ -79,7 +79,7 @@ func main() {
 		players.Query(func(txn *column.Txn) error {
 			return txn.With("mage").Range("age", func(v column.Cursor) {
 				updates++
-				v.Update(99.0)
+				v.UpdateFloat64(99.0)
 			})
 		})
 		fmt.Printf("-> updated %v rows\n", updates)
@@ -91,7 +91,7 @@ func main() {
 		players.Query(func(txn *column.Txn) error {
 			return txn.With("male").Range("name", func(v column.Cursor) {
 				updates++
-				v.Update("Sir " + v.String())
+				v.UpdateString("Sir " + v.String())
 			})
 		})
 		fmt.Printf("-> updated %v rows\n", updates)
@@ -111,26 +111,26 @@ func createCollection(out *column.Collection, amount int) *column.Collection {
 	out.CreateColumn("balance", column.ForFloat64())
 	out.CreateColumn("gender", column.ForEnum())
 	out.CreateColumn("guild", column.ForEnum())
-	out.CreateColumn("location", column.ForAny())
+	out.CreateColumn("location", column.ForString())
 
 	// index for humans
-	out.CreateIndex("human", "race", func(v interface{}) bool {
-		return v == "human"
+	out.CreateIndex("human", "race", func(r column.Reader) bool {
+		return r.String() == "human"
 	})
 
 	// index for mages
-	out.CreateIndex("mage", "class", func(v interface{}) bool {
-		return v == "mage"
+	out.CreateIndex("mage", "class", func(r column.Reader) bool {
+		return r.String() == "mage"
 	})
 
 	// index for males
-	out.CreateIndex("male", "gender", func(v interface{}) bool {
-		return v == "male"
+	out.CreateIndex("male", "gender", func(r column.Reader) bool {
+		return r.String() == "male"
 	})
 
 	// index for females
-	out.CreateIndex("female", "gender", func(v interface{}) bool {
-		return v == "female"
+	out.CreateIndex("female", "gender", func(r column.Reader) bool {
+		return r.String() == "female"
 	})
 
 	// Load the 500 rows from JSON

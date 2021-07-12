@@ -16,13 +16,13 @@ import (
 // txnPool is a pool of transactions which are retained for the lifetime of the process.
 type txnPool struct {
 	txns  chan *Txn
-	pages chan commit.Updates
+	pages chan *commit.Buffer
 }
 
 func newTxnPool() *txnPool {
 	return &txnPool{
 		txns:  make(chan *Txn, 256),            // Max transactions pooled
-		pages: make(chan commit.Updates, 1024), // Max scratch pages pooled
+		pages: make(chan *commit.Buffer, 1024), // Max scratch pages pooled
 	}
 }
 
@@ -35,7 +35,7 @@ func (p *txnPool) acquire(owner *Collection) (txn *Txn) {
 			deletes: make(bitmap.Bitmap, 0, 4),
 			inserts: make(bitmap.Bitmap, 0, 4),
 			dirty:   make(bitmap.Bitmap, 0, 4),
-			updates: make([]commit.Updates, 0, 256),
+			updates: make([]*commit.Buffer, 0, 256),
 			columns: make([]columnCache, 0, 16),
 		}
 	}
@@ -49,18 +49,15 @@ func (p *txnPool) acquire(owner *Collection) (txn *Txn) {
 }
 
 // acquirePage acquires a new page for a particular column and initializes it
-func (p *txnPool) acquirePage(columnName string) (page commit.Updates) {
+func (p *txnPool) acquirePage(columnName string) (page *commit.Buffer) {
 	select {
 	case page = <-p.pages:
 	default:
-		page = commit.Updates{}
+		page = &commit.Buffer{}
 	}
 
 	// Initialize
-	page.Column = columnName
-	page.Current = -1
-	page.Update = page.Update[:0]
-	page.Offsets = page.Offsets[:0]
+	page.Reset(columnName)
 	return
 }
 
@@ -89,7 +86,7 @@ type Txn struct {
 	deletes bitmap.Bitmap    // The delete queue
 	inserts bitmap.Bitmap    // The insert queue
 	dirty   bitmap.Bitmap    // The dirty chunks
-	updates []commit.Updates // The update queue
+	updates []*commit.Buffer // The update buffers
 	columns []columnCache    // The column mapping
 	writer  commit.Writer    // The optional commit writer
 }
@@ -372,10 +369,8 @@ func (txn *Txn) Range(column string, fn func(v Cursor)) error {
 
 // Reset resets the transaction state so it can be used again.
 func (txn *Txn) reset() {
-	for i := range txn.updates {
-		txn.updates[i].Current = -1
-		txn.updates[i].Update = txn.updates[i].Update[:0]
-		txn.updates[i].Offsets = txn.updates[i].Offsets[:0]
+	for _, buf := range txn.updates {
+		buf.Reset("TODO")
 	}
 
 	txn.dirty.Clear()
@@ -432,23 +427,13 @@ func (txn *Txn) commit() {
 			})
 		}
 	})
-
-	// If there's a writer, write into it before we clean up the transaction
-	/*if typ > 0 && txn.writer != nil {
-		txn.writer.Write(commit.Commit{
-			Type:    typ,
-			Dirty:   txn.dirty,
-			Inserts: txn.inserts,
-			Deletes: txn.deletes,
-			Updates: txn.updates,
-		})
-	}*/
 }
 
 // commitUpdates applies the pending updates to the collection.
 func (txn *Txn) commitUpdates(chunk, max uint32) (typ commit.Type) {
+	var reader commit.Reader
 	for _, u := range txn.updates {
-		if len(u.Update) == 0 {
+		if u.IsEmpty() {
 			continue // No updates for this column
 		}
 
@@ -460,24 +445,15 @@ func (txn *Txn) commitUpdates(chunk, max uint32) (typ commit.Type) {
 
 		// Do a linear search to find the offset for the current chunk
 		typ |= commit.Store
-		for i, offset := range u.Offsets {
-			if (u.Update[offset].Index >> chunkShift) != chunk {
-				continue // Not the right chunk (TODO: optimize)
-			}
-
-			// Find the next offset
-			chunkUpdates := u.Update[offset:]
-			if len(u.Offsets) > i+1 {
-				until := u.Offsets[i+1]
-				chunkUpdates = u.Update[offset:until]
-			}
+		reader.Range(u, chunk, func(r *commit.Reader) {
 
 			// Range through all of the pending updates and apply them to the column
 			// and its associated computed columns.
 			for _, v := range columns {
-				v.Update(chunkUpdates, max)
+				r.Rewind()
+				v.Apply(r, max)
 			}
-		}
+		})
 	}
 	return
 }

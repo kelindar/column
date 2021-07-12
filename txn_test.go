@@ -140,7 +140,7 @@ func TestIndexInvalid(t *testing.T) {
 
 	assert.NoError(t, players.Query(func(txn *Txn) error {
 		return txn.Range("balance", func(v Cursor) {
-			v.AddAt("invalid-column", 1)
+			v.AddFloat64At("invalid-column", 1)
 		})
 	}))
 
@@ -173,8 +173,8 @@ func TestIndexInvalid(t *testing.T) {
 
 func TestIndexed(t *testing.T) {
 	players := loadPlayers(500)
-	players.CreateIndex("rich", "balance", func(v interface{}) bool {
-		return v.(float64) > 3500
+	players.CreateIndex("rich", "balance", func(r Reader) bool {
+		return r.Float() > 3500
 	})
 
 	// How many players are rich?
@@ -229,8 +229,8 @@ func TestIndexed(t *testing.T) {
 		result.Range("class", func(v Cursor) {
 			//assert.Equal(t, "mage", v.String())
 			assert.Equal(t, float64(0), v.Float())
-			assert.Equal(t, int64(0), v.Int())
-			assert.Equal(t, uint64(0), v.Uint())
+			assert.Equal(t, int(0), v.Int())
+			assert.Equal(t, uint(0), v.Uint())
 		})
 		return nil
 	})
@@ -239,11 +239,11 @@ func TestIndexed(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	players := loadPlayers(500)
-	players.CreateIndex("broke", "balance", func(v interface{}) bool {
-		return v.(float64) < 100
+	players.CreateIndex("broke", "balance", func(r Reader) bool {
+		return r.Float() < 100
 	})
-	players.CreateIndex("rich", "balance", func(v interface{}) bool {
-		return v.(float64) >= 3000
+	players.CreateIndex("rich", "balance", func(r Reader) bool {
+		return r.Float() >= 3000
 	})
 
 	// Delete all old people from the collection
@@ -326,8 +326,8 @@ func TestUpdate(t *testing.T) {
 	players.Query(func(txn *Txn) error {
 		for i := 0; i < 30; i++ {
 			txn.Range("balance", func(v Cursor) {
-				v.Add(100.0)
-				v.AddAt("balance", 100.0)
+				v.AddFloat64(100.0)
+				v.AddFloat64At("balance", 100.0)
 			})
 		}
 		return nil

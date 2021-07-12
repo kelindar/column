@@ -3,24 +3,24 @@ package column
 import (
 	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
-	"github.com/mauricelam/genny/generic"
+	"github.com/kelindar/genny/generic"
 )
 
 // --------------------------- Numbers ----------------------------
 
-type Number = generic.Number
+type number = generic.Number
 
 // columnNumber represents a generic column
 type columnNumber struct {
 	fill bitmap.Bitmap // The fill-list
-	data []Number      // The actual values
+	data []number      // The actual values
 }
 
 // makeNumbers creates a new vector for Numbers
 func makeNumbers() Column {
 	return &columnNumber{
 		fill: make(bitmap.Bitmap, 0, 4),
-		data: make([]Number, 0, 64),
+		data: make([]number, 0, 64),
 	}
 }
 
@@ -37,33 +37,9 @@ func (c *columnNumber) Grow(idx uint32) {
 	}
 
 	c.fill.Grow(idx)
-	clone := make([]Number, idx+1, capacityFor(idx+1))
+	clone := make([]number, idx+1, capacityFor(idx+1))
 	copy(clone, c.data)
 	c.data = clone
-}
-
-// Update performs a series of updates at once
-func (c *columnNumber) Update(updates []commit.Update) {
-
-	// Range over all of the updates, and depending on the operation perform the action
-	for i, u := range updates {
-		c.fill[u.Index>>6] |= 1 << (u.Index & 0x3f) // Set the bit without grow
-		switch u.Type {
-		case commit.Put:
-			c.data[u.Index] = u.Value.(Number)
-
-		// If this is an atomic increment/decrement, we need to change the operation to
-		// the final value, since after this update an index needs to be recalculated.
-		case commit.Add:
-			value := c.data[u.Index] + u.Value.(Number)
-			c.data[u.Index] = value
-			updates[i] = commit.Update{
-				Type:  commit.Put,
-				Index: u.Index,
-				Value: value,
-			}
-		}
-	}
 }
 
 // Apply applies a set of operations to the column.
@@ -72,12 +48,12 @@ func (c *columnNumber) Apply(r *commit.Reader) {
 		c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 		switch r.Type {
 		case commit.Put:
-			c.data[r.Offset] = Number(r.AsNumber())
+			c.data[r.Offset] = number(r.Number())
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
 		case commit.Add:
-			value := c.data[r.Offset] + Number(r.AsNumber())
+			value := c.data[r.Offset] + number(r.Number())
 			c.data[r.Offset] = value
 			r.SwapNumber(value)
 		}
@@ -102,7 +78,7 @@ func (c *columnNumber) Index() *bitmap.Bitmap {
 
 // Value retrieves a value at a specified index
 func (c *columnNumber) Value(idx uint32) (v interface{}, ok bool) {
-	v = Number(0)
+	v = number(0)
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = c.data[idx], true
 	}

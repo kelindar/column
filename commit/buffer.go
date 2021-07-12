@@ -1,6 +1,7 @@
 package commit
 
 import (
+	"fmt"
 	"math"
 	"reflect"
 	"unsafe"
@@ -60,6 +61,49 @@ func (b *Buffer) Reset(column string) {
 	b.last = 0
 	b.chunk = math.MaxUint32
 	b.Column = column
+}
+
+// IsEmpty returns whether the buffer is empty or not.
+func (b *Buffer) IsEmpty() bool {
+	return len(b.buffer) == 0
+}
+
+// PutAny appends a supported value onto the buffer.
+func (b *Buffer) PutAny(op OpType, idx uint32, value interface{}) {
+	switch v := value.(type) {
+	case uint64:
+		b.PutUint64(op, idx, v)
+	case uint32:
+		b.PutUint32(op, idx, v)
+	case uint16:
+		b.PutUint16(op, idx, v)
+	case uint8:
+		b.PutUint16(op, idx, uint16(v))
+	case int64:
+		b.PutInt64(op, idx, v)
+	case int32:
+		b.PutInt32(op, idx, v)
+	case int16:
+		b.PutUint16(op, idx, uint16(v))
+	case int8:
+		b.PutUint16(op, idx, uint16(v))
+	case string:
+		b.PutString(op, idx, v)
+	case []byte:
+		b.PutBytes(op, idx, v)
+	case float32:
+		b.PutFloat32(op, idx, v)
+	case float64:
+		b.PutFloat64(op, idx, v)
+	case int:
+		b.PutInt64(op, idx, int64(v))
+	case uint:
+		b.PutUint64(op, idx, uint64(v))
+	case bool:
+		b.PutBool(op, idx, v)
+	default:
+		panic(fmt.Errorf("column: unsupported type (%T)", value))
+	}
 }
 
 // PutUint64 appends a uint64 value.

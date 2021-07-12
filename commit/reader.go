@@ -16,6 +16,7 @@ type Reader struct {
 	buffer []byte // The log slice
 	Offset int32  // The current offset
 	Type   OpType // The current operation type
+	start  int32  // The start offset
 }
 
 // NewReader creates a new reader for a commit log.
@@ -26,6 +27,12 @@ func NewReader() *Reader {
 // Seek resets the reader so it can be reused.
 func (r *Reader) Seek(b *Buffer) {
 	r.use(b.buffer)
+}
+
+// Rewind rewinds the reader back to zero.
+func (r *Reader) Rewind() {
+	r.use(r.buffer)
+	r.Offset = r.start
 }
 
 // Use sets the buffer and resets the reader.
@@ -40,74 +47,86 @@ func (r *Reader) use(buffer []byte) {
 
 // --------------------------- Value Read ----------------------------
 
-// AsInt16 reads a uint16 value.
-func (r *Reader) AsInt16() int16 {
+// Int16 reads a uint16 value.
+func (r *Reader) Int16() int16 {
 	return int16(binary.BigEndian.Uint16(r.buffer[r.i0:r.i1]))
 }
 
-// AsInt32 reads a uint32 value.
-func (r *Reader) AsInt32() int32 {
+// Int32 reads a uint32 value.
+func (r *Reader) Int32() int32 {
 	return int32(binary.BigEndian.Uint32(r.buffer[r.i0:r.i1]))
 }
 
-// AsInt64 reads a uint64 value.
-func (r *Reader) AsInt64() int64 {
+// Int64 reads a uint64 value.
+func (r *Reader) Int64() int64 {
 	return int64(binary.BigEndian.Uint64(r.buffer[r.i0:r.i1]))
 }
 
-// AsInt reads a uint64 value.
-func (r *Reader) AsInt() int {
-	return int(binary.BigEndian.Uint64(r.buffer[r.i0:r.i1]))
-}
-
-// AsUint16 reads a uint16 value.
-func (r *Reader) AsUint16() uint16 {
+// Uint16 reads a uint16 value.
+func (r *Reader) Uint16() uint16 {
 	return binary.BigEndian.Uint16(r.buffer[r.i0:r.i1])
 }
 
-// AsUint32 reads a uint32 value.
-func (r *Reader) AsUint32() uint32 {
+// Uint32 reads a uint32 value.
+func (r *Reader) Uint32() uint32 {
 	return binary.BigEndian.Uint32(r.buffer[r.i0:r.i1])
 }
 
-// AsUint64 reads a uint64 value.
-func (r *Reader) AsUint64() uint64 {
+// Uint64 reads a uint64 value.
+func (r *Reader) Uint64() uint64 {
 	return binary.BigEndian.Uint64(r.buffer[r.i0:r.i1])
 }
 
-// AsUint reads a uint64 value.
-func (r *Reader) AsUint() uint {
-	return uint(binary.BigEndian.Uint64(r.buffer[r.i0:r.i1]))
-}
-
-// AsFloat32 reads a float32 value.
-func (r *Reader) AsFloat32() float32 {
+// Float32 reads a float32 value.
+func (r *Reader) Float32() float32 {
 	return math.Float32frombits(binary.BigEndian.Uint32(r.buffer[r.i0:r.i1]))
 }
 
-// AsFloat64 reads a float64 value.
-func (r *Reader) AsFloat64() float64 {
+// Float64 reads a float64 value.
+func (r *Reader) Float64() float64 {
 	return math.Float64frombits(binary.BigEndian.Uint64(r.buffer[r.i0:r.i1]))
 }
 
-// AsNumber reads a float64 value.
-func (r *Reader) AsNumber() float64 {
-	return r.AsFloat64()
+// Number reads a float64 value. This is used for codegen, equivalent to Float64().
+func (r *Reader) Number() float64 {
+	return r.Float64()
 }
 
-// AsString reads a string value.
-func (r *Reader) AsString() string {
+// Bytes reads a binary value.
+func (r *Reader) Bytes() []byte {
+	return r.buffer[r.i0:r.i1]
+}
+
+// --------------------------- Reader Interface ----------------------------
+
+// Index returns the current index of the reader.
+func (r *Reader) Index() uint32 {
+	return uint32(r.Offset)
+}
+
+// Int reads a int64 value.
+func (r *Reader) Int() int {
+	return int(binary.BigEndian.Uint64(r.buffer[r.i0:r.i1]))
+}
+
+// Uint reads a uint64 value.
+func (r *Reader) Uint() uint {
+	return uint(binary.BigEndian.Uint64(r.buffer[r.i0:r.i1]))
+}
+
+// Float reads a float64 value.
+func (r *Reader) Float() float64 {
+	return r.Float64()
+}
+
+// String reads a string value.
+func (r *Reader) String() string {
 	b := r.buffer[r.i0:r.i1]
 	return *(*string)(unsafe.Pointer(&b))
 }
 
-// AsBytes reads a binary value.
-func (r *Reader) AsBytes() []byte {
-	return r.buffer[r.i0:r.i1]
-}
-
-// AsBool reads a boolean value.
-func (r *Reader) AsBool() bool {
+// Bool reads a boolean value.
+func (r *Reader) Bool() bool {
 	return r.buffer[r.i0] != 0
 }
 
@@ -208,6 +227,7 @@ func (r *Reader) Range(buf *Buffer, chunk uint32, fn func(*Reader)) {
 		// Set the reader to the subset buffer and call the delegate
 		r.use(buffer)
 		r.Offset = int32(c.Value)
+		r.start = int32(c.Value)
 		fn(r)
 	}
 }

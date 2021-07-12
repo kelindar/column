@@ -182,32 +182,32 @@ func (c *Collection) DropColumn(columnName string) {
 // CreateIndex creates an index column with a specified name which depends on a given
 // column. The index function will be applied on the values of the column whenever
 // a new row is added or updated.
-func (c *Collection) CreateIndex(indexName, columnName string, fn func(v interface{}) bool) error {
-	c.lock.Lock()
-	defer c.lock.Unlock()
+func (c *Collection) CreateIndex(indexName, columnName string, fn func(r Reader) bool) error {
 	if fn == nil || columnName == "" || indexName == "" {
 		return fmt.Errorf("column: create index must specify name, column and function")
 	}
 
 	// Create and add the index column,
 	index := newIndex(indexName, columnName, fn)
+	c.lock.Lock()
 	index.Grow(uint32(c.size))
 	c.cols.Store(indexName, index)
 	c.cols.Store(columnName, nil, index)
+	c.lock.Unlock()
+
+	// If the colum does not yet exist, nothing else to do
+	if _, ok := c.cols.Load(columnName); !ok {
+		return nil
+	}
 
 	// If a column with this name already exists, iterate through all of the values
 	// that we have in the collection and apply the filter.
-	if column, ok := c.cols.Load(columnName); ok {
-		fill := index.Index()
-		c.fill.Clone(fill)
-		fill.Filter(func(x uint32) (match bool) {
-			if v, ok := column.Value(x); ok {
-				match = fn(v)
-			}
-			return
+	return c.Query(func(txn *Txn) error {
+		impl := index.Column.(*columnIndex)
+		return txn.With(columnName).Range(columnName, func(v Cursor) {
+			impl.Update(&v)
 		})
-	}
-	return nil
+	})
 }
 
 // DropIndex removes the index column with the specified name. If the index with this
@@ -281,7 +281,7 @@ func (c *Collection) vacuum(ctx context.Context, interval time.Duration) {
 			ticker.Stop()
 			return
 		case <-ticker.C:
-			now := time.Now().UnixNano()
+			now := int(time.Now().UnixNano())
 			c.Query(func(txn *Txn) error {
 				return txn.With(expireColumn).Range(expireColumn, func(v Cursor) {
 					if expirateAt := v.Int(); expirateAt != 0 && now >= v.Int() {
@@ -296,31 +296,24 @@ func (c *Collection) vacuum(ctx context.Context, interval time.Duration) {
 // Replay replays a commit on a collection, applying the changes.
 func (c *Collection) Replay(change commit.Commit) error {
 	return c.Query(func(txn *Txn) error {
-		change.Dirty.Clone(&txn.dirty)
+		txn.dirty = change.Dirty
 
 		// If the change contains deletes, add them to the transaction
 		if change.Is(commit.Delete) {
-			txn.deletes = append(txn.deletes, change.Deletes...)
+			txn.deletes = change.Deletes
 		}
 
 		// If the change contains inserts, add them to the transaction
 		if change.Is(commit.Insert) {
-			txn.inserts = append(txn.inserts, change.Inserts...)
+			txn.inserts = change.Inserts
 		}
 
 		// If the change contains updates, add them to the transaction
 		if change.Is(commit.Store) {
-			for _, log := range change.Updates {
-				if len(log.Update) == 0 {
-					continue
+			for i := range change.Updates {
+				if !change.Updates[i].IsEmpty() {
+					txn.updates = append(txn.updates, change.Updates[i])
 				}
-
-				// Add a new update queue
-				page := c.txns.acquirePage(log.Column)
-				page.Offsets = append(page.Offsets, log.Offsets...)
-				page.Update = append(page.Update, log.Update...)
-
-				txn.updates = append(txn.updates, page)
 			}
 		}
 		return nil
