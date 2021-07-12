@@ -402,6 +402,13 @@ func (txn *Txn) commit() {
 	txn.owner.fill.Grow(max)
 	txn.owner.lock.Unlock()
 
+	// Mark the dirty chunks from the updates
+	for _, u := range txn.updates {
+		u.RangeChunks(func(chunk uint32) {
+			txn.dirty.Set(chunk)
+		})
+	}
+
 	// Commit chunk by chunk to reduce lock contentions
 	var typ commit.Type
 	txn.rangeWrite(func(chunk uint32, fill bitmap.Bitmap) {

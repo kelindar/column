@@ -169,69 +169,59 @@ func (cur *Cursor) Delete() {
 // Update updates a column value for the current item. The actual operation
 // will be queued and executed once the current the transaction completes.
 func (cur *Cursor) Update(value interface{}) {
-	cur.txn.dirty.Set(cur.idx >> chunkShift)
 	cur.update.PutAny(commit.Put, cur.idx, value)
 }
 
 // UpdateAt updates a specified column value for the current item. The actual operation
 // will be queued and executed once the current the transaction completes.
 func (cur *Cursor) UpdateAt(column string, value interface{}) {
-	cur.txn.dirty.Set(cur.idx >> chunkShift)
 	cur.txn.bufferFor(column).PutAny(commit.Put, cur.idx, value)
 }
 
 // UpdateString updates a column value for the current item. The actual operation
 // will be queued and executed once the current the transaction completes.
 func (cur *Cursor) UpdateString(value string) {
-	cur.txn.dirty.Set(cur.idx >> chunkShift)
 	cur.update.PutString(commit.Put, cur.idx, value)
 }
 
 // UpdateStringAt updates a specified column value for the current item. The actual operation
 // will be queued and executed once the current the transaction completes.
 func (cur *Cursor) UpdateStringAt(column string, value string) {
-	cur.txn.dirty.Set(cur.idx >> chunkShift)
 	cur.txn.bufferFor(column).PutString(commit.Put, cur.idx, value)
 }
 
 // UpdateBool updates a column value for the current item. The actual operation
 // will be queued and executed once the current the transaction completes.
 func (cur *Cursor) UpdateBool(value bool) {
-	cur.txn.dirty.Set(cur.idx >> chunkShift)
 	cur.update.PutBool(commit.Put, cur.idx, value)
 }
 
 // UpdateBoolAt updates a specified column value for the current item. The actual operation
 // will be queued and executed once the current the transaction completes.
 func (cur *Cursor) UpdateBoolAt(column string, value bool) {
-	cur.txn.dirty.Set(cur.idx >> chunkShift)
 	cur.txn.bufferFor(column).PutBool(commit.Put, cur.idx, value)
 }
 
 // UpdateFloat64 updates a column value for the current item. The actual operation
 // will be queued and executed once the current the transaction completes.
 func (cur *Cursor) UpdateFloat64(value float64) {
-	cur.txn.dirty.Set(cur.idx >> chunkShift)
 	cur.update.PutFloat64(commit.Put, cur.idx, value)
 }
 
 // AddFloat64 atomically increments/decrements the current value by the specified amount. Note
 // that this only works for numerical values and the type of the value must match.
 func (cur *Cursor) AddFloat64(amount float64) {
-	cur.txn.dirty.Set(cur.idx >> chunkShift)
 	cur.update.PutFloat64(commit.Add, cur.idx, amount)
 }
 
 // UpdateFloat64At updates a specified column value for the current item. The actual operation
 // will be queued and executed once the current the transaction completes.
 func (cur *Cursor) UpdateFloat64At(column string, value float64) {
-	cur.txn.dirty.Set(cur.idx >> chunkShift)
 	cur.txn.bufferFor(column).PutFloat64(commit.Put, cur.idx, value)
 }
 
 // AddFloat64At atomically increments/decrements the column value by the specified amount. Note
 // that this only works for numerical values and the type of the value must match.
 func (cur *Cursor) AddFloat64At(column string, amount float64) {
-	cur.txn.dirty.Set(cur.idx >> chunkShift)
 	cur.txn.bufferFor(column).PutFloat64(commit.Add, cur.idx, amount)
 }

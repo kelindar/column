@@ -97,6 +97,11 @@ func TestReadWrite(t *testing.T) {
 	buf.PutBool(Put, 110, true)
 	buf.PutBool(Put, 111, false)
 
+	// Should only have 1 chunk
+	buf.RangeChunks(func(chunk uint32) {
+		assert.Equal(t, uint32(0), chunk)
+	})
+
 	r := NewReader()
 	r.Seek(buf)
 	assert.True(t, r.Next())

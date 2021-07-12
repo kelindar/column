@@ -68,6 +68,13 @@ func (b *Buffer) IsEmpty() bool {
 	return len(b.buffer) == 0
 }
 
+// Range iterates over the chunks present in the buffer
+func (b *Buffer) RangeChunks(fn func(chunk uint32)) {
+	for _, c := range b.chunks {
+		fn(c.Chunk)
+	}
+}
+
 // PutAny appends a supported value onto the buffer.
 func (b *Buffer) PutAny(op OpType, idx uint32, value interface{}) {
 	switch v := value.(type) {
