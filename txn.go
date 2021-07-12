@@ -37,6 +37,7 @@ func (p *txnPool) acquire(owner *Collection) (txn *Txn) {
 			dirty:   make(bitmap.Bitmap, 0, 4),
 			updates: make([]*commit.Buffer, 0, 256),
 			columns: make([]columnCache, 0, 16),
+			reader:  commit.NewReader(),
 		}
 	}
 
@@ -89,6 +90,7 @@ type Txn struct {
 	updates []*commit.Buffer // The update buffers
 	columns []columnCache    // The column mapping
 	writer  commit.Writer    // The optional commit writer
+	reader  *commit.Reader   // The commit reader to re-use
 }
 
 // columnCache caches a column by its name. This speeds things up since it's a very
@@ -438,7 +440,6 @@ func (txn *Txn) commit() {
 
 // commitUpdates applies the pending updates to the collection.
 func (txn *Txn) commitUpdates(chunk, max uint32) (typ commit.Type) {
-	var reader commit.Reader
 	for _, u := range txn.updates {
 		if u.IsEmpty() {
 			continue // No updates for this column
@@ -452,7 +453,7 @@ func (txn *Txn) commitUpdates(chunk, max uint32) (typ commit.Type) {
 
 		// Do a linear search to find the offset for the current chunk
 		typ |= commit.Store
-		reader.Range(u, chunk, func(r *commit.Reader) {
+		txn.reader.Range(u, chunk, func(r *commit.Reader) {
 
 			// Range through all of the pending updates and apply them to the column
 			// and its associated computed columns.
