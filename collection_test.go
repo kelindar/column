@@ -138,7 +138,7 @@ func BenchmarkCollection(b *testing.B) {
 		for n := 0; n < b.N; n++ {
 			players.Query(func(txn *Txn) error {
 				txn.Range("balance", func(v Cursor) {
-					v.UpdateFloat64(0.0)
+					v.SetFloat64(0.0)
 				})
 				return nil
 			})

@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"math"
 	"reflect"
+	"sync"
 	"unsafe"
 
 	"github.com/kelindar/bitmap"
@@ -19,6 +20,7 @@ var _ Textual = new(columnEnum)
 
 // columnEnum represents a enumerable string column
 type columnEnum struct {
+	lock  sync.RWMutex
 	fill  bitmap.Bitmap     // The fill-list
 	locs  []uint32          // The list of locations
 	data  []byte            // The actual values
@@ -61,10 +63,16 @@ func (c *columnEnum) Apply(r *commit.Reader) {
 			// Attempt to find if we already have the location of this value from the
 			// cache, and if we don't, find it and set the offset for faster lookup.
 			value := r.String()
+
+			c.lock.RLock()
 			offset, cached := c.cache[value]
+			c.lock.RUnlock()
+
 			if !cached {
+				c.lock.Lock()
 				offset = c.findOrAdd(value)
 				c.cache[value] = offset
+				c.lock.Unlock()
 			}
 
 			// Set the value at the index

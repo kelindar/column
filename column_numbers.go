@@ -48,12 +48,12 @@ func (c *columnfloat32) Apply(r *commit.Reader) {
 		c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 		switch r.Type {
 		case commit.Put:
-			c.data[r.Offset] = float32(r.Float32())
+			c.data[r.Offset] = r.Float32()
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
 		case commit.Add:
-			value := c.data[r.Offset] + float32(r.Float32())
+			value := c.data[r.Offset] + r.Float32()
 			c.data[r.Offset] = value
 			r.SwapFloat32(value)
 		}
@@ -136,6 +136,32 @@ func (c *columnfloat32) FilterUint64(offset uint32, index bitmap.Bitmap, predica
 	})
 }
 
+// --------------------------- Cursor Update ----------------------------
+
+// SetFloat32 updates a column value for the current item. The actual operation
+// will be queued and executed once the current the transaction completes.
+func (cur *Cursor) SetFloat32(value float32) {
+	cur.update.PutFloat32(commit.Put, cur.idx, value)
+}
+
+// AddFloat32 atomically increments/decrements the current value by the specified amount. Note
+// that this only works for numerical values and the type of the value must match.
+func (cur *Cursor) AddFloat32(amount float32) {
+	cur.update.PutFloat32(commit.Add, cur.idx, amount)
+}
+
+// SetFloat32At updates a specified column value for the current item. The actual operation
+// will be queued and executed once the current the transaction completes.
+func (cur *Cursor) SetFloat32At(column string, value float32) {
+	cur.txn.bufferFor(column).PutFloat32(commit.Put, cur.idx, value)
+}
+
+// AddFloat32At atomically increments/decrements the column value by the specified amount. Note
+// that this only works for numerical values and the type of the value must match.
+func (cur *Cursor) AddFloat32At(column string, amount float32) {
+	cur.txn.bufferFor(column).PutFloat32(commit.Add, cur.idx, amount)
+}
+
 // --------------------------- Float64s ----------------------------
 
 // columnFloat64 represents a generic column
@@ -176,12 +202,12 @@ func (c *columnfloat64) Apply(r *commit.Reader) {
 		c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 		switch r.Type {
 		case commit.Put:
-			c.data[r.Offset] = float64(r.Float64())
+			c.data[r.Offset] = r.Float64()
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
 		case commit.Add:
-			value := c.data[r.Offset] + float64(r.Float64())
+			value := c.data[r.Offset] + r.Float64()
 			c.data[r.Offset] = value
 			r.SwapFloat64(value)
 		}
@@ -264,6 +290,32 @@ func (c *columnfloat64) FilterUint64(offset uint32, index bitmap.Bitmap, predica
 	})
 }
 
+// --------------------------- Cursor Update ----------------------------
+
+// SetFloat64 updates a column value for the current item. The actual operation
+// will be queued and executed once the current the transaction completes.
+func (cur *Cursor) SetFloat64(value float64) {
+	cur.update.PutFloat64(commit.Put, cur.idx, value)
+}
+
+// AddFloat64 atomically increments/decrements the current value by the specified amount. Note
+// that this only works for numerical values and the type of the value must match.
+func (cur *Cursor) AddFloat64(amount float64) {
+	cur.update.PutFloat64(commit.Add, cur.idx, amount)
+}
+
+// SetFloat64At updates a specified column value for the current item. The actual operation
+// will be queued and executed once the current the transaction completes.
+func (cur *Cursor) SetFloat64At(column string, value float64) {
+	cur.txn.bufferFor(column).PutFloat64(commit.Put, cur.idx, value)
+}
+
+// AddFloat64At atomically increments/decrements the column value by the specified amount. Note
+// that this only works for numerical values and the type of the value must match.
+func (cur *Cursor) AddFloat64At(column string, amount float64) {
+	cur.txn.bufferFor(column).PutFloat64(commit.Add, cur.idx, amount)
+}
+
 // --------------------------- Ints ----------------------------
 
 // columnInt represents a generic column
@@ -304,12 +356,12 @@ func (c *columnint) Apply(r *commit.Reader) {
 		c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 		switch r.Type {
 		case commit.Put:
-			c.data[r.Offset] = int(r.Int())
+			c.data[r.Offset] = r.Int()
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
 		case commit.Add:
-			value := c.data[r.Offset] + int(r.Int())
+			value := c.data[r.Offset] + r.Int()
 			c.data[r.Offset] = value
 			r.SwapInt(value)
 		}
@@ -392,6 +444,32 @@ func (c *columnint) FilterUint64(offset uint32, index bitmap.Bitmap, predicate f
 	})
 }
 
+// --------------------------- Cursor Update ----------------------------
+
+// SetInt updates a column value for the current item. The actual operation
+// will be queued and executed once the current the transaction completes.
+func (cur *Cursor) SetInt(value int) {
+	cur.update.PutInt(commit.Put, cur.idx, value)
+}
+
+// AddInt atomically increments/decrements the current value by the specified amount. Note
+// that this only works for numerical values and the type of the value must match.
+func (cur *Cursor) AddInt(amount int) {
+	cur.update.PutInt(commit.Add, cur.idx, amount)
+}
+
+// SetIntAt updates a specified column value for the current item. The actual operation
+// will be queued and executed once the current the transaction completes.
+func (cur *Cursor) SetIntAt(column string, value int) {
+	cur.txn.bufferFor(column).PutInt(commit.Put, cur.idx, value)
+}
+
+// AddIntAt atomically increments/decrements the column value by the specified amount. Note
+// that this only works for numerical values and the type of the value must match.
+func (cur *Cursor) AddIntAt(column string, amount int) {
+	cur.txn.bufferFor(column).PutInt(commit.Add, cur.idx, amount)
+}
+
 // --------------------------- Int16s ----------------------------
 
 // columnInt16 represents a generic column
@@ -432,12 +510,12 @@ func (c *columnint16) Apply(r *commit.Reader) {
 		c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 		switch r.Type {
 		case commit.Put:
-			c.data[r.Offset] = int16(r.Int16())
+			c.data[r.Offset] = r.Int16()
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
 		case commit.Add:
-			value := c.data[r.Offset] + int16(r.Int16())
+			value := c.data[r.Offset] + r.Int16()
 			c.data[r.Offset] = value
 			r.SwapInt16(value)
 		}
@@ -520,6 +598,32 @@ func (c *columnint16) FilterUint64(offset uint32, index bitmap.Bitmap, predicate
 	})
 }
 
+// --------------------------- Cursor Update ----------------------------
+
+// SetInt16 updates a column value for the current item. The actual operation
+// will be queued and executed once the current the transaction completes.
+func (cur *Cursor) SetInt16(value int16) {
+	cur.update.PutInt16(commit.Put, cur.idx, value)
+}
+
+// AddInt16 atomically increments/decrements the current value by the specified amount. Note
+// that this only works for numerical values and the type of the value must match.
+func (cur *Cursor) AddInt16(amount int16) {
+	cur.update.PutInt16(commit.Add, cur.idx, amount)
+}
+
+// SetInt16At updates a specified column value for the current item. The actual operation
+// will be queued and executed once the current the transaction completes.
+func (cur *Cursor) SetInt16At(column string, value int16) {
+	cur.txn.bufferFor(column).PutInt16(commit.Put, cur.idx, value)
+}
+
+// AddInt16At atomically increments/decrements the column value by the specified amount. Note
+// that this only works for numerical values and the type of the value must match.
+func (cur *Cursor) AddInt16At(column string, amount int16) {
+	cur.txn.bufferFor(column).PutInt16(commit.Add, cur.idx, amount)
+}
+
 // --------------------------- Int32s ----------------------------
 
 // columnInt32 represents a generic column
@@ -560,12 +664,12 @@ func (c *columnint32) Apply(r *commit.Reader) {
 		c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 		switch r.Type {
 		case commit.Put:
-			c.data[r.Offset] = int32(r.Int32())
+			c.data[r.Offset] = r.Int32()
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
 		case commit.Add:
-			value := c.data[r.Offset] + int32(r.Int32())
+			value := c.data[r.Offset] + r.Int32()
 			c.data[r.Offset] = value
 			r.SwapInt32(value)
 		}
@@ -648,6 +752,32 @@ func (c *columnint32) FilterUint64(offset uint32, index bitmap.Bitmap, predicate
 	})
 }
 
+// --------------------------- Cursor Update ----------------------------
+
+// SetInt32 updates a column value for the current item. The actual operation
+// will be queued and executed once the current the transaction completes.
+func (cur *Cursor) SetInt32(value int32) {
+	cur.update.PutInt32(commit.Put, cur.idx, value)
+}
+
+// AddInt32 atomically increments/decrements the current value by the specified amount. Note
+// that this only works for numerical values and the type of the value must match.
+func (cur *Cursor) AddInt32(amount int32) {
+	cur.update.PutInt32(commit.Add, cur.idx, amount)
+}
+
+// SetInt32At updates a specified column value for the current item. The actual operation
+// will be queued and executed once the current the transaction completes.
+func (cur *Cursor) SetInt32At(column string, value int32) {
+	cur.txn.bufferFor(column).PutInt32(commit.Put, cur.idx, value)
+}
+
+// AddInt32At atomically increments/decrements the column value by the specified amount. Note
+// that this only works for numerical values and the type of the value must match.
+func (cur *Cursor) AddInt32At(column string, amount int32) {
+	cur.txn.bufferFor(column).PutInt32(commit.Add, cur.idx, amount)
+}
+
 // --------------------------- Int64s ----------------------------
 
 // columnInt64 represents a generic column
@@ -688,12 +818,12 @@ func (c *columnint64) Apply(r *commit.Reader) {
 		c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 		switch r.Type {
 		case commit.Put:
-			c.data[r.Offset] = int64(r.Int64())
+			c.data[r.Offset] = r.Int64()
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
 		case commit.Add:
-			value := c.data[r.Offset] + int64(r.Int64())
+			value := c.data[r.Offset] + r.Int64()
 			c.data[r.Offset] = value
 			r.SwapInt64(value)
 		}
@@ -776,6 +906,32 @@ func (c *columnint64) FilterUint64(offset uint32, index bitmap.Bitmap, predicate
 	})
 }
 
+// --------------------------- Cursor Update ----------------------------
+
+// SetInt64 updates a column value for the current item. The actual operation
+// will be queued and executed once the current the transaction completes.
+func (cur *Cursor) SetInt64(value int64) {
+	cur.update.PutInt64(commit.Put, cur.idx, value)
+}
+
+// AddInt64 atomically increments/decrements the current value by the specified amount. Note
+// that this only works for numerical values and the type of the value must match.
+func (cur *Cursor) AddInt64(amount int64) {
+	cur.update.PutInt64(commit.Add, cur.idx, amount)
+}
+
+// SetInt64At updates a specified column value for the current item. The actual operation
+// will be queued and executed once the current the transaction completes.
+func (cur *Cursor) SetInt64At(column string, value int64) {
+	cur.txn.bufferFor(column).PutInt64(commit.Put, cur.idx, value)
+}
+
+// AddInt64At atomically increments/decrements the column value by the specified amount. Note
+// that this only works for numerical values and the type of the value must match.
+func (cur *Cursor) AddInt64At(column string, amount int64) {
+	cur.txn.bufferFor(column).PutInt64(commit.Add, cur.idx, amount)
+}
+
 // --------------------------- Uints ----------------------------
 
 // columnUint represents a generic column
@@ -816,12 +972,12 @@ func (c *columnuint) Apply(r *commit.Reader) {
 		c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 		switch r.Type {
 		case commit.Put:
-			c.data[r.Offset] = uint(r.Uint())
+			c.data[r.Offset] = r.Uint()
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
 		case commit.Add:
-			value := c.data[r.Offset] + uint(r.Uint())
+			value := c.data[r.Offset] + r.Uint()
 			c.data[r.Offset] = value
 			r.SwapUint(value)
 		}
@@ -904,6 +1060,32 @@ func (c *columnuint) FilterUint64(offset uint32, index bitmap.Bitmap, predicate 
 	})
 }
 
+// --------------------------- Cursor Update ----------------------------
+
+// SetUint updates a column value for the current item. The actual operation
+// will be queued and executed once the current the transaction completes.
+func (cur *Cursor) SetUint(value uint) {
+	cur.update.PutUint(commit.Put, cur.idx, value)
+}
+
+// AddUint atomically increments/decrements the current value by the specified amount. Note
+// that this only works for numerical values and the type of the value must match.
+func (cur *Cursor) AddUint(amount uint) {
+	cur.update.PutUint(commit.Add, cur.idx, amount)
+}
+
+// SetUintAt updates a specified column value for the current item. The actual operation
+// will be queued and executed once the current the transaction completes.
+func (cur *Cursor) SetUintAt(column string, value uint) {
+	cur.txn.bufferFor(column).PutUint(commit.Put, cur.idx, value)
+}
+
+// AddUintAt atomically increments/decrements the column value by the specified amount. Note
+// that this only works for numerical values and the type of the value must match.
+func (cur *Cursor) AddUintAt(column string, amount uint) {
+	cur.txn.bufferFor(column).PutUint(commit.Add, cur.idx, amount)
+}
+
 // --------------------------- Uint16s ----------------------------
 
 // columnUint16 represents a generic column
@@ -944,12 +1126,12 @@ func (c *columnuint16) Apply(r *commit.Reader) {
 		c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 		switch r.Type {
 		case commit.Put:
-			c.data[r.Offset] = uint16(r.Uint16())
+			c.data[r.Offset] = r.Uint16()
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
 		case commit.Add:
-			value := c.data[r.Offset] + uint16(r.Uint16())
+			value := c.data[r.Offset] + r.Uint16()
 			c.data[r.Offset] = value
 			r.SwapUint16(value)
 		}
@@ -1032,6 +1214,32 @@ func (c *columnuint16) FilterUint64(offset uint32, index bitmap.Bitmap, predicat
 	})
 }
 
+// --------------------------- Cursor Update ----------------------------
+
+// SetUint16 updates a column value for the current item. The actual operation
+// will be queued and executed once the current the transaction completes.
+func (cur *Cursor) SetUint16(value uint16) {
+	cur.update.PutUint16(commit.Put, cur.idx, value)
+}
+
+// AddUint16 atomically increments/decrements the current value by the specified amount. Note
+// that this only works for numerical values and the type of the value must match.
+func (cur *Cursor) AddUint16(amount uint16) {
+	cur.update.PutUint16(commit.Add, cur.idx, amount)
+}
+
+// SetUint16At updates a specified column value for the current item. The actual operation
+// will be queued and executed once the current the transaction completes.
+func (cur *Cursor) SetUint16At(column string, value uint16) {
+	cur.txn.bufferFor(column).PutUint16(commit.Put, cur.idx, value)
+}
+
+// AddUint16At atomically increments/decrements the column value by the specified amount. Note
+// that this only works for numerical values and the type of the value must match.
+func (cur *Cursor) AddUint16At(column string, amount uint16) {
+	cur.txn.bufferFor(column).PutUint16(commit.Add, cur.idx, amount)
+}
+
 // --------------------------- Uint32s ----------------------------
 
 // columnUint32 represents a generic column
@@ -1072,12 +1280,12 @@ func (c *columnuint32) Apply(r *commit.Reader) {
 		c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 		switch r.Type {
 		case commit.Put:
-			c.data[r.Offset] = uint32(r.Uint32())
+			c.data[r.Offset] = r.Uint32()
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
 		case commit.Add:
-			value := c.data[r.Offset] + uint32(r.Uint32())
+			value := c.data[r.Offset] + r.Uint32()
 			c.data[r.Offset] = value
 			r.SwapUint32(value)
 		}
@@ -1160,6 +1368,32 @@ func (c *columnuint32) FilterUint64(offset uint32, index bitmap.Bitmap, predicat
 	})
 }
 
+// --------------------------- Cursor Update ----------------------------
+
+// SetUint32 updates a column value for the current item. The actual operation
+// will be queued and executed once the current the transaction completes.
+func (cur *Cursor) SetUint32(value uint32) {
+	cur.update.PutUint32(commit.Put, cur.idx, value)
+}
+
+// AddUint32 atomically increments/decrements the current value by the specified amount. Note
+// that this only works for numerical values and the type of the value must match.
+func (cur *Cursor) AddUint32(amount uint32) {
+	cur.update.PutUint32(commit.Add, cur.idx, amount)
+}
+
+// SetUint32At updates a specified column value for the current item. The actual operation
+// will be queued and executed once the current the transaction completes.
+func (cur *Cursor) SetUint32At(column string, value uint32) {
+	cur.txn.bufferFor(column).PutUint32(commit.Put, cur.idx, value)
+}
+
+// AddUint32At atomically increments/decrements the column value by the specified amount. Note
+// that this only works for numerical values and the type of the value must match.
+func (cur *Cursor) AddUint32At(column string, amount uint32) {
+	cur.txn.bufferFor(column).PutUint32(commit.Add, cur.idx, amount)
+}
+
 // --------------------------- Uint64s ----------------------------
 
 // columnUint64 represents a generic column
@@ -1200,12 +1434,12 @@ func (c *columnuint64) Apply(r *commit.Reader) {
 		c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 		switch r.Type {
 		case commit.Put:
-			c.data[r.Offset] = uint64(r.Uint64())
+			c.data[r.Offset] = r.Uint64()
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
 		case commit.Add:
-			value := c.data[r.Offset] + uint64(r.Uint64())
+			value := c.data[r.Offset] + r.Uint64()
 			c.data[r.Offset] = value
 			r.SwapUint64(value)
 		}
@@ -1286,4 +1520,30 @@ func (c *columnuint64) FilterUint64(offset uint32, index bitmap.Bitmap, predicat
 		idx = offset + idx
 		return idx < uint32(len(c.data)) && predicate(uint64(c.data[idx]))
 	})
+}
+
+// --------------------------- Cursor Update ----------------------------
+
+// SetUint64 updates a column value for the current item. The actual operation
+// will be queued and executed once the current the transaction completes.
+func (cur *Cursor) SetUint64(value uint64) {
+	cur.update.PutUint64(commit.Put, cur.idx, value)
+}
+
+// AddUint64 atomically increments/decrements the current value by the specified amount. Note
+// that this only works for numerical values and the type of the value must match.
+func (cur *Cursor) AddUint64(amount uint64) {
+	cur.update.PutUint64(commit.Add, cur.idx, amount)
+}
+
+// SetUint64At updates a specified column value for the current item. The actual operation
+// will be queued and executed once the current the transaction completes.
+func (cur *Cursor) SetUint64At(column string, value uint64) {
+	cur.txn.bufferFor(column).PutUint64(commit.Put, cur.idx, value)
+}
+
+// AddUint64At atomically increments/decrements the column value by the specified amount. Note
+// that this only works for numerical values and the type of the value must match.
+func (cur *Cursor) AddUint64At(column string, amount uint64) {
+	cur.txn.bufferFor(column).PutUint64(commit.Add, cur.idx, amount)
 }

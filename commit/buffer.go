@@ -215,6 +215,21 @@ func (b *Buffer) PutFloat32(op OpType, idx uint32, value float32) {
 	b.PutUint32(op, idx, math.Float32bits(value))
 }
 
+// PutNumber appends a float64 value.
+func (b *Buffer) PutNumber(op OpType, idx uint32, value float64) {
+	b.PutUint64(op, idx, math.Float64bits(value))
+}
+
+// PutInt appends a int64 value.
+func (b *Buffer) PutInt(op OpType, idx uint32, value int) {
+	b.PutUint64(op, idx, uint64(value))
+}
+
+// PutUint appends a uint64 value.
+func (b *Buffer) PutUint(op OpType, idx uint32, value uint) {
+	b.PutUint64(op, idx, uint64(value))
+}
+
 // PutBytes appends a binary value.
 func (b *Buffer) PutBytes(op OpType, idx uint32, value []byte) {
 	b.writeChunk(idx)

@@ -67,7 +67,7 @@ func main() {
 		players.Query(func(txn *column.Txn) error {
 			return txn.Range("balance", func(v column.Cursor) {
 				updates++
-				v.UpdateFloat64(1000.0)
+				v.SetFloat64(1000.0)
 			})
 		})
 		fmt.Printf("-> updated %v rows\n", updates)
@@ -79,7 +79,7 @@ func main() {
 		players.Query(func(txn *column.Txn) error {
 			return txn.With("mage").Range("age", func(v column.Cursor) {
 				updates++
-				v.UpdateFloat64(99.0)
+				v.SetFloat64(99.0)
 			})
 		})
 		fmt.Printf("-> updated %v rows\n", updates)
@@ -111,7 +111,6 @@ func createCollection(out *column.Collection, amount int) *column.Collection {
 	out.CreateColumn("balance", column.ForFloat64())
 	out.CreateColumn("gender", column.ForEnum())
 	out.CreateColumn("guild", column.ForEnum())
-	out.CreateColumn("location", column.ForString())
 
 	// index for humans
 	out.CreateIndex("human", "race", func(r column.Reader) bool {
@@ -145,7 +144,7 @@ func createCollection(out *column.Collection, amount int) *column.Collection {
 		panic(err)
 	}
 
-	// Load and copy until we reach the amount required
+	// Load the data in parallel
 	for i := 0; i < amount/len(data); i++ {
 		if i%200 == 0 {
 			fmt.Printf("-> inserted %v rows\n", out.Count())
@@ -158,6 +157,7 @@ func createCollection(out *column.Collection, amount int) *column.Collection {
 			return nil
 		})
 	}
+
 	return out
 }
 
