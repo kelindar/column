@@ -187,23 +187,11 @@ func (r *Reader) SwapNumber(v interface{}) {
 	binary.BigEndian.PutUint64(r.buffer[r.i0:r.i1], math.Float64bits(v.(float64)))
 }
 
-// SwapString swaps a string value with a new one.
-func (r *Reader) SwapString(v string) {
-	b := *(*[]byte)(unsafe.Pointer(&v))
-	r.SwapBytes(b)
-}
-
-// SwapBytes swaps a binary value with a new one.
-func (r *Reader) SwapBytes(b []byte) {
-	copy(r.buffer[r.i0:r.i1], b)
-}
-
 // SwapBool swaps a boolean value with a new one.
 func (r *Reader) SwapBool(b bool) {
+	r.buffer[r.i0] = 0
 	if b {
 		r.buffer[r.i0] = 1
-	} else {
-		r.buffer[r.i0] = 0
 	}
 }
 
