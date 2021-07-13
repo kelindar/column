@@ -167,7 +167,7 @@ func TestReplicate(t *testing.T) {
 // runReplication runs a concurrent replication test
 func runReplication(t *testing.T, updates, inserts, concurrency int) {
 	t.Run(fmt.Sprintf("replicate-%v-%v", updates, inserts), func(t *testing.T) {
-		writer := make(commit.Channel, 1024)
+		writer := make(commit.Channel, 10)
 		object := map[string]interface{}{
 			"float64": float64(0),
 			"int32":   int32(0),

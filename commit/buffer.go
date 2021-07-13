@@ -1,3 +1,6 @@
+// Copyright (c) Roman Atachiants and contributors. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for details.
+
 package commit
 
 import (
@@ -56,10 +59,10 @@ func NewBuffer(capacity int) *Buffer {
 
 // Reset resets the queue so it can be reused.
 func (b *Buffer) Reset(column string) {
-	b.chunks = b.chunks[:0]
-	b.buffer = b.buffer[:0]
 	b.last = 0
 	b.chunk = math.MaxUint32
+	b.buffer = b.buffer[:0]
+	b.chunks = b.chunks[:0]
 	b.Column = column
 }
 

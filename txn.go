@@ -4,6 +4,7 @@
 package column
 
 import (
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -16,13 +17,17 @@ import (
 // txnPool is a pool of transactions which are retained for the lifetime of the process.
 type txnPool struct {
 	txns  chan *Txn
-	pages chan *commit.Buffer
+	pages sync.Pool
 }
 
 func newTxnPool() *txnPool {
 	return &txnPool{
-		txns:  make(chan *Txn, 256),            // Max transactions pooled
-		pages: make(chan *commit.Buffer, 1024), // Max scratch pages pooled
+		txns: make(chan *Txn, 256), // Max transactions pooled
+		pages: sync.Pool{
+			New: func() interface{} {
+				return commit.NewBuffer(chunkSize)
+			},
+		},
 	}
 }
 
@@ -50,27 +55,20 @@ func (p *txnPool) acquire(owner *Collection) (txn *Txn) {
 }
 
 // acquirePage acquires a new page for a particular column and initializes it
-func (p *txnPool) acquirePage(columnName string) (page *commit.Buffer) {
-	select {
-	case page = <-p.pages:
-	default:
-		page = commit.NewBuffer(chunkSize)
-	}
-
-	// Initialize
+func (p *txnPool) acquirePage(columnName string) *commit.Buffer {
+	page := p.pages.Get().(*commit.Buffer)
 	page.Reset(columnName)
-	return
+	return page
 }
 
+// Release the transaction to the pool or the GC
 func (p *txnPool) release(txn *Txn) {
 	for i := range txn.updates {
-		select {
-		case p.pages <- txn.updates[i]:
-		default:
-		}
+		buffer := txn.updates[i]
+		buffer.Reset("")
+		p.pages.Put(buffer)
 	}
 
-	// Release the transaction to the pool or the GC
 	txn.updates = txn.updates[:0]
 	select {
 	case p.txns <- txn:
@@ -407,14 +405,11 @@ func (txn *Txn) commit() {
 		deletes := chunkOf(txn.deletes, chunk)
 		inserts := chunkOf(txn.inserts, chunk)
 
-		//typ |= txn.commitDeletes(chunk, fill)
-		//typ |= txn.commitInserts(chunk, fill)
+		// Commit the chunk
 		typ |= txn.commitBitmaps(chunk, fill, deletes, inserts)
 		typ |= txn.commitUpdates(chunk, max)
 
-		// TODO: stream commits in chunks to keep consistency ?
-		// need to test with MULTIPLE chunks (large collection)
-
+		// Write the commited chunk to the writer (if any)
 		if typ > 0 && txn.writer != nil {
 			txn.writer.Write(commit.Commit{
 				Type:    typ,
