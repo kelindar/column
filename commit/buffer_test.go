@@ -5,6 +5,7 @@ package commit
 
 import (
 	"testing"
+	"time"
 	"unsafe"
 
 	"github.com/stretchr/testify/assert"
@@ -99,12 +100,11 @@ func TestReadWrite(t *testing.T) {
 	buf.PutBytes(Put, 100, []byte("binary"))
 	buf.PutBool(Put, 110, true)
 	buf.PutBool(Put, 111, false)
+	buf.PutInt(Put, 120, 1000)
+	buf.PutUint(Put, 130, 1100)
+	buf.PutNumber(Put, 140, 12.34)
 
-	// Should only have 1 chunk
-	buf.RangeChunks(func(chunk uint32) {
-		assert.Equal(t, uint32(0), chunk)
-	})
-
+	// Read values back
 	r := NewReader()
 	r.Seek(buf)
 	assert.True(t, r.Next())
@@ -149,5 +149,78 @@ func TestReadWrite(t *testing.T) {
 	assert.Equal(t, true, r.Bool())
 	assert.True(t, r.Next())
 	assert.Equal(t, false, r.Bool())
+	assert.True(t, r.Next())
+	assert.Equal(t, int(1000), r.Int())
+	assert.True(t, r.Next())
+	assert.Equal(t, uint(1100), r.Uint())
+	assert.True(t, r.Next())
+	assert.Equal(t, 12.34, r.Number())
 	assert.False(t, r.Next())
+}
+
+func TestWriteAny(t *testing.T) {
+	buf := NewBuffer(0)
+	buf.PutAny(Put, 10, int16(100))
+	buf.PutAny(Put, 20, int32(200))
+	buf.PutAny(Put, 30, int64(300))
+	buf.PutAny(Put, 40, uint16(400))
+	buf.PutAny(Put, 50, uint32(500))
+	buf.PutAny(Put, 60, uint64(600))
+	buf.PutAny(Put, 70, float32(700))
+	buf.PutAny(Put, 80, float64(800))
+	buf.PutAny(Put, 90, "900")
+	buf.PutAny(Put, 100, []byte("binary"))
+	buf.PutAny(Put, 110, true)
+	buf.PutAny(Put, 120, int8(100))
+	buf.PutAny(Put, 130, uint8(100))
+	buf.PutAny(Put, 140, int(100))
+	buf.PutAny(Put, 150, uint(100))
+
+	// Should only have 1 chunk
+	assert.False(t, buf.IsEmpty())
+	assert.Equal(t, 1, len(buf.chunks))
+	buf.RangeChunks(func(chunk uint32) {
+		assert.Equal(t, uint32(0), chunk)
+	})
+
+	r := NewReader()
+	r.Seek(buf)
+	assert.True(t, r.Next())
+	assert.Equal(t, int16(100), r.Int16())
+	assert.True(t, r.Next())
+	assert.Equal(t, int32(200), r.Int32())
+	assert.True(t, r.Next())
+	assert.Equal(t, int64(300), r.Int64())
+	assert.True(t, r.Next())
+	assert.Equal(t, uint16(400), r.Uint16())
+	assert.True(t, r.Next())
+	assert.Equal(t, uint32(500), r.Uint32())
+	assert.True(t, r.Next())
+	assert.Equal(t, uint64(600), r.Uint64())
+	assert.True(t, r.Next())
+	assert.Equal(t, float32(700), r.Float32())
+	assert.True(t, r.Next())
+	assert.Equal(t, float64(800), r.Float64())
+	assert.True(t, r.Next())
+	assert.Equal(t, "900", r.String())
+	assert.True(t, r.Next())
+	assert.Equal(t, "binary", string(r.Bytes()))
+	assert.True(t, r.Next())
+	assert.Equal(t, true, r.Bool())
+	assert.True(t, r.Next())
+	assert.Equal(t, int16(100), r.Int16())
+	assert.True(t, r.Next())
+	assert.Equal(t, uint16(100), r.Uint16())
+	assert.True(t, r.Next())
+	assert.Equal(t, int(100), r.Int())
+	assert.True(t, r.Next())
+	assert.Equal(t, uint(100), r.Uint())
+	assert.False(t, r.Next())
+}
+
+func TestWriteUnsupported(t *testing.T) {
+	assert.Panics(t, func() {
+		buf := NewBuffer(0)
+		buf.PutAny(Put, 10, time.Time{})
+	})
 }

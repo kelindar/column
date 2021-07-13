@@ -166,38 +166,38 @@ func (cur *Cursor) Delete() {
 	cur.txn.deletes.Set(cur.idx)
 }
 
-// Update updates a column value for the current item. The actual operation
+// Set updates a column value for the current item. The actual operation
 // will be queued and executed once the current the transaction completes.
-func (cur *Cursor) Update(value interface{}) {
+func (cur *Cursor) Set(value interface{}) {
 	cur.update.PutAny(commit.Put, cur.idx, value)
 }
 
-// UpdateAt updates a specified column value for the current item. The actual operation
+// SetAt updates a specified column value for the current item. The actual operation
 // will be queued and executed once the current the transaction completes.
-func (cur *Cursor) UpdateAt(column string, value interface{}) {
+func (cur *Cursor) SetAt(column string, value interface{}) {
 	cur.txn.bufferFor(column).PutAny(commit.Put, cur.idx, value)
 }
 
-// UpdateString updates a column value for the current item. The actual operation
+// SetString updates a column value for the current item. The actual operation
 // will be queued and executed once the current the transaction completes.
-func (cur *Cursor) UpdateString(value string) {
+func (cur *Cursor) SetString(value string) {
 	cur.update.PutString(commit.Put, cur.idx, value)
 }
 
-// UpdateStringAt updates a specified column value for the current item. The actual operation
+// SetStringAt updates a specified column value for the current item. The actual operation
 // will be queued and executed once the current the transaction completes.
-func (cur *Cursor) UpdateStringAt(column string, value string) {
+func (cur *Cursor) SetStringAt(column string, value string) {
 	cur.txn.bufferFor(column).PutString(commit.Put, cur.idx, value)
 }
 
-// UpdateBool updates a column value for the current item. The actual operation
+// SetBool updates a column value for the current item. The actual operation
 // will be queued and executed once the current the transaction completes.
-func (cur *Cursor) UpdateBool(value bool) {
+func (cur *Cursor) SetBool(value bool) {
 	cur.update.PutBool(commit.Put, cur.idx, value)
 }
 
-// UpdateBoolAt updates a specified column value for the current item. The actual operation
+// SetBoolAt updates a specified column value for the current item. The actual operation
 // will be queued and executed once the current the transaction completes.
-func (cur *Cursor) UpdateBoolAt(column string, value bool) {
+func (cur *Cursor) SetBoolAt(column string, value bool) {
 	cur.txn.bufferFor(column).PutBool(commit.Put, cur.idx, value)
 }

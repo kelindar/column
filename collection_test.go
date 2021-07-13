@@ -23,15 +23,15 @@ import (
 
 /*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkCollection/insert-8         	    1785	    630707 ns/op	     698 B/op	       0 allocs/op
-BenchmarkCollection/fetch-8          	25532186	        45.79 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/scan-8           	    1574	    757025 ns/op	      12 B/op	       0 allocs/op
-BenchmarkCollection/count-8          	  769180	      1596 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/range-8          	   10000	    107451 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/update-at-8      	 2354398	       506.9 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/update-all-8     	     730	   1544794 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/delete-at-8      	 3883114	       306.7 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/delete-all-8     	 1000000	      1001 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/insert-8         	    1917	    588918 ns/op	     666 B/op	       0 allocs/op
+BenchmarkCollection/fetch-8          	25534033	        46.80 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/scan-8           	    1689	    748443 ns/op	     127 B/op	       0 allocs/op
+BenchmarkCollection/count-8          	  727267	      1611 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/range-8          	    9999	    110182 ns/op	      14 B/op	       0 allocs/op
+BenchmarkCollection/update-at-8      	 2530968	       468.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/update-all-8     	     774	   1546088 ns/op	    6153 B/op	       0 allocs/op
+BenchmarkCollection/delete-at-8      	 4410576	       257.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/delete-all-8     	 1220576	       978.5 ns/op	       0 B/op	       0 allocs/op
 */
 func BenchmarkCollection(b *testing.B) {
 	b.Run("insert", func(b *testing.B) {
@@ -343,7 +343,7 @@ func TestExpire(t *testing.T) {
 	col.Query(func(txn *Txn) error {
 		return txn.Range(expireColumn, func(v Cursor) {
 			expireAt := time.Unix(0, int64(v.Int()))
-			v.Update(expireAt.Add(1 * time.Microsecond).UnixNano())
+			v.SetInt64(expireAt.Add(1 * time.Microsecond).UnixNano())
 		})
 	})
 	assert.Equal(t, 1, col.Count())

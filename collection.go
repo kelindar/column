@@ -139,7 +139,7 @@ func (c *Collection) UpdateAt(idx uint32, columnName string, value interface{}) 
 	c.Query(func(txn *Txn) error {
 		if cursor, err := txn.cursorFor(columnName); err == nil {
 			cursor.idx = idx
-			cursor.Update(value)
+			cursor.Set(value)
 		}
 		return nil
 	})

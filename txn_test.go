@@ -261,7 +261,7 @@ func TestUpdate(t *testing.T) {
 	// Make everyone poor
 	players.Query(func(txn *Txn) error {
 		txn.Range("balance", func(v Cursor) {
-			v.Update(1.0)
+			v.SetFloat64(1.0)
 		})
 		return nil
 	})
@@ -284,7 +284,7 @@ func TestUpdate(t *testing.T) {
 	// Make everyone rich
 	players.Query(func(txn *Txn) error {
 		txn.Range("balance", func(v Cursor) {
-			v.Update(5000.0)
+			v.SetFloat64(5000.0)
 		})
 		return nil
 	})
@@ -298,7 +298,7 @@ func TestUpdate(t *testing.T) {
 	// Try out the rollback
 	players.Query(func(txn *Txn) error {
 		txn.Range("balance", func(v Cursor) {
-			v.Update(1.0)
+			v.SetFloat64(1.0)
 		})
 		return fmt.Errorf("trigger rollback")
 	})
@@ -312,7 +312,7 @@ func TestUpdate(t *testing.T) {
 	// Reset balance back to zero
 	players.Query(func(txn *Txn) error {
 		return txn.Range("balance", func(v Cursor) {
-			v.Update(0.0)
+			v.SetFloat64(0.0)
 		})
 	})
 

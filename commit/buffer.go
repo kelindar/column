@@ -53,6 +53,7 @@ type header struct {
 // NewBuffer creates a new queue to store individual operations.
 func NewBuffer(capacity int) *Buffer {
 	return &Buffer{
+		chunk:  math.MaxUint32,
 		buffer: make([]byte, 0, capacity),
 	}
 }

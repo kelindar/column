@@ -91,7 +91,7 @@ func main() {
 		players.Query(func(txn *column.Txn) error {
 			return txn.With("male").Range("name", func(v column.Cursor) {
 				updates++
-				v.UpdateString("Sir " + v.String())
+				v.SetString("Sir " + v.String())
 			})
 		})
 		fmt.Printf("-> updated %v rows\n", updates)
@@ -144,7 +144,7 @@ func createCollection(out *column.Collection, amount int) *column.Collection {
 		panic(err)
 	}
 
-	// Load the data in parallel
+	// Load the data in
 	for i := 0; i < amount/len(data); i++ {
 		if i%200 == 0 {
 			fmt.Printf("-> inserted %v rows\n", out.Count())

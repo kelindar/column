@@ -16,13 +16,25 @@ import (
 
 // txnPool is a pool of transactions which are retained for the lifetime of the process.
 type txnPool struct {
-	txns  chan *Txn
+	txns  sync.Pool
 	pages sync.Pool
 }
 
 func newTxnPool() *txnPool {
 	return &txnPool{
-		txns: make(chan *Txn, 256), // Max transactions pooled
+		txns: sync.Pool{
+			New: func() interface{} {
+				return &Txn{
+					index:   make(bitmap.Bitmap, 0, 4),
+					deletes: make(bitmap.Bitmap, 0, 4),
+					inserts: make(bitmap.Bitmap, 0, 4),
+					dirty:   make(bitmap.Bitmap, 0, 4),
+					updates: make([]*commit.Buffer, 0, 256),
+					columns: make([]columnCache, 0, 16),
+					reader:  commit.NewReader(),
+				}
+			},
+		},
 		pages: sync.Pool{
 			New: func() interface{} {
 				return commit.NewBuffer(chunkSize)
@@ -31,27 +43,18 @@ func newTxnPool() *txnPool {
 	}
 }
 
-func (p *txnPool) acquire(owner *Collection) (txn *Txn) {
-	select {
-	case txn = <-p.txns:
-	default:
-		txn = &Txn{
-			index:   make(bitmap.Bitmap, 0, 4),
-			deletes: make(bitmap.Bitmap, 0, 4),
-			inserts: make(bitmap.Bitmap, 0, 4),
-			dirty:   make(bitmap.Bitmap, 0, 4),
-			updates: make([]*commit.Buffer, 0, 256),
-			columns: make([]columnCache, 0, 16),
-			reader:  commit.NewReader(),
-		}
-	}
-
-	// Initialize
+// acquire acquires a new transaction from the pool
+func (p *txnPool) acquire(owner *Collection) *Txn {
+	txn := p.txns.Get().(*Txn)
 	txn.owner = owner
-	txn.columns = txn.columns[:0]
 	txn.writer = owner.writer
 	owner.fill.Clone(&txn.index)
-	return
+	return txn
+}
+
+// release the transaction to the pool or the GC
+func (p *txnPool) release(txn *Txn) {
+	p.txns.Put(txn)
 }
 
 // acquirePage acquires a new page for a particular column and initializes it
@@ -61,19 +64,10 @@ func (p *txnPool) acquirePage(columnName string) *commit.Buffer {
 	return page
 }
 
-// Release the transaction to the pool or the GC
-func (p *txnPool) release(txn *Txn) {
-	for i := range txn.updates {
-		buffer := txn.updates[i]
-		buffer.Reset("")
-		p.pages.Put(buffer)
-	}
-
-	txn.updates = txn.updates[:0]
-	select {
-	case p.txns <- txn:
-	default:
-	}
+// releasePage releases the buffer back
+func (p *txnPool) releasePage(buffer *commit.Buffer) {
+	buffer.Reset("")
+	p.pages.Put(buffer)
 }
 
 // --------------------------- Transaction ----------------------------
@@ -89,6 +83,20 @@ type Txn struct {
 	columns []columnCache    // The column mapping
 	writer  commit.Writer    // The optional commit writer
 	reader  *commit.Reader   // The commit reader to re-use
+}
+
+// Reset resets the transaction state so it can be used again.
+func (txn *Txn) reset() {
+	for i := range txn.updates {
+		txn.owner.txns.releasePage(txn.updates[i])
+	}
+
+	txn.dirty.Clear()
+	txn.deletes.Clear()
+	txn.inserts.Clear()
+	txn.reader.Rewind()
+	txn.columns = txn.columns[:0]
+	txn.updates = txn.updates[:0]
 }
 
 // columnCache caches a column by its name. This speeds things up since it's a very
@@ -296,13 +304,13 @@ func (txn *Txn) insert(object Object, expireAt int64) uint32 {
 	txn.dirty.Set(slot.idx >> chunkShift)
 	for k, v := range object {
 		if _, ok := txn.columnAt(k); ok {
-			slot.UpdateAt(k, v)
+			slot.SetAt(k, v)
 		}
 	}
 
 	// Add expiration if specified
 	if expireAt != 0 {
-		slot.UpdateAt(expireColumn, expireAt)
+		slot.SetAt(expireColumn, expireAt)
 	}
 	return slot.idx
 }
@@ -359,17 +367,6 @@ func (txn *Txn) Range(column string, fn func(v Cursor)) error {
 		})
 	})
 	return nil
-}
-
-// Reset resets the transaction state so it can be used again.
-func (txn *Txn) reset() {
-	for _, buf := range txn.updates {
-		buf.Reset("TODO")
-	}
-
-	txn.dirty.Clear()
-	txn.deletes.Clear()
-	txn.inserts.Clear()
 }
 
 // Rollback empties the pending update and delete queues and does not apply any of
