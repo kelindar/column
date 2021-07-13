@@ -255,14 +255,14 @@ func (c *Collection) Query(fn func(txn *Txn) error) error {
 	// Execute the query and keep the error for later
 	if err := fn(txn); err != nil {
 		txn.rollback()
-		txn.release()
+		c.txns.release(txn)
 		return err
 	}
 
 	// Now that the iteration has finished, we can range over the pending action
 	// queue and apply all of the actions that were requested by the Selector.
 	txn.commit()
-	txn.release()
+	c.txns.release(txn)
 	return nil
 }
 

@@ -22,52 +22,42 @@ import (
 )
 
 /*
-BenchmarkCollection/insert-8         	 5439637	       221.3 ns/op	      18 B/op	       0 allocs/op
-BenchmarkCollection/fetch-8          	23985608	        48.55 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/scan-8           	    1845	    689796 ns/op	      25 B/op	       0 allocs/op
-BenchmarkCollection/count-8          	 1000000	      1133 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/range-8          	   10000	    107436 ns/op	      10 B/op	       0 allocs/op
-BenchmarkCollection/update-at-8      	 4171920	       286.7 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/update-all-8     	     837	   1312193 ns/op	   52392 B/op	       0 allocs/op
-BenchmarkCollection/delete-at-8      	 7141628	       169.9 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/delete-all-8     	  189722	      6322 ns/op	       0 B/op	       0 allocs/op
-*/
-
-/*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkCollection/insert-8         	 3047058	       391.1 ns/op	     104 B/op	       1 allocs/op
-BenchmarkCollection/fetch-8          	27255073	        44.56 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/scan-8           	    1724	    719894 ns/op	     796 B/op	       3 allocs/op
-BenchmarkCollection/count-8          	  750037	      1623 ns/op	       1 B/op	       0 allocs/op
-BenchmarkCollection/range-8          	   10000	    105780 ns/op	     109 B/op	       0 allocs/op
-BenchmarkCollection/update-at-8      	 2178361	       553.4 ns/op	      64 B/op	       1 allocs/op
-BenchmarkCollection/update-all-8     	     758	   1544390 ns/op	    1965 B/op	      12 allocs/op
-BenchmarkCollection/delete-at-8      	 3913665	       302.0 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/delete-all-8     	 1000000	      1010 ns/op	       1 B/op	       0 allocs/op
+BenchmarkCollection/insert-8         	    1785	    630707 ns/op	     698 B/op	       0 allocs/op
+BenchmarkCollection/fetch-8          	25532186	        45.79 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/scan-8           	    1574	    757025 ns/op	      12 B/op	       0 allocs/op
+BenchmarkCollection/count-8          	  769180	      1596 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/range-8          	   10000	    107451 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/update-at-8      	 2354398	       506.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/update-all-8     	     730	   1544794 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/delete-at-8      	 3883114	       306.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/delete-all-8     	 1000000	      1001 ns/op	       0 B/op	       0 allocs/op
 */
 func BenchmarkCollection(b *testing.B) {
-	amount := 100000
-	players := loadPlayers(amount)
-	obj := Object{
-		"name":   "Roman",
-		"age":    35,
-		"wallet": 50.99,
-		"health": 100,
-		"mana":   200,
-	}
-
 	b.Run("insert", func(b *testing.B) {
-		col := NewCollection()
+		temp := loadPlayers(500)
+		data := loadFixture("players.json")
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			col.Insert(obj)
-			if col.Count() >= 1000 {
-				col = NewCollection()
-			}
+			b.StopTimer()
+			temp.Query(func(txn *Txn) error {
+				txn.DeleteAll()
+				return nil
+			})
+			b.StartTimer()
+
+			temp.Query(func(txn *Txn) error {
+				for _, p := range data {
+					txn.Insert(p)
+				}
+				return nil
+			})
 		}
 	})
 
+	amount := 100000
+	players := loadPlayers(amount)
 	b.Run("fetch", func(b *testing.B) {
 		name := ""
 		b.ReportAllocs()

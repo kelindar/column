@@ -54,7 +54,7 @@ func (p *txnPool) acquirePage(columnName string) (page *commit.Buffer) {
 	select {
 	case page = <-p.pages:
 	default:
-		page = &commit.Buffer{}
+		page = commit.NewBuffer(chunkSize)
 	}
 
 	// Initialize
@@ -189,12 +189,6 @@ func (txn *Txn) WithFloat(column string, predicate func(v float64) bool) *Txn {
 		return txn
 	}
 
-	/* ESCAPES
-	.\txn.go:157:31: index escapes to heap:
-	.\txn.go:172:31: index escapes to heap:
-	.\txn.go:187:31: index escapes to heap:
-	.\txn.go:202:31: index escapes to heap:
-	*/
 	txn.rangeRead(func(offset uint32, index bitmap.Bitmap) {
 		c.Column.(Numeric).FilterFloat64(offset, index, predicate)
 	})
@@ -387,10 +381,6 @@ func (txn *Txn) rollback() {
 	txn.reset()
 }
 
-func (txn *Txn) release() {
-	txn.owner.txns.release(txn)
-}
-
 // Commit commits the transaction by applying all pending updates and deletes to
 // the collection. This operation is can be called several times for a transaction
 // in order to perform partial commits. If there's no pending updates/deletes, this
@@ -466,6 +456,7 @@ func (txn *Txn) commitUpdates(chunk, max uint32) (typ commit.Type) {
 	return
 }
 
+// commitBitmaps commits inserts and deletes bitmaps to the collection.
 func (txn *Txn) commitBitmaps(chunk uint32, fill, deletes, inserts bitmap.Bitmap) (typ commit.Type) {
 	if len(inserts) > 0 {
 		typ |= commit.Insert
@@ -488,6 +479,5 @@ func (txn *Txn) commitBitmaps(chunk uint32, fill, deletes, inserts bitmap.Bitmap
 	fill.Or(inserts)
 	atomic.StoreUint64(&txn.owner.count, uint64(txn.owner.fill.Count()))
 	txn.owner.lock.Unlock()
-
 	return
 }
