@@ -10,50 +10,54 @@ import (
 	"math"
 	"math/rand"
 	"os"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/kelindar/async"
 	"github.com/kelindar/column/commit"
 	"github.com/stretchr/testify/assert"
 )
 
 /*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkCollection/insert-8         	 5439637	       221.3 ns/op	      18 B/op	       0 allocs/op
-BenchmarkCollection/fetch-8          	23985608	        48.55 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/scan-8           	    1845	    689796 ns/op	      25 B/op	       0 allocs/op
-BenchmarkCollection/count-8          	 1000000	      1133 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/range-8          	   10000	    107436 ns/op	      10 B/op	       0 allocs/op
-BenchmarkCollection/update-at-8      	 4171920	       286.7 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/update-all-8     	     837	   1312193 ns/op	   52392 B/op	       0 allocs/op
-BenchmarkCollection/delete-at-8      	 7141628	       169.9 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/delete-all-8     	  189722	      6322 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/insert-8         	    1917	    588918 ns/op	     666 B/op	       0 allocs/op
+BenchmarkCollection/fetch-8          	25534033	        46.80 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/scan-8           	    1689	    748443 ns/op	     127 B/op	       0 allocs/op
+BenchmarkCollection/count-8          	  727267	      1611 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/range-8          	    9999	    110182 ns/op	      14 B/op	       0 allocs/op
+BenchmarkCollection/update-at-8      	 2530968	       468.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/update-all-8     	     774	   1546088 ns/op	    6153 B/op	       0 allocs/op
+BenchmarkCollection/delete-at-8      	 4410576	       257.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/delete-all-8     	 1220576	       978.5 ns/op	       0 B/op	       0 allocs/op
 */
 func BenchmarkCollection(b *testing.B) {
-	amount := 100000
-	players := loadPlayers(amount)
-	obj := Object{
-		"name":   "Roman",
-		"age":    35,
-		"wallet": 50.99,
-		"health": 100,
-		"mana":   200,
-	}
-
 	b.Run("insert", func(b *testing.B) {
-		col := NewCollection()
+		temp := loadPlayers(500)
+		data := loadFixture("players.json")
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			col.Insert(obj)
-			if col.Count() >= 1000 {
-				col = NewCollection()
-			}
+			b.StopTimer()
+			temp.Query(func(txn *Txn) error {
+				txn.DeleteAll()
+				return nil
+			})
+			b.StartTimer()
+
+			temp.Query(func(txn *Txn) error {
+				for _, p := range data {
+					txn.Insert(p)
+				}
+				return nil
+			})
 		}
 	})
 
+	amount := 100000
+	players := loadPlayers(amount)
 	b.Run("fetch", func(b *testing.B) {
 		name := ""
 		b.ReportAllocs()
@@ -124,7 +128,7 @@ func BenchmarkCollection(b *testing.B) {
 		for n := 0; n < b.N; n++ {
 			players.Query(func(txn *Txn) error {
 				txn.Range("balance", func(v Cursor) {
-					v.Update(1.0)
+					v.SetFloat64(0.0)
 				})
 				return nil
 			})
@@ -155,14 +159,15 @@ func BenchmarkCollection(b *testing.B) {
 // Test replication many times
 func TestReplicate(t *testing.T) {
 	for x := 0; x < 20; x++ {
-		runReplication(t, 5000, 50)
+		rand.Seed(int64(x))
+		runReplication(t, 10000, 50, runtime.NumCPU())
 	}
 }
 
 // runReplication runs a concurrent replication test
-func runReplication(t *testing.T, updates, inserts int) {
+func runReplication(t *testing.T, updates, inserts, concurrency int) {
 	t.Run(fmt.Sprintf("replicate-%v-%v", updates, inserts), func(t *testing.T) {
-		writer := make(commit.Channel, 1024)
+		writer := make(commit.Channel, 10)
 		object := map[string]interface{}{
 			"float64": float64(0),
 			"int32":   int32(0),
@@ -183,9 +188,9 @@ func runReplication(t *testing.T, updates, inserts int) {
 		primary.CreateColumnsOf(object)
 		replica.CreateColumnsOf(object)
 		var done sync.WaitGroup
+		done.Add(1)
 		go func() {
-			done.Add(1)
-			defer done.Done()
+			defer done.Done() // Drained
 			for change := range writer {
 				assert.NoError(t, replica.Replay(change))
 			}
@@ -196,11 +201,15 @@ func runReplication(t *testing.T, updates, inserts int) {
 			primary.Insert(object)
 		}
 
+		work := make(chan async.Task)
+		pool := async.Consume(context.Background(), 50, work)
+		defer pool.Cancel()
+
 		// Random concurrent updates
 		var wg sync.WaitGroup
 		wg.Add(updates)
 		for i := 0; i < updates; i++ {
-			go func() {
+			work <- async.NewTask(func(ctx context.Context) (interface{}, error) {
 				defer wg.Done()
 
 				// Randomly update a column
@@ -215,15 +224,16 @@ func runReplication(t *testing.T, updates, inserts int) {
 				}
 
 				// Randomly delete an item
-				if rand.Int31n(100) == 0 {
+				if rand.Int31n(5) == 0 {
 					primary.DeleteAt(uint32(rand.Int31n(int32(inserts - 1))))
 				}
 
 				// Randomly insert an item
-				if rand.Int31n(100) == 0 {
+				if rand.Int31n(5) == 0 {
 					primary.Insert(object)
 				}
-			}()
+				return nil, nil
+			})
 		}
 
 		// Replay all of the changes into the replica
@@ -232,17 +242,22 @@ func runReplication(t *testing.T, updates, inserts int) {
 		done.Wait()
 
 		// Check if replica and primary are the same
-		assert.Equal(t, primary.Count(), replica.Count())
+		if !assert.Equal(t, primary.Count(), replica.Count(), "replica and primary should be the same size") {
+			return
+		}
+
 		primary.Query(func(txn *Txn) error {
 			return txn.Range("float64", func(v Cursor) {
 				v1, v2 := v.FloatAt("float64"), v.IntAt("int32")
 				if v1 != 0 {
-					clone, _ := replica.Fetch(v.idx)
+					clone, ok := replica.Fetch(v.idx)
+					assert.True(t, ok)
 					assert.Equal(t, v.FloatAt("float64"), clone.FloatAt("float64"))
 				}
 
 				if v2 != 0 {
-					clone, _ := replica.Fetch(v.idx)
+					clone, ok := replica.Fetch(v.idx)
+					assert.True(t, ok)
 					assert.Equal(t, v.IntAt("int32"), clone.IntAt("int32"))
 				}
 			})
@@ -268,8 +283,8 @@ func TestCollection(t *testing.T) {
 
 	// Create a coupe of indices
 	assert.Error(t, col.CreateIndex("", "", nil))
-	assert.NoError(t, col.CreateIndex("rich", "wallet", func(v interface{}) bool {
-		return v.(float64) > 100
+	assert.NoError(t, col.CreateIndex("rich", "wallet", func(r Reader) bool {
+		return r.Float() > 100
 	}))
 
 	{ // Find the object by its index
@@ -292,7 +307,7 @@ func TestCollection(t *testing.T) {
 	}
 
 	{ // Update the wallet
-		col.UpdateAt(0, "wallet", float64(1000))
+		col.UpdateAt(idx, "wallet", float64(1000))
 		v, ok := col.Fetch(idx)
 		assert.True(t, ok)
 		assert.Equal(t, int64(1000), v.IntAt("wallet"))
@@ -327,8 +342,8 @@ func TestExpire(t *testing.T) {
 	col.InsertWithTTL(obj, time.Microsecond)
 	col.Query(func(txn *Txn) error {
 		return txn.Range(expireColumn, func(v Cursor) {
-			expireAt := time.Unix(0, v.Int())
-			v.Update(expireAt.Add(1 * time.Microsecond).UnixNano())
+			expireAt := time.Unix(0, int64(v.Int()))
+			v.SetInt64(expireAt.Add(1 * time.Microsecond).UnixNano())
 		})
 	})
 	assert.Equal(t, 1, col.Count())
@@ -352,7 +367,7 @@ func TestInsertParallel(t *testing.T) {
 
 	col := NewCollection()
 	var wg sync.WaitGroup
-	for i := 0; i < 500; i++ {
+	for i := 0; i < 5000; i++ {
 		wg.Add(1)
 		go func() {
 			col.Insert(obj)
@@ -361,7 +376,7 @@ func TestInsertParallel(t *testing.T) {
 	}
 
 	wg.Wait()
-	assert.Equal(t, 500, col.Count())
+	assert.Equal(t, 5000, col.Count())
 }
 
 // loadPlayers loads a list of players from the fixture
@@ -373,38 +388,38 @@ func loadPlayers(amount int) *Collection {
 	})
 
 	// index on humans
-	out.CreateIndex("human", "race", func(v interface{}) bool {
-		return v == "human"
+	out.CreateIndex("human", "race", func(r Reader) bool {
+		return r.String() == "human"
 	})
 
 	// index on dwarves
-	out.CreateIndex("dwarf", "race", func(v interface{}) bool {
-		return v == "dwarf"
+	out.CreateIndex("dwarf", "race", func(r Reader) bool {
+		return r.String() == "dwarf"
 	})
 
 	// index on elves
-	out.CreateIndex("elf", "race", func(v interface{}) bool {
-		return v == "elf"
+	out.CreateIndex("elf", "race", func(r Reader) bool {
+		return r.String() == "elf"
 	})
 
 	// index on orcs
-	out.CreateIndex("orc", "race", func(v interface{}) bool {
-		return v == "orc"
+	out.CreateIndex("orc", "race", func(r Reader) bool {
+		return r.String() == "orc"
 	})
 
 	// index for mages
-	out.CreateIndex("mage", "class", func(v interface{}) bool {
-		return v == "mage"
+	out.CreateIndex("mage", "class", func(r Reader) bool {
+		return r.String() == "mage"
 	})
 
 	// index for old
-	out.CreateIndex("old", "age", func(v interface{}) bool {
-		return v.(float64) >= 30
+	out.CreateIndex("old", "age", func(r Reader) bool {
+		return r.Float() >= 30
 	})
 
 	// Load the items into the collection
-	out.CreateColumn("serial", ForAny())
-	out.CreateColumn("name", ForAny())
+	out.CreateColumn("serial", ForString())
+	out.CreateColumn("name", ForString())
 	out.CreateColumn("active", ForBool())
 	out.CreateColumn("class", ForEnum())
 	out.CreateColumn("race", ForEnum())
@@ -414,7 +429,7 @@ func loadPlayers(amount int) *Collection {
 	out.CreateColumn("balance", ForFloat64())
 	out.CreateColumn("gender", ForEnum())
 	out.CreateColumn("guild", ForEnum())
-	out.CreateColumn("location", ForAny())
+	//out.CreateColumn("location", ForString())
 
 	// Load and copy until we reach the amount required
 	data := loadFixture("players.json")

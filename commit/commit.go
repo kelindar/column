@@ -7,32 +7,6 @@ import (
 	"github.com/kelindar/bitmap"
 )
 
-// --------------------------- Update Type ----------------------------
-
-// UpdateType represents a type of an update operation.
-type UpdateType uint8
-
-// Various update operations supported.
-const (
-	Put UpdateType = iota // Put stores a value regardless of a previous value
-	Add                   // Add increments the current stored value by the amount
-)
-
-// Update represents an update operation
-type Update struct {
-	Type  UpdateType  // The type of an update operation
-	Index uint32      // The index to update/delete
-	Value interface{} // The value to update to
-}
-
-// --------------------------- Update Type ----------------------------
-
-// Updates represents a list of updates for a column column.
-type Updates struct {
-	Column string   // The column name
-	Update []Update // The update queue
-}
-
 // --------------------------- Commit Type ----------------------------
 
 // Type represents a type of a commit operation.
@@ -73,7 +47,9 @@ func (t Type) String() (op string) {
 // in the same transaction, it would result in multiple commits per transaction.
 type Commit struct {
 	Type    Type          // The type of the commit
-	Updates []Updates     // The update list
+	Chunk   uint32        // The chunk number
+	Updates []*Buffer     // The update buffers
+	Dirty   bitmap.Bitmap // The dirty bitmap (TODO: rebuild instead?)
 	Deletes bitmap.Bitmap // The delete list
 	Inserts bitmap.Bitmap // The insert list
 }
@@ -86,15 +62,24 @@ func (c *Commit) Is(t Type) bool {
 // Clone clones a commit into a new one
 func (c *Commit) Clone() (clone Commit) {
 	clone.Type = c.Type
-	clone.Deletes = append(clone.Deletes, c.Deletes...)
-	clone.Inserts = append(clone.Inserts, c.Inserts...)
+	clone.Chunk = c.Chunk
+
+	c.Deletes.Clone(&clone.Deletes)
+	c.Inserts.Clone(&clone.Inserts)
+	c.Dirty.Clone(&clone.Dirty)
+
 	for _, u := range c.Updates {
-		if len(u.Update) > 0 {
-			ops := make([]Update, 0, len(u.Update))
-			ops = append(ops, u.Update...)
-			clone.Updates = append(clone.Updates, Updates{
+		if len(u.buffer) > 0 {
+			buffer := make([]byte, len(u.buffer))
+			copy(buffer, u.buffer)
+			chunks := make([]header, 0, len(u.chunks))
+			chunks = append(chunks, u.chunks...)
+			clone.Updates = append(clone.Updates, &Buffer{
 				Column: u.Column,
-				Update: ops,
+				buffer: buffer,
+				chunks: chunks,
+				last:   u.last,
+				chunk:  u.chunk,
 			})
 		}
 	}

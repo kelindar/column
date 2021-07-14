@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/kelindar/bitmap"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -28,6 +29,19 @@ func TestFind(t *testing.T) {
 	})
 
 	assert.Equal(t, 21, count)
+}
+
+func TestMany(t *testing.T) {
+	players := loadPlayers(20000)
+	count := 0
+	players.Query(func(txn *Txn) error {
+		txn.Range("name", func(v Cursor) {
+			count++
+		})
+		return nil
+	})
+
+	assert.Equal(t, 20000, count)
 }
 
 func TestCount(t *testing.T) {
@@ -111,7 +125,7 @@ func TestIndexInvalid(t *testing.T) {
 
 	assert.Error(t, players.Query(func(txn *Txn) error {
 		return txn.Range("invalid-column", func(v Cursor) {
-			return
+			// do nothing
 		})
 	}))
 
@@ -126,8 +140,7 @@ func TestIndexInvalid(t *testing.T) {
 
 	assert.NoError(t, players.Query(func(txn *Txn) error {
 		return txn.Range("balance", func(v Cursor) {
-			v.AddAt("invalid-column", 1)
-			return
+			v.AddFloat64At("invalid-column", 1)
 		})
 	}))
 
@@ -160,8 +173,8 @@ func TestIndexInvalid(t *testing.T) {
 
 func TestIndexed(t *testing.T) {
 	players := loadPlayers(500)
-	players.CreateIndex("rich", "balance", func(v interface{}) bool {
-		return v.(float64) > 3500
+	players.CreateIndex("rich", "balance", func(r Reader) bool {
+		return r.Float() > 3500
 	})
 
 	// How many players are rich?
@@ -216,8 +229,8 @@ func TestIndexed(t *testing.T) {
 		result.Range("class", func(v Cursor) {
 			//assert.Equal(t, "mage", v.String())
 			assert.Equal(t, float64(0), v.Float())
-			assert.Equal(t, int64(0), v.Int())
-			assert.Equal(t, uint64(0), v.Uint())
+			assert.Equal(t, int(0), v.Int())
+			assert.Equal(t, uint(0), v.Uint())
 		})
 		return nil
 	})
@@ -226,11 +239,11 @@ func TestIndexed(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	players := loadPlayers(500)
-	players.CreateIndex("broke", "balance", func(v interface{}) bool {
-		return v.(float64) < 100
+	players.CreateIndex("broke", "balance", func(r Reader) bool {
+		return r.Float() < 100
 	})
-	players.CreateIndex("rich", "balance", func(v interface{}) bool {
-		return v.(float64) >= 3000
+	players.CreateIndex("rich", "balance", func(r Reader) bool {
+		return r.Float() >= 3000
 	})
 
 	// Delete all old people from the collection
@@ -248,7 +261,7 @@ func TestUpdate(t *testing.T) {
 	// Make everyone poor
 	players.Query(func(txn *Txn) error {
 		txn.Range("balance", func(v Cursor) {
-			v.Update(1.0)
+			v.SetFloat64(1.0)
 		})
 		return nil
 	})
@@ -271,7 +284,7 @@ func TestUpdate(t *testing.T) {
 	// Make everyone rich
 	players.Query(func(txn *Txn) error {
 		txn.Range("balance", func(v Cursor) {
-			v.Update(5000.0)
+			v.SetFloat64(5000.0)
 		})
 		return nil
 	})
@@ -285,7 +298,7 @@ func TestUpdate(t *testing.T) {
 	// Try out the rollback
 	players.Query(func(txn *Txn) error {
 		txn.Range("balance", func(v Cursor) {
-			v.Update(1.0)
+			v.SetFloat64(1.0)
 		})
 		return fmt.Errorf("trigger rollback")
 	})
@@ -297,10 +310,9 @@ func TestUpdate(t *testing.T) {
 	})
 
 	// Reset balance back to zero
-	println("reset balance")
 	players.Query(func(txn *Txn) error {
 		return txn.Range("balance", func(v Cursor) {
-			v.Update(0.0)
+			v.SetFloat64(0.0)
 		})
 	})
 
@@ -314,10 +326,9 @@ func TestUpdate(t *testing.T) {
 	players.Query(func(txn *Txn) error {
 		for i := 0; i < 30; i++ {
 			txn.Range("balance", func(v Cursor) {
-				v.Add(100.0)
-				v.AddAt("balance", 100.0)
+				v.AddFloat64(100.0)
+				v.AddFloat64At("balance", 100.0)
 			})
-			txn.commit()
 		}
 		return nil
 	})
@@ -331,4 +342,51 @@ func TestUpdate(t *testing.T) {
 		assert.Equal(t, 245, txn.With("rich").Count())
 		return nil
 	})
+}
+
+func TestChunkOf(t *testing.T) {
+	tests := []struct {
+		size   uint32
+		chunk  uint32
+		expect int
+	}{
+		{size: 3 * chunkSize, expect: chunkSize, chunk: 0},
+		{size: 3 * chunkSize, expect: chunkSize, chunk: 1},
+		{size: 3 * chunkSize, expect: chunkSize, chunk: 2},
+		{size: 3 * chunkSize, expect: 0, chunk: 3},
+		{size: 2*chunkSize - 70, expect: chunkSize, chunk: 0},
+		{size: 2*chunkSize - 70, expect: 16320, chunk: 1},
+		{size: 2*chunkSize - 70, expect: 0, chunk: 2},
+		{size: 2*chunkSize - 10, expect: chunkSize, chunk: 0},
+		{size: 2*chunkSize - 10, expect: chunkSize, chunk: 1},
+		{size: 2*chunkSize - 10, expect: 0, chunk: 2},
+	}
+
+	for _, tc := range tests {
+		t.Run(fmt.Sprintf("%v-%v", tc.chunk, tc.size), func(t *testing.T) {
+			var tmp bitmap.Bitmap
+			tmp.Grow(tc.size - 1)
+			assert.Equal(t, tc.expect, len(chunkOf(tmp, tc.chunk))*64)
+		})
+	}
+}
+
+func TestMin(t *testing.T) {
+	tests := []struct {
+		v1, v2 int32
+		expect int32
+	}{
+		{v1: 0, v2: 0, expect: 0},
+		{v1: 10, v2: 0, expect: 0},
+		{v1: 0, v2: 10, expect: 0},
+		{v1: 10, v2: 20, expect: 10},
+		{v1: 20, v2: 10, expect: 10},
+		{v1: 20, v2: 20, expect: 20},
+	}
+
+	for _, tc := range tests {
+		t.Run(fmt.Sprintf("%v,%v", tc.v1, tc.v2), func(t *testing.T) {
+			assert.Equal(t, int(tc.expect), int(min(tc.v1, tc.v2)))
+		})
+	}
 }

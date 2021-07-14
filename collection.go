@@ -14,6 +14,7 @@ import (
 
 	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
+	"github.com/kelindar/smutex"
 )
 
 // Object represents a single object
@@ -26,7 +27,9 @@ const (
 // Collection represents a collection of objects in a columnar format
 type Collection struct {
 	count  uint64             // The current count of elements
-	lock   sync.RWMutex       // The global lock for both fill-list & transactions
+	txns   *txnPool           // The transaction pool
+	lock   sync.RWMutex       // The mutex to guard the fill-list
+	slock  *smutex.SMutex128  // The sharded mutex for the collection
 	cols   columns            // The map of columns
 	fill   bitmap.Bitmap      // The fill-list
 	size   int                // The initial size for new columns
@@ -66,7 +69,9 @@ func NewCollection(opts ...Options) *Collection {
 	ctx, cancel := context.WithCancel(context.Background())
 	store := &Collection{
 		cols:   makeColumns(8),
+		txns:   newTxnPool(),
 		size:   options.Capacity,
+		slock:  new(smutex.SMutex128),
 		fill:   make(bitmap.Bitmap, 0, options.Capacity>>6),
 		writer: options.Writer,
 		cancel: cancel,
@@ -134,7 +139,7 @@ func (c *Collection) UpdateAt(idx uint32, columnName string, value interface{}) 
 	c.Query(func(txn *Txn) error {
 		if cursor, err := txn.cursorFor(columnName); err == nil {
 			cursor.idx = idx
-			cursor.Update(value)
+			cursor.Set(value)
 		}
 		return nil
 	})
@@ -177,32 +182,32 @@ func (c *Collection) DropColumn(columnName string) {
 // CreateIndex creates an index column with a specified name which depends on a given
 // column. The index function will be applied on the values of the column whenever
 // a new row is added or updated.
-func (c *Collection) CreateIndex(indexName, columnName string, fn func(v interface{}) bool) error {
-	c.lock.Lock()
-	defer c.lock.Unlock()
+func (c *Collection) CreateIndex(indexName, columnName string, fn func(r Reader) bool) error {
 	if fn == nil || columnName == "" || indexName == "" {
 		return fmt.Errorf("column: create index must specify name, column and function")
 	}
 
 	// Create and add the index column,
 	index := newIndex(indexName, columnName, fn)
+	c.lock.Lock()
 	index.Grow(uint32(c.size))
 	c.cols.Store(indexName, index)
 	c.cols.Store(columnName, nil, index)
+	c.lock.Unlock()
+
+	// If the colum does not yet exist, nothing else to do
+	if _, ok := c.cols.Load(columnName); !ok {
+		return nil
+	}
 
 	// If a column with this name already exists, iterate through all of the values
 	// that we have in the collection and apply the filter.
-	if column, ok := c.cols.Load(columnName); ok {
-		fill := index.Index()
-		c.fill.Clone(fill)
-		fill.Filter(func(x uint32) (match bool) {
-			if v, ok := column.Value(x); ok {
-				match = fn(v)
-			}
-			return
+	return c.Query(func(txn *Txn) error {
+		impl := index.Column.(*columnIndex)
+		return txn.With(columnName).Range(columnName, func(v Cursor) {
+			impl.Update(&v)
 		})
-	}
-	return nil
+	})
 }
 
 // DropIndex removes the index column with the specified name. If the index with this
@@ -244,20 +249,20 @@ func (c *Collection) Fetch(idx uint32) (Selector, bool) {
 // executed after the iteration.
 func (c *Collection) Query(fn func(txn *Txn) error) error {
 	c.lock.RLock()
-	txn := aquireTxn(c)
+	txn := c.txns.acquire(c)
 	c.lock.RUnlock()
 
 	// Execute the query and keep the error for later
 	if err := fn(txn); err != nil {
 		txn.rollback()
-		releaseTxn(txn)
+		c.txns.release(txn)
 		return err
 	}
 
 	// Now that the iteration has finished, we can range over the pending action
 	// queue and apply all of the actions that were requested by the Selector.
 	txn.commit()
-	releaseTxn(txn)
+	c.txns.release(txn)
 	return nil
 }
 
@@ -276,7 +281,7 @@ func (c *Collection) vacuum(ctx context.Context, interval time.Duration) {
 			ticker.Stop()
 			return
 		case <-ticker.C:
-			now := time.Now().UnixNano()
+			now := int(time.Now().UnixNano())
 			c.Query(func(txn *Txn) error {
 				return txn.With(expireColumn).Range(expireColumn, func(v Cursor) {
 					if expirateAt := v.Int(); expirateAt != 0 && now >= v.Int() {
@@ -291,39 +296,24 @@ func (c *Collection) vacuum(ctx context.Context, interval time.Duration) {
 // Replay replays a commit on a collection, applying the changes.
 func (c *Collection) Replay(change commit.Commit) error {
 	return c.Query(func(txn *Txn) error {
+		txn.dirty = change.Dirty
 
 		// If the change contains deletes, add them to the transaction
 		if change.Is(commit.Delete) {
-			txn.deletes = append(txn.deletes, change.Deletes...)
+			txn.deletes = change.Deletes
 		}
 
 		// If the change contains inserts, add them to the transaction
 		if change.Is(commit.Insert) {
-			txn.inserts = append(txn.inserts, change.Inserts...)
+			txn.inserts = change.Inserts
 		}
 
 		// If the change contains updates, add them to the transaction
 		if change.Is(commit.Store) {
-			for _, log := range change.Updates {
-
-				// If we already  have an existing update queue, append to that
-				for i, c := range txn.updates {
-					if c.Column == log.Column {
-						txn.updates[i].Update = append(txn.updates[i].Update, log.Update...)
-						return nil
-					}
+			for i := range change.Updates {
+				if !change.Updates[i].IsEmpty() {
+					txn.updates = append(txn.updates, change.Updates[i])
 				}
-
-				// Create a new update queue, we need to copy all of the updates since both
-				// transaction and commits are pooled.
-				updates := make([]commit.Update, 0, len(change.Updates))
-				updates = append(updates, log.Update...)
-
-				// Add a new update queue
-				txn.updates = append(txn.updates, commit.Updates{
-					Column: log.Column,
-					Update: updates,
-				})
 			}
 		}
 		return nil
@@ -413,7 +403,6 @@ func (c *columns) Store(columnName string, main *column, index ...*column) {
 		cols: value,
 	})
 	c.cols.Store(columns)
-	return
 }
 
 // DeleteColumn deletes a column from the registry.

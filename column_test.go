@@ -13,22 +13,21 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// BenchmarkColumn/fetch-8          	100000000	        11.01 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkColumn/chunkOf-8       	 8715824	       137.6 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkColumn(b *testing.B) {
-	b.Run("fetch", func(b *testing.B) {
-		p := makeAny()
-		p.Grow(10)
-		p.Update([]commit.Update{{
-			Type:  commit.Put,
-			Index: 5,
-			Value: "hello",
-		}})
+	b.Run("chunkOf", func(b *testing.B) {
+		var temp bitmap.Bitmap
+		temp.Grow(2 * chunkSize)
+
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			p.Value(5)
+			for i := 0; i < 100; i++ {
+				chunkOf(temp, 1)
+			}
 		}
 	})
+
 }
 
 func TestColumns(t *testing.T) {
@@ -38,7 +37,7 @@ func TestColumns(t *testing.T) {
 	}{
 		{column: ForEnum(), value: "mage"},
 		{column: ForBool(), value: true},
-		{column: ForAny(), value: "test"},
+		{column: ForString(), value: "test"},
 		{column: ForInt(), value: int(99)},
 		{column: ForInt16(), value: int16(99)},
 		{column: ForInt32(), value: int32(99)},
@@ -55,6 +54,10 @@ func TestColumns(t *testing.T) {
 		t.Run(fmt.Sprintf("%T", tc.column), func(t *testing.T) {
 			testColumn(t, tc.column, tc.value)
 		})
+
+		t.Run(fmt.Sprintf("%T-cursor", tc.column), func(t *testing.T) {
+			testColumnCursor(t, tc.column, tc.value)
+		})
 	}
 }
 
@@ -64,12 +67,8 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 		column.Grow(uint32(i))
 	}
 
-	column.Grow(9)
-	column.Update([]commit.Update{{
-		Type:  commit.Put,
-		Index: 9,
-		Value: value,
-	}})
+	// Add a value
+	applyChanges(column, Update{commit.Put, 9, value})
 
 	// Assert the value
 	v, ok := column.Value(9)
@@ -79,14 +78,12 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 	assert.True(t, ok)
 
 	// Delete the value and update again
-	column.Delete(&bitmap.Bitmap{0xffffffffffffffff})
+	column.Delete(0, bitmap.Bitmap{0xffffffffffffffff})
 	_, ok = column.Value(9)
 	assert.False(t, ok)
-	column.Update([]commit.Update{{
-		Type:  commit.Put,
-		Index: 9,
-		Value: value,
-	}})
+
+	// Apply updates
+	applyChanges(column, Update{commit.Put, 9, value})
 
 	// Assert Numeric
 	if column, ok := column.(Numeric); ok {
@@ -98,7 +95,7 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 
 		// FilterFloat64
 		index := bitmap.Bitmap{0xffff}
-		column.FilterFloat64(&index, func(v float64) bool {
+		column.FilterFloat64(0, index, func(v float64) bool {
 			return false
 		})
 		assert.Equal(t, 0, index.Count())
@@ -110,7 +107,7 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 
 		// FilterInt64
 		index = bitmap.Bitmap{0xffff}
-		column.FilterInt64(&index, func(v int64) bool {
+		column.FilterInt64(0, index, func(v int64) bool {
 			return false
 		})
 		assert.Equal(t, 0, index.Count())
@@ -122,17 +119,18 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 
 		// FilterUint64
 		index = bitmap.Bitmap{0xffff}
-		column.FilterUint64(&index, func(v uint64) bool {
+		column.FilterUint64(0, index, func(v uint64) bool {
 			return false
 		})
 		assert.Equal(t, 0, index.Count())
 
 		// Atomic Add
-		column.Update([]commit.Update{
-			{Type: commit.Put, Index: 1, Value: value},
-			{Type: commit.Put, Index: 2, Value: value},
-			{Type: commit.Add, Index: 1, Value: value},
-		})
+		applyChanges(column,
+			Update{Type: commit.Put, Index: 1, Value: value},
+			Update{Type: commit.Put, Index: 2, Value: value},
+			Update{Type: commit.Add, Index: 1, Value: value},
+		)
+
 		assert.True(t, column.Contains(1))
 		assert.True(t, column.Contains(2))
 		//v, _ := column.LoadInt64(1)
@@ -148,7 +146,7 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 
 		// FilterFloat64
 		index := bitmap.Bitmap{0xffff}
-		column.FilterString(&index, func(v string) bool {
+		column.FilterString(0, index, func(v string) bool {
 			return false
 		})
 		assert.Equal(t, 0, index.Count())
@@ -156,15 +154,31 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 
 }
 
+// Tests an individual column cursor
+func testColumnCursor(t *testing.T, column Column, value interface{}) {
+	col := NewCollection()
+	col.CreateColumn("test", column)
+	col.Insert(map[string]interface{}{
+		"test": value,
+	})
+
+	assert.NotPanics(t, func() {
+		col.Query(func(txn *Txn) error {
+			return txn.Range("test", func(cur Cursor) {
+				setAny(&cur, "test", value)
+				if _, ok := column.(Numeric); ok {
+					addAny(&cur, "test", value)
+				}
+			})
+		})
+	})
+}
+
 func TestColumnOrder(t *testing.T) {
-	p := makeAny()
+	p := ForUint32()
 	p.Grow(199)
 	for i := uint32(100); i < 200; i++ {
-		p.Update([]commit.Update{{
-			Type:  commit.Put,
-			Index: i,
-			Value: i,
-		}})
+		applyChanges(p, Update{Type: commit.Put, Index: i, Value: i})
 	}
 
 	for i := uint32(100); i < 200; i++ {
@@ -176,12 +190,8 @@ func TestColumnOrder(t *testing.T) {
 	for i := uint32(150); i < 180; i++ {
 		var deletes bitmap.Bitmap
 		deletes.Set(i)
-		p.Delete(&deletes)
-		p.Update([]commit.Update{{
-			Type:  commit.Put,
-			Index: i,
-			Value: i,
-		}})
+		p.Delete(0, deletes)
+		applyChanges(p, Update{Type: commit.Put, Index: i, Value: i})
 	}
 
 	for i := uint32(100); i < 200; i++ {
@@ -192,9 +202,116 @@ func TestColumnOrder(t *testing.T) {
 }
 
 func TestFromKind(t *testing.T) {
-	for i := 0; i < 26; i++ {
-		column := ForKind(reflect.Kind(i))
+	for _, v := range []reflect.Kind{
+		reflect.Int, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Bool, reflect.String,
+		reflect.Float32, reflect.Float64,
+	} {
+		column := ForKind(v)
 		_, ok := column.Value(100)
 		assert.False(t, ok)
+	}
+	for i := 0; i < 26; i++ {
+
+	}
+}
+
+func applyChanges(column Column, updates ...Update) {
+	buf := commit.NewBuffer(10)
+	for _, u := range updates {
+		buf.PutAny(u.Type, u.Index, u.Value)
+	}
+
+	r := new(commit.Reader)
+	r.Seek(buf)
+	column.Apply(r)
+}
+
+type Update struct {
+	Type  commit.OpType
+	Index uint32
+	Value interface{}
+}
+
+// setAny used for testing
+func setAny(cur *Cursor, column string, value interface{}) {
+	switch v := value.(type) {
+	case uint:
+		cur.SetUint(v)
+		cur.SetUintAt(column, v)
+	case uint64:
+		cur.SetUint64(v)
+		cur.SetUint64At(column, v)
+	case uint32:
+		cur.SetUint32(v)
+		cur.SetUint32At(column, v)
+	case uint16:
+		cur.SetUint16(v)
+		cur.SetUint16At(column, v)
+	case int:
+		cur.SetInt(v)
+		cur.SetIntAt(column, v)
+	case int64:
+		cur.SetInt64(v)
+		cur.SetInt64At(column, v)
+	case int32:
+		cur.SetInt32(v)
+		cur.SetInt32At(column, v)
+	case int16:
+		cur.SetInt16(v)
+		cur.SetInt16At(column, v)
+	case float64:
+		cur.SetFloat64(v)
+		cur.SetFloat64At(column, v)
+	case float32:
+		cur.SetFloat32(v)
+		cur.SetFloat32At(column, v)
+	case bool:
+		cur.SetBool(v)
+		cur.SetBoolAt(column, v)
+	case string:
+		cur.SetString(v)
+		cur.SetStringAt(column, v)
+	default:
+		panic(fmt.Errorf("column: unsupported type (%T)", value))
+	}
+}
+
+// addAny used for testing
+func addAny(cur *Cursor, column string, value interface{}) {
+	switch v := value.(type) {
+	case uint:
+		cur.AddUint(v)
+		cur.AddUintAt(column, v)
+	case uint64:
+		cur.AddUint64(v)
+		cur.AddUint64At(column, v)
+	case uint32:
+		cur.AddUint32(v)
+		cur.AddUint32At(column, v)
+	case uint16:
+		cur.AddUint16(v)
+		cur.AddUint16At(column, v)
+	case int:
+		cur.AddInt(v)
+		cur.AddIntAt(column, v)
+	case int64:
+		cur.AddInt64(v)
+		cur.AddInt64At(column, v)
+	case int32:
+		cur.AddInt32(v)
+		cur.AddInt32At(column, v)
+	case int16:
+		cur.AddInt16(v)
+		cur.AddInt16At(column, v)
+	case float64:
+		cur.AddFloat64(v)
+		cur.AddFloat64At(column, v)
+	case float32:
+		cur.AddFloat32(v)
+		cur.AddFloat32At(column, v)
+	default:
+		panic(fmt.Errorf("column: unsupported type (%T)", value))
 	}
 }

@@ -20,7 +20,7 @@ This package contains a **high-performance, columnar, in-memory storage engine**
  * Support for **SIMD-enabled filtering** (i.e. "where" clause) by leveraging [bitmap indexing](https://github.com/kelindar/bitmap).
  * Support for **columnar projection**  (i.e. "select" clause) for fast retrieval.
  * Support for **computed indexes** that are dynamically calculated based on provided predicate.
- * Support for **concurrent updates** per-column (e.g. 2 goroutines can update 2 columns concurrently).
+ * Support for **concurrent updates** using sharded latches to keep things fast.
  * Support for **transaction isolation**, allowing you to create transactions and commit/rollback.
  * Support for **expiration** of rows based on time-to-live or expiration column.
  * Support for **atomic increment/decrement** of numerical values, transactionally.
@@ -206,26 +206,26 @@ players.Query(func(txn *Txn) error {
 
 ## Updating Values
 
-In order to update certain items in the collection, you can simply call `Range()` method and the corresponding `Cursor`'s `Update()` or `UpdateAt()` methods that allow to update a value of a certain column atomically. The updates won't be directly reflected given that the store supports transactions and only when transaction is commited, then the update will be applied to the collection. This allows for isolation and rollbacks.
+In order to update certain items in the collection, you can simply call `Range()` method and the corresponding `Cursor`'s `Set..()` or `Set..At()` methods that allow to update a value of a certain column atomically. The updates won't be directly reflected given that the store supports transactions and only when transaction is commited, then the update will be applied to the collection. This allows for isolation and rollbacks.
 
 In the example below we're selecting all of the rogues and updating both their balance and age to certain values. The transaction returns `nil`, hence it will be automatically committed when `Query()` method returns.
 
 ```go
 players.Query(func(txn *Txn) error {
 	txn.With("rogue").Range("balance", func(v column.Cursor) {
-		v.Update(10.0)        // Update the "balance" to 10.0
-		v.UpdateAt("age", 50) // Update the "age" to 50
+		v.SetFloat64(10.0)      // Update the "balance" to 10.0
+		v.SetInt64At("age", 50) // Update the "age" to 50
 	}) // Select the balance
 	return nil
 })
 ```
 
-In certain cases, you might want to atomically increment or decrement numerical values. In order to accomplish this you can use the provided `Add()` or `AddAt()` operations of the `Cursor` or `Selector`. Note that the indexes will also be updated accordingly and the predicates re-evaluated with the most up-to-date values. In the below example we're incrementing the balance of all our rogues by *500* atomically.
+In certain cases, you might want to atomically increment or decrement numerical values. In order to accomplish this you can use the provided `Add..()` or `Add..At()` operations of the `Cursor` or `Selector`. Note that the indexes will also be updated accordingly and the predicates re-evaluated with the most up-to-date values. In the below example we're incrementing the balance of all our rogues by *500* atomically.
 
 ```go
 players.Query(func(txn *Txn) error {
 	txn.With("rogue").Range("balance", func(v column.Cursor) {
-		v.Add(500.0) // Increment the "balance" by 500
+		v.AddFloat64(500.0) // Increment the "balance" by 500
 	})
 	return nil
 })
@@ -253,7 +253,7 @@ players.Query(func(txn *column.Txn) error {
 	return txn.Range("expire", func(v column.Cursor) {
 		oldExpire := time.Unix(0, v.Int()) // Convert expiration to time.Time
 		newExpire := expireAt.Add(1 * time.Hour).UnixNano()  // Add some time
-		v.Update(newExpire)
+		v.Set(newExpire)
 	})
 })
 ```
@@ -266,7 +266,7 @@ Transactions allow for isolation between two concurrent operations. In fact, all
 // Range over all of the players and update (successfully their balance)
 players.Query(func(txn *column.Txn) error {
 	txn.Range("balance", func(v column.Cursor) {
-		v.Update(10.0) // Update the "balance" to 10.0
+		v.Set(10.0) // Update the "balance" to 10.0
 	})
 
 	// No error, transaction will be committed
@@ -280,7 +280,7 @@ Now, in this example, we try to update balance but a query callback returns an e
 // Range over all of the players and update (successfully their balance)
 players.Query(func(txn *column.Txn) error {
 	txn.Range("balance", func(v column.Cursor) {
-		v.Update(10.0) // Update the "balance" to 10.0
+		v.Set(10.0) // Update the "balance" to 10.0
 	})
 
 	// Returns an error, transaction will be rolled back
@@ -405,15 +405,15 @@ The benchmarks below were ran on a collection of **100,000 items** containing a 
 
 ```
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkCollection/insert-8         5439637      221.3 ns/op      18 B/op     0 allocs/op
-BenchmarkCollection/fetch-8         23985608      48.55 ns/op       0 B/op     0 allocs/op
-BenchmarkCollection/scan-8              1845     689796 ns/op      25 B/op     0 allocs/op
-BenchmarkCollection/count-8          1000000       1133 ns/op       0 B/op     0 allocs/op
-BenchmarkCollection/range-8            10000     107436 ns/op      10 B/op     0 allocs/op
-BenchmarkCollection/update-at-8      4171920      286.7 ns/op       0 B/op     0 allocs/op
-BenchmarkCollection/update-all-8         837    1312193 ns/op   52392 B/op     0 allocs/op
-BenchmarkCollection/delete-at-8      7141628      169.9 ns/op       0 B/op     0 allocs/op
-BenchmarkCollection/delete-all-8      189722       6322 ns/op       0 B/op     0 allocs/op
+BenchmarkCollection/insert-8            2104     526103 ns/op     1218 B/op      0 allocs/op
+BenchmarkCollection/fetch-8         25516224      47.49 ns/op        0 B/op      0 allocs/op
+BenchmarkCollection/scan-8              1790     662321 ns/op     1053 B/op      0 allocs/op
+BenchmarkCollection/count-8           750022       1541 ns/op        2 B/op      0 allocs/op
+BenchmarkCollection/range-8            10000     106408 ns/op      163 B/op      0 allocs/op
+BenchmarkCollection/update-at-8      3053438      409.4 ns/op        0 B/op      0 allocs/op
+BenchmarkCollection/update-all-8         774    1548279 ns/op    13937 B/op      0 allocs/op
+BenchmarkCollection/delete-at-8      6451591      173.6 ns/op        0 B/op      0 allocs/op
+BenchmarkCollection/delete-all-8     1318351      901.1 ns/op        1 B/op      0 allocs/op
 ```
 
 When testing for larger collections, I added a small example (see `examples` folder) and ran it with **20 million rows** inserted, each entry has **12 columns and 4 indexes** that need to be calculated, and a few queries and scans around them.

@@ -13,18 +13,18 @@ func main() {
 	players := column.NewCollection()
 
 	// index on humans
-	players.CreateIndex("human", "race", func(v interface{}) bool {
-		return v == "human"
+	players.CreateIndex("human", "race", func(r column.Reader) bool {
+		return r.String() == "human"
 	})
 
 	// index for mages
-	players.CreateIndex("mage", "class", func(v interface{}) bool {
-		return v == "mage"
+	players.CreateIndex("mage", "class", func(r column.Reader) bool {
+		return r.String() == "mage"
 	})
 
 	// index for old
-	players.CreateIndex("old", "age", func(v interface{}) bool {
-		return v.(float64) >= 30
+	players.CreateIndex("old", "age", func(r column.Reader) bool {
+		return r.Float() >= 30
 	})
 
 	// Load the items into the collection

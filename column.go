@@ -6,6 +6,7 @@
 package column
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/kelindar/bitmap"
@@ -37,8 +38,8 @@ func typeOf(column Column) (typ columnType) {
 // Column represents a column implementation
 type Column interface {
 	Grow(idx uint32)
-	Update(updates []commit.Update)
-	Delete(items *bitmap.Bitmap)
+	Apply(*commit.Reader)
+	Delete(offset int, items bitmap.Bitmap)
 	Value(idx uint32) (interface{}, bool)
 	Contains(idx uint32) bool
 	Index() *bitmap.Bitmap
@@ -50,24 +51,23 @@ type Numeric interface {
 	LoadFloat64(uint32) (float64, bool)
 	LoadUint64(uint32) (uint64, bool)
 	LoadInt64(uint32) (int64, bool)
-	FilterFloat64(*bitmap.Bitmap, func(v float64) bool)
-	FilterUint64(*bitmap.Bitmap, func(v uint64) bool)
-	FilterInt64(*bitmap.Bitmap, func(v int64) bool)
+	FilterFloat64(uint32, bitmap.Bitmap, func(v float64) bool)
+	FilterUint64(uint32, bitmap.Bitmap, func(v uint64) bool)
+	FilterInt64(uint32, bitmap.Bitmap, func(v int64) bool)
 }
 
 // Textual represents a column that stores strings.
 type Textual interface {
 	Column
 	LoadString(uint32) (string, bool)
-	FilterString(*bitmap.Bitmap, func(v string) bool)
+	FilterString(uint32, bitmap.Bitmap, func(v string) bool)
 }
 
 // --------------------------- Constructors ----------------------------
 
 // Various column constructor functions for a specific types.
 var (
-	ForAny     = makeAny
-	ForString  = makeAny
+	ForString  = makeStrings
 	ForFloat32 = makeFloat32s
 	ForFloat64 = makeFloat64s
 	ForInt     = makeInts
@@ -107,8 +107,10 @@ func ForKind(kind reflect.Kind) Column {
 		return makeUint64s()
 	case reflect.Bool:
 		return makeBools()
+	case reflect.String:
+		return makeStrings()
 	default:
-		return makeAny()
+		panic(fmt.Errorf("column: unsupported column kind (%v)", kind))
 	}
 }
 
@@ -140,21 +142,15 @@ func (c *column) IsTextual() bool {
 	return (c.kind & typeTextual) == typeTextual
 }
 
-// Update performs a series of updates at once
-func (c *column) Update(updates []commit.Update, growUntil uint32) {
+// Apply performs a series of operations on a column.
+func (c *column) Apply(r *commit.Reader, growUntil uint32) {
 	c.Column.Grow(growUntil)
-	c.Column.Update(updates)
+	c.Column.Apply(r)
 }
 
 // Delete deletes a set of items from the column.
-func (c *column) Delete(items *bitmap.Bitmap) {
-	c.Column.Delete(items)
-}
-
-// Contains checks whether the column has a value at a specified index.
-func (c *column) Contains(idx uint32) (exists bool) {
-	exists = c.Column.Contains(idx)
-	return
+func (c *column) Delete(offset int, items bitmap.Bitmap) {
+	c.Column.Delete(offset, items)
 }
 
 // Value retrieves a value at a specified index
@@ -165,7 +161,7 @@ func (c *column) Value(idx uint32) (v interface{}, ok bool) {
 
 // Value retrieves a value at a specified index
 func (c *column) String(idx uint32) (v string, ok bool) {
-	if column, ok := c.Column.(Textual); ok {
+	if column, text := c.Column.(Textual); text {
 		v, ok = column.LoadString(idx)
 	}
 	return
@@ -195,90 +191,6 @@ func (c *column) Uint64(idx uint32) (v uint64, ok bool) {
 	return
 }
 
-// --------------------------- Any ----------------------------
-
-// columnAny represents a generic column
-type columnAny struct {
-	fill bitmap.Bitmap // The fill-list
-	data []interface{} // The actual values
-}
-
-// makeAny creates a new generic column
-func makeAny() Column {
-	return &columnAny{
-		fill: make(bitmap.Bitmap, 0, 4),
-		data: make([]interface{}, 0, 64),
-	}
-}
-
-// Grow grows the size of the column until we have enough to store
-func (c *columnAny) Grow(idx uint32) {
-	if idx < uint32(len(c.data)) {
-		return
-	}
-
-	if idx < uint32(cap(c.data)) {
-		c.data = c.data[:idx+1]
-		return
-	}
-
-	c.fill.Grow(idx)
-	clone := make([]interface{}, idx+1, capacityFor(idx+1))
-	copy(clone, c.data)
-	c.data = clone
-}
-
-// Update performs a series of updates at once
-func (c *columnAny) Update(updates []commit.Update) {
-
-	// Update the values of the column, for this one we can only process stores
-	for _, u := range updates {
-		if u.Type == commit.Put {
-			c.fill.Set(u.Index)
-			c.data[u.Index] = u.Value
-		}
-	}
-}
-
-// Delete deletes a set of items from the column.
-func (c *columnAny) Delete(items *bitmap.Bitmap) {
-	c.fill.AndNot(*items)
-}
-
-// Value retrieves a value at a specified index
-func (c *columnAny) Value(idx uint32) (v interface{}, ok bool) {
-	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
-		v, ok = c.data[idx], true
-	}
-	return
-}
-
-// Contains checks whether the column has a value at a specified index.
-func (c *columnAny) Contains(idx uint32) bool {
-	return c.fill.Contains(idx)
-}
-
-// Index returns the fill list for the column
-func (c *columnAny) Index() *bitmap.Bitmap {
-	return &c.fill
-}
-
-// LoadString retrieves a value at a specified index
-func (c *columnAny) LoadString(idx uint32) (string, bool) {
-	v, has := c.Value(idx)
-	s, ok := v.(string)
-	return s, has && ok
-}
-
-// FilterString filters down the values based on the specified predicate. The column for
-// this filter must be a string.
-func (c *columnAny) FilterString(index *bitmap.Bitmap, predicate func(v string) bool) {
-	index.And(c.fill)
-	index.Filter(func(idx uint32) (match bool) {
-		return idx < uint32(len(c.data)) && predicate(c.data[idx].(string))
-	})
-}
-
 // --------------------------- booleans ----------------------------
 
 // columnBool represents a boolean column
@@ -298,16 +210,17 @@ func makeBools() Column {
 // Grow grows the size of the column until we have enough to store
 func (c *columnBool) Grow(idx uint32) {
 	c.fill.Grow(idx)
+	c.data.Grow(idx)
 }
 
-// Update performs a series of updates at once
-func (c *columnBool) Update(updates []commit.Update) {
-	for _, u := range updates {
-		c.fill.Set(u.Index)
-		if u.Value.(bool) {
-			c.data.Set(u.Index)
+// Apply applies a set of operations to the column.
+func (c *columnBool) Apply(r *commit.Reader) {
+	for r.Next() {
+		c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
+		if r.Bool() {
+			c.data.Set(uint32(r.Offset))
 		} else {
-			c.data.Remove(u.Index)
+			c.data.Remove(uint32(r.Offset))
 		}
 	}
 }
@@ -318,9 +231,11 @@ func (c *columnBool) Value(idx uint32) (interface{}, bool) {
 }
 
 // Delete deletes a set of items from the column.
-func (c *columnBool) Delete(items *bitmap.Bitmap) {
-	c.fill.AndNot(*items)
-	c.data.AndNot(*items)
+func (c *columnBool) Delete(offset int, items bitmap.Bitmap) {
+	fill := c.fill[offset:]
+	//data := c.data[offset:]
+	fill.AndNot(items)
+	//c.data.AndNot(items)
 }
 
 // Contains checks whether the column has a value at a specified index.
