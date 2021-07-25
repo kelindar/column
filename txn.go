@@ -48,6 +48,7 @@ func (p *txnPool) acquire(owner *Collection) *Txn {
 	txn := p.txns.Get().(*Txn)
 	txn.owner = owner
 	txn.writer = owner.writer
+	txn.index.Grow(uint32(owner.size))
 	owner.fill.Clone(&txn.index)
 	return txn
 }

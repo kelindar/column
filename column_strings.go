@@ -219,7 +219,7 @@ func (c *columnString) Apply(r *commit.Reader) {
 	for r.Next() {
 		if r.Type == commit.Put {
 			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
-			c.data[r.Offset] = r.String()
+			c.data[r.Offset] = string(r.Bytes())
 		}
 	}
 }
