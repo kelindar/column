@@ -315,3 +315,24 @@ func addAny(cur *Cursor, column string, value interface{}) {
 		panic(fmt.Errorf("column: unsupported type (%T)", value))
 	}
 }
+
+func TestForString(t *testing.T) {
+	coll := NewCollection()
+	coll.CreateColumn("id", ForInt64())
+	coll.CreateColumn("data", ForString())
+	coll.CreateIndex("one", "id", func(r Reader) bool {
+		return r.Int() == 1
+	})
+
+	data := []string{"a", "b", "c", "d"}
+
+	for i, d := range data {
+		coll.Insert(map[string]interface{}{"id": i, "data": d})
+	}
+	coll.Query(func(tx *Txn) error {
+		tx.With("one").Select(func(v Selector) {
+			assert.Equal(t, "b", v.StringAt("data"))
+		})
+		return nil
+	})
+}
