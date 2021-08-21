@@ -23,15 +23,15 @@ import (
 
 /*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkCollection/insert-8         	    1917	    588918 ns/op	     666 B/op	       0 allocs/op
-BenchmarkCollection/fetch-8          	25534033	        46.80 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/scan-8           	    1689	    748443 ns/op	     127 B/op	       0 allocs/op
-BenchmarkCollection/count-8          	  727267	      1611 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/range-8          	    9999	    110182 ns/op	      14 B/op	       0 allocs/op
-BenchmarkCollection/update-at-8      	 2530968	       468.3 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/update-all-8     	     774	   1546088 ns/op	    6153 B/op	       0 allocs/op
-BenchmarkCollection/delete-at-8      	 4410576	       257.2 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/delete-all-8     	 1220576	       978.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/insert-8         	    1815	    641585 ns/op	    1042 B/op	       1 allocs/op
+BenchmarkCollection/fetch-8          	27476678	        44.48 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/scan-8           	    1816	    666145 ns/op	      96 B/op	       0 allocs/op
+BenchmarkCollection/count-8          	 1000000	      1489 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/range-8          	   12378	     95553 ns/op	      11 B/op	       0 allocs/op
+BenchmarkCollection/update-at-8      	 2952098	       410.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/update-all-8     	     794	   1511047 ns/op	   11799 B/op	       0 allocs/op
+BenchmarkCollection/delete-at-8      	 7042186	       176.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/delete-all-8     	 1349882	       882.6 ns/op	       0 B/op	       0 allocs/op
 */
 func BenchmarkCollection(b *testing.B) {
 	b.Run("insert", func(b *testing.B) {
@@ -418,8 +418,8 @@ func loadPlayers(amount int) *Collection {
 	})
 
 	// Load the items into the collection
-	out.CreateColumn("serial", ForString())
-	out.CreateColumn("name", ForString())
+	out.CreateColumn("serial", ForEnum())
+	out.CreateColumn("name", ForEnum())
 	out.CreateColumn("active", ForBool())
 	out.CreateColumn("class", ForEnum())
 	out.CreateColumn("race", ForEnum())

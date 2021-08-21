@@ -45,6 +45,18 @@ func (r *Reader) use(buffer []byte) {
 	r.Type = Put
 }
 
+// --------------------------- Bitmap Read ----------------------------
+
+// Deleted reads a deleted bitmap value.
+func (r *Reader) Deleted() uint64 {
+	return binary.BigEndian.Uint64(r.buffer[r.i0:r.i1])
+}
+
+// Inserted reads an inserted bitmap.
+func (r *Reader) Inserted() uint64 {
+	return binary.BigEndian.Uint64(r.buffer[r.i0:r.i1])
+}
+
 // --------------------------- Value Read ----------------------------
 
 // Int16 reads a uint16 value.

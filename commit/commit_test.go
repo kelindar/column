@@ -3,14 +3,7 @@
 
 package commit
 
-import (
-	"testing"
-	"unsafe"
-
-	"github.com/kelindar/bitmap"
-	"github.com/stretchr/testify/assert"
-)
-
+/*
 func TestCommits(t *testing.T) {
 	commit1 := Commit{
 		Type:    Delete,
@@ -48,7 +41,6 @@ func TestCommits(t *testing.T) {
 	assert.NotEqual(t, unsafe.Pointer(&commit2.Updates), unsafe.Pointer(&clone2.Updates))
 	assert.NotEqual(t, unsafe.Pointer(&commit3.Inserts), unsafe.Pointer(&clone3.Inserts))
 }
-
 func TestType(t *testing.T) {
 	assert.Equal(t, "store", Type(1).String())
 	assert.Equal(t, "insert", Type(2).String())
@@ -64,3 +56,5 @@ func TestType(t *testing.T) {
 	}
 	assert.True(t, c.Is(Delete))
 }
+
+*/

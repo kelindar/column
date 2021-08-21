@@ -27,8 +27,10 @@ type OpType uint8
 
 // Various update operations supported.
 const (
-	Put OpType = iota // Put stores a value regardless of a previous value
-	Add               // Add increments the current stored value by the amount
+	Put    OpType = iota // Put stores a value regardless of a previous value
+	Add                  // Add increments the current stored value by the amount
+	Delete               // Delete deletes an entire row or a set of rows
+	Insert               // Insert inserts a new row or a set of rows
 )
 
 // --------------------------- Delta log ----------------------------
@@ -115,6 +117,16 @@ func (b *Buffer) PutAny(op OpType, idx uint32, value interface{}) {
 	default:
 		panic(fmt.Errorf("column: unsupported type (%T)", value))
 	}
+}
+
+// PutDeletes appends a delete bitmap at an offset.
+func (b *Buffer) PutDeletes(idx uint32, bitmap uint64) {
+	b.PutUint64(Delete, idx, bitmap)
+}
+
+// PutInserts appends an insert bitmap at an offset.
+func (b *Buffer) PutInserts(idx uint32, bitmap uint64) {
+	b.PutUint64(Insert, idx, bitmap)
 }
 
 // PutUint64 appends a uint64 value.
