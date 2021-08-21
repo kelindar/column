@@ -325,10 +325,10 @@ func TestForString(t *testing.T) {
 	})
 
 	data := []string{"a", "b", "c", "d"}
-
 	for i, d := range data {
 		coll.Insert(map[string]interface{}{"id": i, "data": d})
 	}
+
 	coll.Query(func(tx *Txn) error {
 		tx.With("one").Select(func(v Selector) {
 			assert.Equal(t, "b", v.StringAt("data"))

@@ -397,6 +397,11 @@ func (txn *Txn) commit() {
 		})
 	}
 
+	// Set upper bound to max(inserts, fill)
+	if m := uint32(len(txn.index) << 6); m > max {
+		max = m
+	}
+
 	// Commit chunk by chunk to reduce lock contentions
 	var typ commit.Type
 	txn.rangeWrite(func(chunk uint32, fill bitmap.Bitmap) {
