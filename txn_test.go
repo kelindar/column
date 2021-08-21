@@ -390,3 +390,30 @@ func TestMin(t *testing.T) {
 		})
 	}
 }
+
+// Details: https://github.com/kelindar/column/issues/17
+func TestCountTwice(t *testing.T) {
+	model := NewCollection()
+	model.CreateColumnsOf(map[string]interface{}{
+		"string": "",
+	})
+	model.Query(func(txn *Txn) error {
+		for i := 0; i < 20000; i++ {
+			txn.Insert(map[string]interface{}{
+				"string": fmt.Sprint(i),
+			})
+		}
+		return nil
+	})
+
+	model.Query(func(txn *Txn) error {
+		assert.Equal(t, 20000, txn.Count())
+		assert.Equal(t, 1, txn.WithValue("string", func(v interface{}) bool {
+			return v.(string) == "5"
+		}).Count())
+		assert.Equal(t, 1, txn.WithString("string", func(v string) bool {
+			return v == "5"
+		}).Count())
+		return nil
+	})
+}
