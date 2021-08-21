@@ -417,3 +417,36 @@ func TestCountTwice(t *testing.T) {
 		return nil
 	})
 }
+
+// Details: https://github.com/kelindar/column/issues/15
+func TestUninitializedSet(t *testing.T) {
+	c := NewCollection()
+	c.CreateColumn("col1", ForString())
+	c.CreateColumn("col2", ForFloat64())
+	c.CreateColumn("col3", ForString())
+	someMap := map[string][]interface{}{
+		"1": {"A", 1.0},
+		"2": {"B", 2.0},
+	}
+
+	assert.NoError(t, c.Query(func(txn *Txn) error {
+		for i := 0; i < 2000; i++ {
+			txn.Insert(map[string]interface{}{
+				"col1": fmt.Sprint(i % 3),
+			})
+		}
+		return nil
+	}))
+
+	assert.NoError(t, c.Query(func(txn *Txn) error {
+		assert.NoError(t, txn.Range("col2", func(v Cursor) {
+			v.SetFloat64(0)
+		}))
+		return txn.Range("col1", func(v Cursor) {
+			if a, h := someMap[v.String()]; h {
+				v.SetFloat64At("col2", a[1].(float64))
+				v.SetStringAt("col3", a[0].(string))
+			}
+		})
+	}))
+}
