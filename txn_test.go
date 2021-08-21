@@ -430,7 +430,7 @@ func TestUninitializedSet(t *testing.T) {
 	}
 
 	assert.NoError(t, c.Query(func(txn *Txn) error {
-		for i := 0; i < 2000; i++ {
+		for i := 0; i < 20000; i++ {
 			txn.Insert(map[string]interface{}{
 				"col1": fmt.Sprint(i % 3),
 			})
