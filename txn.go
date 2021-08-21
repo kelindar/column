@@ -176,9 +176,9 @@ func (txn *Txn) WithValue(column string, predicate func(v interface{}) bool) *Tx
 		return txn
 	}
 
-	txn.rangeRead(func(_ uint32, index bitmap.Bitmap) {
+	txn.rangeRead(func(offset uint32, index bitmap.Bitmap) {
 		index.Filter(func(x uint32) (match bool) {
-			if v, ok := c.Value(x); ok {
+			if v, ok := c.Value(offset + x); ok {
 				match = predicate(v)
 			}
 			return
