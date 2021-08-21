@@ -397,8 +397,10 @@ func (txn *Txn) commit() {
 		})
 	}
 
-	// Capacity is the max index until which we need to grow our updates
-	capacity := uint32(len(txn.owner.fill) << 6)
+	// Set upper bound to max(inserts, fill)
+	if m := uint32(len(txn.index) << 6); m > max {
+		max = m
+	}
 
 	// Commit chunk by chunk to reduce lock contentions
 	var typ commit.Type
@@ -408,7 +410,7 @@ func (txn *Txn) commit() {
 
 		// Commit the chunk
 		typ |= txn.commitBitmaps(chunk, fill, deletes, inserts)
-		typ |= txn.commitUpdates(chunk, capacity)
+		typ |= txn.commitUpdates(chunk, max)
 
 		// Write the commited chunk to the writer (if any)
 		if typ > 0 && txn.writer != nil {
