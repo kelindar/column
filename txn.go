@@ -176,9 +176,9 @@ func (txn *Txn) WithValue(column string, predicate func(v interface{}) bool) *Tx
 		return txn
 	}
 
-	txn.rangeRead(func(_ uint32, index bitmap.Bitmap) {
+	txn.rangeRead(func(offset uint32, index bitmap.Bitmap) {
 		index.Filter(func(x uint32) (match bool) {
-			if v, ok := c.Value(x); ok {
+			if v, ok := c.Value(offset + x); ok {
 				match = predicate(v)
 			}
 			return
@@ -395,6 +395,11 @@ func (txn *Txn) commit() {
 		u.RangeChunks(func(chunk uint32) {
 			txn.dirty.Set(chunk)
 		})
+	}
+
+	// Set upper bound to max(inserts, fill)
+	if m := uint32(len(txn.index) << 6); m > max {
+		max = m
 	}
 
 	// Commit chunk by chunk to reduce lock contentions

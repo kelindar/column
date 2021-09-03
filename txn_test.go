@@ -390,3 +390,63 @@ func TestMin(t *testing.T) {
 		})
 	}
 }
+
+// Details: https://github.com/kelindar/column/issues/17
+func TestCountTwice(t *testing.T) {
+	model := NewCollection()
+	model.CreateColumnsOf(map[string]interface{}{
+		"string": "",
+	})
+	model.Query(func(txn *Txn) error {
+		for i := 0; i < 20000; i++ {
+			txn.Insert(map[string]interface{}{
+				"string": fmt.Sprint(i),
+			})
+		}
+		return nil
+	})
+
+	model.Query(func(txn *Txn) error {
+		assert.Equal(t, 20000, txn.Count())
+		assert.Equal(t, 1, txn.WithValue("string", func(v interface{}) bool {
+			return v.(string) == "5"
+		}).Count())
+		assert.Equal(t, 1, txn.WithString("string", func(v string) bool {
+			return v == "5"
+		}).Count())
+		return nil
+	})
+}
+
+// Details: https://github.com/kelindar/column/issues/15
+func TestUninitializedSet(t *testing.T) {
+	c := NewCollection()
+	c.CreateColumn("col1", ForString())
+	c.CreateColumn("col2", ForFloat64())
+	c.CreateColumn("col3", ForString())
+	someMap := map[string][]interface{}{
+		"1": {"A", 1.0},
+		"2": {"B", 2.0},
+	}
+
+	assert.NoError(t, c.Query(func(txn *Txn) error {
+		for i := 0; i < 20000; i++ {
+			txn.Insert(map[string]interface{}{
+				"col1": fmt.Sprint(i % 3),
+			})
+		}
+		return nil
+	}))
+
+	assert.NoError(t, c.Query(func(txn *Txn) error {
+		assert.NoError(t, txn.Range("col2", func(v Cursor) {
+			v.SetFloat64(0)
+		}))
+		return txn.Range("col1", func(v Cursor) {
+			if a, h := someMap[v.String()]; h {
+				v.SetFloat64At("col2", a[1].(float64))
+				v.SetStringAt("col3", a[0].(string))
+			}
+		})
+	}))
+}
