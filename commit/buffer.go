@@ -119,16 +119,6 @@ func (b *Buffer) PutAny(op OpType, idx uint32, value interface{}) {
 	}
 }
 
-// PutDeletes appends a delete bitmap at an offset.
-func (b *Buffer) PutDeletes(idx uint32, bitmap uint64) {
-	b.PutUint64(Delete, idx, bitmap)
-}
-
-// PutInserts appends an insert bitmap at an offset.
-func (b *Buffer) PutInserts(idx uint32, bitmap uint64) {
-	b.PutUint64(Insert, idx, bitmap)
-}
-
 // PutUint64 appends a uint64 value.
 func (b *Buffer) PutUint64(op OpType, idx uint32, value uint64) {
 	b.writeChunk(idx)

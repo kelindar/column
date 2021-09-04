@@ -77,11 +77,6 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 	assert.Equal(t, value, v)
 	assert.True(t, ok)
 
-	// Delete the value and update again
-	column.Delete(0, bitmap.Bitmap{0xffffffffffffffff})
-	_, ok = column.Value(9)
-	assert.False(t, ok)
-
 	// Apply updates
 	applyChanges(column, Update{commit.Put, 9, value})
 
@@ -172,33 +167,6 @@ func testColumnCursor(t *testing.T, column Column, value interface{}) {
 			})
 		})
 	})
-}
-
-func TestColumnOrder(t *testing.T) {
-	p := ForUint32()
-	p.Grow(199)
-	for i := uint32(100); i < 200; i++ {
-		applyChanges(p, Update{Type: commit.Put, Index: i, Value: i})
-	}
-
-	for i := uint32(100); i < 200; i++ {
-		x, ok := p.Value(i)
-		assert.True(t, ok)
-		assert.Equal(t, i, x)
-	}
-
-	for i := uint32(150); i < 180; i++ {
-		var deletes bitmap.Bitmap
-		deletes.Set(i)
-		p.Delete(0, deletes)
-		applyChanges(p, Update{Type: commit.Put, Index: i, Value: i})
-	}
-
-	for i := uint32(100); i < 200; i++ {
-		x, ok := p.Value(i)
-		assert.True(t, ok)
-		assert.Equal(t, i, x)
-	}
 }
 
 func TestFromKind(t *testing.T) {

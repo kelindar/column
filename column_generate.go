@@ -1,4 +1,4 @@
-// +build ignore
+//go:build ignore
 
 package column
 
@@ -47,25 +47,23 @@ func (c *columnNumber) Grow(idx uint32) {
 // Apply applies a set of operations to the column.
 func (c *columnNumber) Apply(r *commit.Reader) {
 	for r.Next() {
-		c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 		switch r.Type {
 		case commit.Put:
+			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 			c.data[r.Offset] = r.Number()
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
 		case commit.Add:
+			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 			value := c.data[r.Offset] + r.Number()
 			c.data[r.Offset] = value
 			r.SwapNumber(value)
+
+		case commit.Delete:
+			c.fill.Remove(r.Index())
 		}
 	}
-}
-
-// Delete deletes a set of items from the column.
-func (c *columnNumber) Delete(offset int, items bitmap.Bitmap) {
-	fill := c.fill[offset:]
-	fill.AndNot(items)
 }
 
 // Contains checks whether the column has a value at a specified index.

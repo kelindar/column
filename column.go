@@ -39,7 +39,6 @@ func typeOf(column Column) (typ columnType) {
 type Column interface {
 	Grow(idx uint32)
 	Apply(*commit.Reader)
-	Delete(offset int, items bitmap.Bitmap)
 	Value(idx uint32) (interface{}, bool)
 	Contains(idx uint32) bool
 	Index() *bitmap.Bitmap
@@ -143,14 +142,8 @@ func (c *column) IsTextual() bool {
 }
 
 // Apply performs a series of operations on a column.
-func (c *column) Apply(r *commit.Reader, growUntil uint32) {
-	c.Column.Grow(growUntil)
+func (c *column) Apply(r *commit.Reader) {
 	c.Column.Apply(r)
-}
-
-// Delete deletes a set of items from the column.
-func (c *column) Delete(offset int, items bitmap.Bitmap) {
-	c.Column.Delete(offset, items)
 }
 
 // Value retrieves a value at a specified index
@@ -216,11 +209,17 @@ func (c *columnBool) Grow(idx uint32) {
 // Apply applies a set of operations to the column.
 func (c *columnBool) Apply(r *commit.Reader) {
 	for r.Next() {
-		c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
-		if r.Bool() {
-			c.data.Set(uint32(r.Offset))
-		} else {
-			c.data.Remove(uint32(r.Offset))
+		switch r.Type {
+		case commit.Put:
+			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
+			if r.Bool() {
+				c.data.Set(uint32(r.Offset))
+			} else {
+				c.data.Remove(uint32(r.Offset))
+			}
+		case commit.Delete:
+			c.fill.Remove(r.Index())
+			c.data.Remove(r.Index())
 		}
 	}
 }
@@ -228,14 +227,6 @@ func (c *columnBool) Apply(r *commit.Reader) {
 // Value retrieves a value at a specified index
 func (c *columnBool) Value(idx uint32) (interface{}, bool) {
 	return c.data.Contains(idx), c.fill.Contains(idx)
-}
-
-// Delete deletes a set of items from the column.
-func (c *columnBool) Delete(offset int, items bitmap.Bitmap) {
-	fill := c.fill[offset:]
-	//data := c.data[offset:]
-	fill.AndNot(items)
-	//c.data.AndNot(items)
 }
 
 // Contains checks whether the column has a value at a specified index.

@@ -237,14 +237,26 @@ func TestIndexed(t *testing.T) {
 
 }
 
-func TestUpdate(t *testing.T) {
+func TestDeleteAll(t *testing.T) {
 	players := loadPlayers(500)
-	players.CreateIndex("broke", "balance", func(r Reader) bool {
-		return r.Float() < 100
+	assert.Equal(t, 500, players.Count())
+
+	// Delete all old people from the collection
+	players.Query(func(txn *Txn) error {
+		txn.With("old").DeleteAll()
+		return nil
 	})
-	players.CreateIndex("rich", "balance", func(r Reader) bool {
-		return r.Float() >= 3000
-	})
+
+	assert.Equal(t, 245, players.Count())
+	assert.NoError(t, players.Query(func(txn *Txn) error {
+		assert.Equal(t, 245, txn.Without("old").Count())
+		return nil
+	}))
+}
+
+func TestDeleteFromIndex(t *testing.T) {
+	players := loadPlayers(500)
+	assert.Equal(t, 500, players.Count())
 
 	// Delete all old people from the collection
 	players.Query(func(txn *Txn) error {
@@ -257,6 +269,13 @@ func TestUpdate(t *testing.T) {
 		assert.Equal(t, 13, txn.With("human", "mage").Count())
 		return nil
 	})
+}
+
+func TestUpdateBulkWithIndex(t *testing.T) {
+	players := loadPlayers(500)
+	players.CreateIndex("broke", "balance", func(r Reader) bool {
+		return r.Float() < 100
+	})
 
 	// Make everyone poor
 	players.Query(func(txn *Txn) error {
@@ -267,9 +286,8 @@ func TestUpdate(t *testing.T) {
 	})
 
 	// Every player should be now poor
-	count := players.Count()
 	players.Query(func(txn *Txn) error {
-		assert.Equal(t, count, txn.WithFloat("balance", func(v float64) bool {
+		assert.Equal(t, 500, txn.WithFloat("balance", func(v float64) bool {
 			return v == 1.0
 		}).Count())
 		return nil
@@ -277,8 +295,43 @@ func TestUpdate(t *testing.T) {
 
 	// Now the index should also be updated
 	players.Query(func(txn *Txn) error {
-		assert.Equal(t, 245, txn.With("broke").Count())
+		assert.Equal(t, 500, txn.With("broke").Count())
 		return nil
+	})
+}
+
+func TestIndexWithAtomicAdd(t *testing.T) {
+	players := loadPlayers(500)
+	players.CreateIndex("rich", "balance", func(r Reader) bool {
+		return r.Float() >= 3000
+	})
+
+	// Increment balance 30 times by 50+50 = 3000
+	players.Query(func(txn *Txn) error {
+		for i := 0; i < 30; i++ {
+			txn.Range("balance", func(v Cursor) {
+				v.AddFloat64(50.0)
+				v.AddFloat64At("balance", 50.0)
+			})
+		}
+		return nil
+	})
+
+	// Everyone should now be rich and the indexes updated
+	players.Query(func(txn *Txn) error {
+		txn.Range("balance", func(v Cursor) {
+			assert.GreaterOrEqual(t, v.Float(), 3000.0)
+		})
+
+		assert.Equal(t, 500, txn.With("rich").Count())
+		return nil
+	})
+}
+
+func TestUpdateWithRollback(t *testing.T) {
+	players := loadPlayers(500)
+	players.CreateIndex("rich", "balance", func(r Reader) bool {
+		return r.Float() >= 3000
 	})
 
 	// Make everyone rich
@@ -291,7 +344,7 @@ func TestUpdate(t *testing.T) {
 
 	// Now the index should also be updated
 	players.Query(func(txn *Txn) error {
-		assert.Equal(t, 245, txn.With("rich").Count())
+		assert.Equal(t, 500, txn.With("rich").Count())
 		return nil
 	})
 
@@ -305,41 +358,7 @@ func TestUpdate(t *testing.T) {
 
 	// Everyone should still be rich
 	players.Query(func(txn *Txn) error {
-		assert.Equal(t, 245, txn.With("rich").Count())
-		return nil
-	})
-
-	// Reset balance back to zero
-	players.Query(func(txn *Txn) error {
-		return txn.Range("balance", func(v Cursor) {
-			v.SetFloat64(0.0)
-		})
-	})
-
-	// Everyone should be poor
-	players.Query(func(txn *Txn) error {
-		assert.Equal(t, 245, txn.With("broke").Count())
-		return nil
-	})
-
-	// Increment balance 30 times by 100+100 = 6000
-	players.Query(func(txn *Txn) error {
-		for i := 0; i < 30; i++ {
-			txn.Range("balance", func(v Cursor) {
-				v.AddFloat64(100.0)
-				v.AddFloat64At("balance", 100.0)
-			})
-		}
-		return nil
-	})
-
-	// Everyone should now be rich and the indexes updated
-	players.Query(func(txn *Txn) error {
-		txn.Range("balance", func(v Cursor) {
-			assert.Equal(t, 6000.0, v.Float())
-		})
-
-		assert.Equal(t, 245, txn.With("rich").Count())
+		assert.Equal(t, 500, txn.With("rich").Count())
 		return nil
 	})
 }

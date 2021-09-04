@@ -45,18 +45,6 @@ func (r *Reader) use(buffer []byte) {
 	r.Type = Put
 }
 
-// --------------------------- Bitmap Read ----------------------------
-
-// Deleted reads a deleted bitmap value.
-func (r *Reader) Deleted() uint64 {
-	return binary.BigEndian.Uint64(r.buffer[r.i0:r.i1])
-}
-
-// Inserted reads an inserted bitmap.
-func (r *Reader) Inserted() uint64 {
-	return binary.BigEndian.Uint64(r.buffer[r.i0:r.i1])
-}
-
 // --------------------------- Value Read ----------------------------
 
 // Int16 reads a uint16 value.
@@ -230,6 +218,25 @@ func (r *Reader) Range(buf *Buffer, chunk uint32, fn func(*Reader)) {
 		r.start = int32(c.Value)
 		fn(r)
 	}
+}
+
+// MaxOffset returns the maximum offset for a chunk
+func (r *Reader) MaxOffset(buf *Buffer, chunk uint32) (max uint32) {
+	if buf == nil {
+		return
+	}
+
+	r.Range(buf, chunk, func(r *Reader) {
+		for r.Next() {
+			if max < r.Index() {
+				max = r.Index()
+			}
+		}
+	})
+
+	// Rewind after this, so we can re-use the reader after
+	r.Rewind()
+	return
 }
 
 // --------------------------- Next Iterator ----------------------------

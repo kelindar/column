@@ -23,15 +23,15 @@ import (
 
 /*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkCollection/insert-8         	    1815	    641585 ns/op	    1042 B/op	       1 allocs/op
-BenchmarkCollection/fetch-8          	27476678	        44.48 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/scan-8           	    1816	    666145 ns/op	      96 B/op	       0 allocs/op
-BenchmarkCollection/count-8          	 1000000	      1489 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/range-8          	   12378	     95553 ns/op	      11 B/op	       0 allocs/op
-BenchmarkCollection/update-at-8      	 2952098	       410.3 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/update-all-8     	     794	   1511047 ns/op	   11799 B/op	       0 allocs/op
-BenchmarkCollection/delete-at-8      	 7042186	       176.7 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/delete-all-8     	 1349882	       882.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/insert-8         	    1981	    547077 ns/op	    1295 B/op	       1 allocs/op
+BenchmarkCollection/fetch-8          	29645366	        36.82 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/scan-8           	    3620	    351029 ns/op	      63 B/op	       0 allocs/op
+BenchmarkCollection/count-8          	 1000000	      1436 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/range-8          	   31090	     37810 ns/op	       5 B/op	       0 allocs/op
+BenchmarkCollection/update-at-8      	 3773277	       320.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/update-all-8     	    1185	   1003236 ns/op	    4032 B/op	       0 allocs/op
+BenchmarkCollection/delete-at-8      	 8463207	       151.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/delete-all-8     	     165	   7194162 ns/op	   11943 B/op	       0 allocs/op
 */
 func BenchmarkCollection(b *testing.B) {
 	b.Run("insert", func(b *testing.B) {
@@ -321,6 +321,21 @@ func TestCollection(t *testing.T) {
 			return nil
 		})
 	}
+}
+
+func TestInsertObject(t *testing.T) {
+	col := NewCollection()
+	col.CreateColumn("name", ForString())
+	col.Insert(Object{"name": "A"})
+	col.Insert(Object{"name": "B"})
+
+	assert.Equal(t, 2, col.Count())
+	assert.NoError(t, col.Query(func(txn *Txn) error {
+		selector, ok := txn.ReadAt(0)
+		assert.True(t, ok)
+		assert.Equal(t, "A", selector.StringAt("name"))
+		return nil
+	}))
 }
 
 func TestExpire(t *testing.T) {
