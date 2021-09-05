@@ -13,7 +13,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// BenchmarkColumn/chunkOf-8       	 8715824	       137.6 ns/op	       0 B/op	       0 allocs/op
+/*
+cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
+BenchmarkColumn/chunkOf-8         	 8466814	       136.2 ns/op	       0 B/op	       0 allocs/op
+*/
 func BenchmarkColumn(b *testing.B) {
 	b.Run("chunkOf", func(b *testing.B) {
 		var temp bitmap.Bitmap
@@ -316,5 +319,12 @@ func TestForString(t *testing.T) {
 			assert.Equal(t, "b", v.StringAt("data"))
 		})
 		return nil
+	})
+}
+
+func TestForKind(t *testing.T) {
+	assert.NotNil(t, ForKind(reflect.String))
+	assert.Panics(t, func() {
+		ForKind(reflect.Invalid)
 	})
 }
