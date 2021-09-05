@@ -3,15 +3,16 @@
 
 package commit
 
-/*
-func TestCommits(t *testing.T) {
-	commit1 := Commit{
-		Type:    Delete,
-		Deletes: bitmap.Bitmap{0xff},
-	}
+import (
+	"testing"
 
-	commit2 := Commit{
-		Type: Store,
+	"github.com/kelindar/bitmap"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestCommitClone(t *testing.T) {
+	commit := Commit{
+		Dirty: bitmap.Bitmap{0x1},
 		Updates: []*Buffer{{
 			buffer: []byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f},
 			chunks: []header{{
@@ -20,41 +21,6 @@ func TestCommits(t *testing.T) {
 		}},
 	}
 
-	commit3 := Commit{
-		Type:    Insert,
-		Inserts: bitmap.Bitmap{0xaa},
-	}
-
-	// Assert types
-	assert.Equal(t, Delete, commit1.Type)
-	assert.Equal(t, Store, commit2.Type)
-	assert.Equal(t, Insert, commit3.Type)
-
-	// Clone and assert
-	clone1 := commit1.Clone()
-	clone2 := commit2.Clone()
-	clone3 := commit3.Clone()
-	assert.Equal(t, commit1, clone1, "clone1")
-	assert.Equal(t, commit2, clone2, "clone2")
-	assert.Equal(t, commit3, clone3, "clone3")
-	assert.NotEqual(t, unsafe.Pointer(&commit1.Deletes), unsafe.Pointer(&clone1.Deletes))
-	assert.NotEqual(t, unsafe.Pointer(&commit2.Updates), unsafe.Pointer(&clone2.Updates))
-	assert.NotEqual(t, unsafe.Pointer(&commit3.Inserts), unsafe.Pointer(&clone3.Inserts))
+	clone := commit.Clone()
+	assert.EqualValues(t, commit, clone)
 }
-func TestType(t *testing.T) {
-	assert.Equal(t, "store", Type(1).String())
-	assert.Equal(t, "insert", Type(2).String())
-	assert.Equal(t, "store,insert", Type(3).String())
-	assert.Equal(t, "delete", Type(4).String())
-	assert.Equal(t, "store,delete", Type(5).String())
-	assert.Equal(t, "insert,delete", Type(6).String())
-	assert.Equal(t, "store,insert,delete", Type(7).String())
-	assert.Equal(t, "invalid", Type(8).String())
-
-	c := Commit{
-		Type: Type(6),
-	}
-	assert.True(t, c.Is(Delete))
-}
-
-*/

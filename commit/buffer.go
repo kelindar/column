@@ -60,6 +60,22 @@ func NewBuffer(capacity int) *Buffer {
 	}
 }
 
+// Clone clones the buffer
+func (b *Buffer) Clone() *Buffer {
+	buffer := make([]byte, len(b.buffer))
+	copy(buffer, b.buffer)
+
+	chunks := make([]header, 0, len(b.chunks))
+	chunks = append(chunks, b.chunks...)
+	return &Buffer{
+		Column: b.Column,
+		buffer: buffer,
+		chunks: chunks,
+		last:   b.last,
+		chunk:  b.chunk,
+	}
+}
+
 // Reset resets the queue so it can be reused.
 func (b *Buffer) Reset(column string) {
 	b.last = 0

@@ -24,17 +24,7 @@ func (c *Commit) Clone() (clone Commit) {
 
 	for _, u := range c.Updates {
 		if len(u.buffer) > 0 {
-			buffer := make([]byte, len(u.buffer))
-			copy(buffer, u.buffer)
-			chunks := make([]header, 0, len(u.chunks))
-			chunks = append(chunks, u.chunks...)
-			clone.Updates = append(clone.Updates, &Buffer{
-				Column: u.Column,
-				buffer: buffer,
-				chunks: chunks,
-				last:   u.last,
-				chunk:  u.chunk,
-			})
+			clone.Updates = append(clone.Updates, u.Clone())
 		}
 	}
 	return

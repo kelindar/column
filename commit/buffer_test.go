@@ -54,7 +54,6 @@ func BenchmarkQueue(b *testing.B) {
 			_ = r.String()
 		}
 	})
-
 }
 
 // Run runs a single benchmark
@@ -155,4 +154,13 @@ func TestReadWrite(t *testing.T) {
 	assert.True(t, r.Next())
 	assert.Equal(t, 12.34, r.Number())
 	assert.False(t, r.Next())
+}
+
+func TestBufferClone(t *testing.T) {
+	buf := NewBuffer(0)
+	buf.PutInt16(Put, 10, 100)
+	buf.PutString(Put, 20, "hello")
+
+	cloned := buf.Clone()
+	assert.EqualValues(t, buf, cloned)
 }
