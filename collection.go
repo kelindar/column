@@ -297,7 +297,7 @@ func (c *Collection) vacuum(ctx context.Context, interval time.Duration) {
 // Replay replays a commit on a collection, applying the changes.
 func (c *Collection) Replay(change commit.Commit) error {
 	return c.Query(func(txn *Txn) error {
-		txn.dirty = change.Dirty
+		txn.dirty.Set(change.Chunk)
 		for i := range change.Updates {
 			if !change.Updates[i].IsEmpty() {
 				txn.updates = append(txn.updates, change.Updates[i])

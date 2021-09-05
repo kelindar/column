@@ -162,7 +162,6 @@ func (cur *Cursor) Bool() bool {
 // Delete deletes the current item. The actual operation will be queued and
 // executed once the current the transaction completes.
 func (cur *Cursor) Delete() {
-	cur.txn.dirty.Set(cur.idx >> chunkShift)
 	cur.txn.deleteAt(cur.idx)
 }
 
