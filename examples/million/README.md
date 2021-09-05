@@ -15,30 +15,29 @@ running insert of 1000000 rows...
 -> inserted 700000 rows
 -> inserted 800000 rows
 -> inserted 900000 rows
--> insert took 1.2170096s
+-> insert took 1.2334132s
 
 running full scan of age >= 30...
 -> result = 510000
--> full scan took 8.595724ms
+-> full scan took 2.715572ms
 
 running full scan of class == "rogue"...
 -> result = 358000
--> full scan took 9.702842ms
+-> full scan took 4.481034ms
 
 running indexed query of human mages...
 -> result = 68000
--> indexed query took 18.4µs
+-> indexed query took 15.954µs
 
 running indexed query of human female mages...
 -> result = 32000
--> indexed query took 22.007µs
+-> indexed query took 19.908µs
 
 running update of balance of everyone...
 -> updated 1000000 rows
--> update took 15.115122ms
+-> update took 11.146144ms
 
 running update of age of mages...
 -> updated 302000 rows
--> update took 4.920024ms
-
+-> update took 4.25921ms
 ```

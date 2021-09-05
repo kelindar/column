@@ -13,7 +13,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// BenchmarkColumn/chunkOf-8       	 8715824	       137.6 ns/op	       0 B/op	       0 allocs/op
+/*
+cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
+BenchmarkColumn/chunkOf-8         	 8466814	       136.2 ns/op	       0 B/op	       0 allocs/op
+*/
 func BenchmarkColumn(b *testing.B) {
 	b.Run("chunkOf", func(b *testing.B) {
 		var temp bitmap.Bitmap
@@ -58,6 +61,10 @@ func TestColumns(t *testing.T) {
 		t.Run(fmt.Sprintf("%T-cursor", tc.column), func(t *testing.T) {
 			testColumnCursor(t, tc.column, tc.value)
 		})
+
+		t.Run(fmt.Sprintf("%T-put-delete", tc.column), func(t *testing.T) {
+			testPutDelete(t, tc.column, tc.value)
+		})
 	}
 }
 
@@ -76,11 +83,6 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 	assert.True(t, column.Contains(9))
 	assert.Equal(t, value, v)
 	assert.True(t, ok)
-
-	// Delete the value and update again
-	column.Delete(0, bitmap.Bitmap{0xffffffffffffffff})
-	_, ok = column.Value(9)
-	assert.False(t, ok)
 
 	// Apply updates
 	applyChanges(column, Update{commit.Put, 9, value})
@@ -174,31 +176,14 @@ func testColumnCursor(t *testing.T, column Column, value interface{}) {
 	})
 }
 
-func TestColumnOrder(t *testing.T) {
-	p := ForUint32()
-	p.Grow(199)
-	for i := uint32(100); i < 200; i++ {
-		applyChanges(p, Update{Type: commit.Put, Index: i, Value: i})
-	}
+// testPutDelete test a put and a delete
+func testPutDelete(t *testing.T, column Column, value interface{}) {
+	applyChanges(column, Update{commit.Put, 0, value})
+	applyChanges(column, Update{commit.Delete, 0, false})
 
-	for i := uint32(100); i < 200; i++ {
-		x, ok := p.Value(i)
-		assert.True(t, ok)
-		assert.Equal(t, i, x)
-	}
-
-	for i := uint32(150); i < 180; i++ {
-		var deletes bitmap.Bitmap
-		deletes.Set(i)
-		p.Delete(0, deletes)
-		applyChanges(p, Update{Type: commit.Put, Index: i, Value: i})
-	}
-
-	for i := uint32(100); i < 200; i++ {
-		x, ok := p.Value(i)
-		assert.True(t, ok)
-		assert.Equal(t, i, x)
-	}
+	// Should be deleted
+	_, ok := column.Value(0)
+	assert.False(t, ok)
 }
 
 func TestFromKind(t *testing.T) {
@@ -334,5 +319,12 @@ func TestForString(t *testing.T) {
 			assert.Equal(t, "b", v.StringAt("data"))
 		})
 		return nil
+	})
+}
+
+func TestForKind(t *testing.T) {
+	assert.NotNil(t, ForKind(reflect.String))
+	assert.Panics(t, func() {
+		ForKind(reflect.Invalid)
 	})
 }

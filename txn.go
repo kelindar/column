@@ -26,8 +26,6 @@ func newTxnPool() *txnPool {
 			New: func() interface{} {
 				return &Txn{
 					index:   make(bitmap.Bitmap, 0, 4),
-					deletes: make(bitmap.Bitmap, 0, 4),
-					inserts: make(bitmap.Bitmap, 0, 4),
 					dirty:   make(bitmap.Bitmap, 0, 4),
 					updates: make([]*commit.Buffer, 0, 256),
 					columns: make([]columnCache, 0, 16),
@@ -77,8 +75,6 @@ func (p *txnPool) releasePage(buffer *commit.Buffer) {
 type Txn struct {
 	owner   *Collection      // The target collection
 	index   bitmap.Bitmap    // The filtering index
-	deletes bitmap.Bitmap    // The delete queue
-	inserts bitmap.Bitmap    // The insert queue
 	dirty   bitmap.Bitmap    // The dirty chunks
 	updates []*commit.Buffer // The update buffers
 	columns []columnCache    // The column mapping
@@ -93,8 +89,6 @@ func (txn *Txn) reset() {
 	}
 
 	txn.dirty.Clear()
-	txn.deletes.Clear()
-	txn.inserts.Clear()
 	txn.reader.Rewind()
 	txn.columns = txn.columns[:0]
 	txn.updates = txn.updates[:0]
@@ -272,9 +266,14 @@ func (txn *Txn) DeleteAt(index uint32) bool {
 		return false
 	}
 
-	txn.deletes.Set(index)
+	txn.deleteAt(index)
 	txn.dirty.Set(index >> chunkShift)
 	return true
+}
+
+// deleteAt marks an index as deleted
+func (txn *Txn) deleteAt(idx uint32) {
+	txn.bufferFor(rowColumn).PutBool(commit.Delete, idx, false)
 }
 
 // Insert inserts an object at a new index and returns the index for this object. This is
@@ -301,7 +300,7 @@ func (txn *Txn) insert(object Object, expireAt int64) uint32 {
 	}
 
 	// Set the insert bit and generate the updates
-	txn.inserts.Set(slot.idx)
+	txn.bufferFor(rowColumn).PutBool(commit.Insert, slot.idx, true)
 	txn.dirty.Set(slot.idx >> chunkShift)
 	for k, v := range object {
 		if _, ok := txn.columnAt(k); ok {
@@ -336,7 +335,7 @@ func (txn *Txn) Select(fn func(v Selector)) {
 func (txn *Txn) DeleteIf(fn func(v Selector) bool) {
 	txn.index.Range(func(x uint32) {
 		if fn(Selector{idx: x, txn: txn}) {
-			txn.deletes.Set(x)
+			txn.deleteAt(x)
 			txn.dirty.Set(x >> chunkShift)
 		}
 	})
@@ -345,11 +344,9 @@ func (txn *Txn) DeleteIf(fn func(v Selector) bool) {
 // DeleteAll marks all of the items currently selected by this transaction for deletion. The
 // actual delete will take place once the transaction is committed.
 func (txn *Txn) DeleteAll() {
-	txn.deletes.Or(txn.index)
-
-	// TODO: optimize this
-	txn.deletes.Range(func(x uint32) {
-		txn.dirty.Set(x >> chunkShift)
+	txn.index.Range(func(x uint32) {
+		txn.deleteAt(x)
+		txn.dirty.Set(x >> chunkShift) // TODO: optimize
 	})
 }
 
@@ -384,11 +381,8 @@ func (txn *Txn) rollback() {
 func (txn *Txn) commit() {
 	defer txn.reset()
 
-	// Grow the size of the fill list
-	max, _ := txn.inserts.Max()
-	txn.owner.lock.Lock()
-	txn.owner.fill.Grow(max)
-	txn.owner.lock.Unlock()
+	// Get the upper bound chunk
+	lastChunk, _ := txn.dirty.Max()
 
 	// Mark the dirty chunks from the updates
 	for _, u := range txn.updates {
@@ -397,29 +391,26 @@ func (txn *Txn) commit() {
 		})
 	}
 
-	// Set upper bound to max(inserts, fill)
-	if m := uint32(len(txn.index) << 6); m > max {
-		max = m
+	// Grow the size of the fill list
+	markers, changedRows := txn.findMarkers()
+	max := txn.reader.MaxOffset(markers, lastChunk)
+	if max > 0 {
+		txn.commitCapacity(max)
 	}
 
 	// Commit chunk by chunk to reduce lock contentions
-	var typ commit.Type
 	txn.rangeWrite(func(chunk uint32, fill bitmap.Bitmap) {
-		deletes := chunkOf(txn.deletes, chunk)
-		inserts := chunkOf(txn.inserts, chunk)
+		if changedRows {
+			txn.commitMarkers(chunk, fill, markers)
+		}
 
-		// Commit the chunk
-		typ |= txn.commitBitmaps(chunk, fill, deletes, inserts)
-		typ |= txn.commitUpdates(chunk, max)
+		updated := txn.commitUpdates(chunk, fill)
 
 		// Write the commited chunk to the writer (if any)
-		if typ > 0 && txn.writer != nil {
+		if (changedRows || updated) && txn.writer != nil {
 			txn.writer.Write(commit.Commit{
-				Type:    typ,
 				Chunk:   chunk,
 				Dirty:   txn.dirty,
-				Inserts: inserts,
-				Deletes: deletes,
 				Updates: txn.updates,
 			})
 		}
@@ -427,9 +418,9 @@ func (txn *Txn) commit() {
 }
 
 // commitUpdates applies the pending updates to the collection.
-func (txn *Txn) commitUpdates(chunk, max uint32) (typ commit.Type) {
+func (txn *Txn) commitUpdates(chunk uint32, fill bitmap.Bitmap) (updated bool) {
 	for _, u := range txn.updates {
-		if u.IsEmpty() {
+		if u.IsEmpty() || u.Column == rowColumn {
 			continue // No updates for this column
 		}
 
@@ -440,42 +431,65 @@ func (txn *Txn) commitUpdates(chunk, max uint32) (typ commit.Type) {
 		}
 
 		// Do a linear search to find the offset for the current chunk
-		typ |= commit.Store
+		updated = true
 		txn.reader.Range(u, chunk, func(r *commit.Reader) {
 
 			// Range through all of the pending updates and apply them to the column
 			// and its associated computed columns.
 			for _, v := range columns {
-				r.Rewind()
-				v.Apply(r, max)
+				v.Apply(r)
 			}
 		})
 	}
-	return
+	return updated
 }
 
-// commitBitmaps commits inserts and deletes bitmaps to the collection.
-func (txn *Txn) commitBitmaps(chunk uint32, fill, deletes, inserts bitmap.Bitmap) (typ commit.Type) {
-	if len(inserts) > 0 {
-		typ |= commit.Insert
-	}
+// commitMarkers commits inserts and deletes to the collection.
+func (txn *Txn) commitMarkers(chunk uint32, fill bitmap.Bitmap, buffer *commit.Buffer) {
+	txn.reader.Range(buffer, chunk, func(r *commit.Reader) {
+		for r.Rewind(); r.Next(); {
+			txn.owner.lock.Lock()
+			switch r.Bool() {
+			case true:
+				txn.owner.fill.Set(r.Index())
+			case false:
+				txn.owner.fill.Remove(r.Index())
+			}
+			txn.owner.lock.Unlock()
+		}
+	})
 
-	if len(deletes) > 0 {
-		typ |= commit.Delete
-		at := int(chunk << (chunkShift - 6))
+	// We also need to apply the delete operations on the column so it
+	// can remove unnecessary data.
+	txn.reader.Range(buffer, chunk, func(r *commit.Reader) {
 		txn.owner.cols.Range(func(column *column) {
-			column.Delete(at, deletes)
+			column.Apply(r)
 		})
-	}
-
-	if typ == 0 {
-		return
-	}
+	})
 
 	txn.owner.lock.Lock()
-	fill.AndNot(deletes)
-	fill.Or(inserts)
 	atomic.StoreUint64(&txn.owner.count, uint64(txn.owner.fill.Count()))
 	txn.owner.lock.Unlock()
-	return
+}
+
+// findMarkers finds a set of insert/deletes
+func (txn *Txn) findMarkers() (*commit.Buffer, bool) {
+	for _, u := range txn.updates {
+		if !u.IsEmpty() && u.Column == rowColumn {
+			return u, true
+		}
+	}
+	return nil, false
+}
+
+// commitCapacity grows all columns until they reach the max index
+func (txn *Txn) commitCapacity(max uint32) {
+	txn.owner.lock.Lock()
+	defer txn.owner.lock.Unlock()
+
+	// Grow the fill list and all of the owner's columns
+	txn.owner.fill.Grow(max)
+	txn.owner.cols.Range(func(column *column) {
+		column.Grow(max)
+	})
 }

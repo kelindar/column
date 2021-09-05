@@ -194,3 +194,29 @@ func TestReaderIface(t *testing.T) {
 	assert.Equal(t, float64(1), r.Float())
 	assert.Equal(t, uint32(777), r.Index())
 }
+
+func TestReaderMax(t *testing.T) {
+	buf := NewBuffer(0)
+	buf.Reset("test")
+	for i := uint32(0); i < 20000; i++ {
+		buf.PutUint64(Put, i, 2*uint64(i))
+	}
+
+	r := NewReader()
+	assert.Equal(t, 16383, int(r.MaxOffset(buf, 0)))
+	assert.Equal(t, 19999, int(r.MaxOffset(buf, 1)))
+	assert.Equal(t, 0, int(r.MaxOffset(nil, 0)))
+}
+
+func TestRewindAfterMax(t *testing.T) {
+	buf := NewBuffer(0)
+	buf.Reset("test")
+	for i := uint32(0); i < 10; i++ {
+		buf.PutUint64(Put, i, 2*uint64(i))
+	}
+
+	r := NewReader()
+	assert.Equal(t, 9, int(r.MaxOffset(buf, 0)))
+	assert.True(t, r.Next())
+	assert.Equal(t, 0, int(r.Index()))
+}

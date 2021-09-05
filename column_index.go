@@ -65,9 +65,14 @@ func (c *columnIndex) Apply(r *commit.Reader) {
 	// with put operations here. The trick is to update the final value after applying
 	// on the actual column.
 	for r.Next() {
-		if c.rule(r) {
-			c.fill.Set(uint32(r.Offset))
-		} else {
+		switch r.Type {
+		case commit.Put, commit.Add:
+			if c.rule(r) {
+				c.fill.Set(uint32(r.Offset))
+			} else {
+				c.fill.Remove(uint32(r.Offset))
+			}
+		case commit.Delete:
 			c.fill.Remove(uint32(r.Offset))
 		}
 	}
@@ -81,12 +86,6 @@ func (c *columnIndex) Update(r Reader) {
 	}
 
 	c.fill.Remove(r.Index())
-}
-
-// Delete deletes a set of items from the column.
-func (c *columnIndex) Delete(offset int, items bitmap.Bitmap) {
-	fill := c.fill[offset:]
-	fill.AndNot(items)
 }
 
 // Value retrieves a value at a specified index.

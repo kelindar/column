@@ -12,10 +12,10 @@ import (
 
 /*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkQueue/rw-u16-8              	     168	   6981673 ns/op	       3 B/op	       0 allocs/op
-BenchmarkQueue/rw-u32-8              	     172	   6878112 ns/op	       3 B/op	       0 allocs/op
-BenchmarkQueue/rw-u64-8              	     170	   6974754 ns/op	       3 B/op	       0 allocs/op
-BenchmarkQueue/rw-str-8              	      85	  13869299 ns/op	       6 B/op	       0 allocs/op
+BenchmarkQueue/rw-u16-8         	     189	   6118292 ns/op	       8 B/op	       0 allocs/op
+BenchmarkQueue/rw-u32-8         	     196	   6031313 ns/op	       7 B/op	       0 allocs/op
+BenchmarkQueue/rw-u64-8         	     187	   6401486 ns/op	       8 B/op	       0 allocs/op
+BenchmarkQueue/rw-str-8         	     100	  11089264 ns/op	      15 B/op	       0 allocs/op
 */
 func BenchmarkQueue(b *testing.B) {
 	const count = 1000000
@@ -54,7 +54,6 @@ func BenchmarkQueue(b *testing.B) {
 			_ = r.String()
 		}
 	})
-
 }
 
 // Run runs a single benchmark
@@ -155,4 +154,13 @@ func TestReadWrite(t *testing.T) {
 	assert.True(t, r.Next())
 	assert.Equal(t, 12.34, r.Number())
 	assert.False(t, r.Next())
+}
+
+func TestBufferClone(t *testing.T) {
+	buf := NewBuffer(0)
+	buf.PutInt16(Put, 10, 100)
+	buf.PutString(Put, 20, "hello")
+
+	cloned := buf.Clone()
+	assert.EqualValues(t, buf, cloned)
 }

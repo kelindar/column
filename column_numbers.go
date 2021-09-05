@@ -45,25 +45,23 @@ func (c *columnfloat32) Grow(idx uint32) {
 // Apply applies a set of operations to the column.
 func (c *columnfloat32) Apply(r *commit.Reader) {
 	for r.Next() {
-		c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 		switch r.Type {
 		case commit.Put:
+			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 			c.data[r.Offset] = r.Float32()
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
 		case commit.Add:
+			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 			value := c.data[r.Offset] + r.Float32()
 			c.data[r.Offset] = value
 			r.SwapFloat32(value)
+
+		case commit.Delete:
+			c.fill.Remove(r.Index())
 		}
 	}
-}
-
-// Delete deletes a set of items from the column.
-func (c *columnfloat32) Delete(offset int, items bitmap.Bitmap) {
-	fill := c.fill[offset:]
-	fill.AndNot(items)
 }
 
 // Contains checks whether the column has a value at a specified index.
@@ -199,25 +197,23 @@ func (c *columnfloat64) Grow(idx uint32) {
 // Apply applies a set of operations to the column.
 func (c *columnfloat64) Apply(r *commit.Reader) {
 	for r.Next() {
-		c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 		switch r.Type {
 		case commit.Put:
+			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 			c.data[r.Offset] = r.Float64()
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
 		case commit.Add:
+			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 			value := c.data[r.Offset] + r.Float64()
 			c.data[r.Offset] = value
 			r.SwapFloat64(value)
+
+		case commit.Delete:
+			c.fill.Remove(r.Index())
 		}
 	}
-}
-
-// Delete deletes a set of items from the column.
-func (c *columnfloat64) Delete(offset int, items bitmap.Bitmap) {
-	fill := c.fill[offset:]
-	fill.AndNot(items)
 }
 
 // Contains checks whether the column has a value at a specified index.
@@ -353,25 +349,23 @@ func (c *columnint) Grow(idx uint32) {
 // Apply applies a set of operations to the column.
 func (c *columnint) Apply(r *commit.Reader) {
 	for r.Next() {
-		c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 		switch r.Type {
 		case commit.Put:
+			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 			c.data[r.Offset] = r.Int()
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
 		case commit.Add:
+			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 			value := c.data[r.Offset] + r.Int()
 			c.data[r.Offset] = value
 			r.SwapInt(value)
+
+		case commit.Delete:
+			c.fill.Remove(r.Index())
 		}
 	}
-}
-
-// Delete deletes a set of items from the column.
-func (c *columnint) Delete(offset int, items bitmap.Bitmap) {
-	fill := c.fill[offset:]
-	fill.AndNot(items)
 }
 
 // Contains checks whether the column has a value at a specified index.
@@ -507,25 +501,23 @@ func (c *columnint16) Grow(idx uint32) {
 // Apply applies a set of operations to the column.
 func (c *columnint16) Apply(r *commit.Reader) {
 	for r.Next() {
-		c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 		switch r.Type {
 		case commit.Put:
+			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 			c.data[r.Offset] = r.Int16()
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
 		case commit.Add:
+			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 			value := c.data[r.Offset] + r.Int16()
 			c.data[r.Offset] = value
 			r.SwapInt16(value)
+
+		case commit.Delete:
+			c.fill.Remove(r.Index())
 		}
 	}
-}
-
-// Delete deletes a set of items from the column.
-func (c *columnint16) Delete(offset int, items bitmap.Bitmap) {
-	fill := c.fill[offset:]
-	fill.AndNot(items)
 }
 
 // Contains checks whether the column has a value at a specified index.
@@ -661,25 +653,23 @@ func (c *columnint32) Grow(idx uint32) {
 // Apply applies a set of operations to the column.
 func (c *columnint32) Apply(r *commit.Reader) {
 	for r.Next() {
-		c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 		switch r.Type {
 		case commit.Put:
+			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 			c.data[r.Offset] = r.Int32()
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
 		case commit.Add:
+			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 			value := c.data[r.Offset] + r.Int32()
 			c.data[r.Offset] = value
 			r.SwapInt32(value)
+
+		case commit.Delete:
+			c.fill.Remove(r.Index())
 		}
 	}
-}
-
-// Delete deletes a set of items from the column.
-func (c *columnint32) Delete(offset int, items bitmap.Bitmap) {
-	fill := c.fill[offset:]
-	fill.AndNot(items)
 }
 
 // Contains checks whether the column has a value at a specified index.
@@ -815,25 +805,23 @@ func (c *columnint64) Grow(idx uint32) {
 // Apply applies a set of operations to the column.
 func (c *columnint64) Apply(r *commit.Reader) {
 	for r.Next() {
-		c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 		switch r.Type {
 		case commit.Put:
+			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 			c.data[r.Offset] = r.Int64()
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
 		case commit.Add:
+			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 			value := c.data[r.Offset] + r.Int64()
 			c.data[r.Offset] = value
 			r.SwapInt64(value)
+
+		case commit.Delete:
+			c.fill.Remove(r.Index())
 		}
 	}
-}
-
-// Delete deletes a set of items from the column.
-func (c *columnint64) Delete(offset int, items bitmap.Bitmap) {
-	fill := c.fill[offset:]
-	fill.AndNot(items)
 }
 
 // Contains checks whether the column has a value at a specified index.
@@ -969,25 +957,23 @@ func (c *columnuint) Grow(idx uint32) {
 // Apply applies a set of operations to the column.
 func (c *columnuint) Apply(r *commit.Reader) {
 	for r.Next() {
-		c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 		switch r.Type {
 		case commit.Put:
+			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 			c.data[r.Offset] = r.Uint()
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
 		case commit.Add:
+			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 			value := c.data[r.Offset] + r.Uint()
 			c.data[r.Offset] = value
 			r.SwapUint(value)
+
+		case commit.Delete:
+			c.fill.Remove(r.Index())
 		}
 	}
-}
-
-// Delete deletes a set of items from the column.
-func (c *columnuint) Delete(offset int, items bitmap.Bitmap) {
-	fill := c.fill[offset:]
-	fill.AndNot(items)
 }
 
 // Contains checks whether the column has a value at a specified index.
@@ -1123,25 +1109,23 @@ func (c *columnuint16) Grow(idx uint32) {
 // Apply applies a set of operations to the column.
 func (c *columnuint16) Apply(r *commit.Reader) {
 	for r.Next() {
-		c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 		switch r.Type {
 		case commit.Put:
+			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 			c.data[r.Offset] = r.Uint16()
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
 		case commit.Add:
+			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 			value := c.data[r.Offset] + r.Uint16()
 			c.data[r.Offset] = value
 			r.SwapUint16(value)
+
+		case commit.Delete:
+			c.fill.Remove(r.Index())
 		}
 	}
-}
-
-// Delete deletes a set of items from the column.
-func (c *columnuint16) Delete(offset int, items bitmap.Bitmap) {
-	fill := c.fill[offset:]
-	fill.AndNot(items)
 }
 
 // Contains checks whether the column has a value at a specified index.
@@ -1277,25 +1261,23 @@ func (c *columnuint32) Grow(idx uint32) {
 // Apply applies a set of operations to the column.
 func (c *columnuint32) Apply(r *commit.Reader) {
 	for r.Next() {
-		c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 		switch r.Type {
 		case commit.Put:
+			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 			c.data[r.Offset] = r.Uint32()
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
 		case commit.Add:
+			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 			value := c.data[r.Offset] + r.Uint32()
 			c.data[r.Offset] = value
 			r.SwapUint32(value)
+
+		case commit.Delete:
+			c.fill.Remove(r.Index())
 		}
 	}
-}
-
-// Delete deletes a set of items from the column.
-func (c *columnuint32) Delete(offset int, items bitmap.Bitmap) {
-	fill := c.fill[offset:]
-	fill.AndNot(items)
 }
 
 // Contains checks whether the column has a value at a specified index.
@@ -1431,25 +1413,23 @@ func (c *columnuint64) Grow(idx uint32) {
 // Apply applies a set of operations to the column.
 func (c *columnuint64) Apply(r *commit.Reader) {
 	for r.Next() {
-		c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 		switch r.Type {
 		case commit.Put:
+			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 			c.data[r.Offset] = r.Uint64()
 
 		// If this is an atomic increment/decrement, we need to change the operation to
 		// the final value, since after this update an index needs to be recalculated.
 		case commit.Add:
+			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 			value := c.data[r.Offset] + r.Uint64()
 			c.data[r.Offset] = value
 			r.SwapUint64(value)
+
+		case commit.Delete:
+			c.fill.Remove(r.Index())
 		}
 	}
-}
-
-// Delete deletes a set of items from the column.
-func (c *columnuint64) Delete(offset int, items bitmap.Bitmap) {
-	fill := c.fill[offset:]
-	fill.AndNot(items)
 }
 
 // Contains checks whether the column has a value at a specified index.

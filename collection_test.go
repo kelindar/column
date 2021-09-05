@@ -23,15 +23,15 @@ import (
 
 /*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkCollection/insert-8         	    1917	    588918 ns/op	     666 B/op	       0 allocs/op
-BenchmarkCollection/fetch-8          	25534033	        46.80 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/scan-8           	    1689	    748443 ns/op	     127 B/op	       0 allocs/op
-BenchmarkCollection/count-8          	  727267	      1611 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/range-8          	    9999	    110182 ns/op	      14 B/op	       0 allocs/op
-BenchmarkCollection/update-at-8      	 2530968	       468.3 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/update-all-8     	     774	   1546088 ns/op	    6153 B/op	       0 allocs/op
-BenchmarkCollection/delete-at-8      	 4410576	       257.2 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/delete-all-8     	 1220576	       978.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/insert-8         	    1742	    575151 ns/op	    1398 B/op	       1 allocs/op
+BenchmarkCollection/fetch-8          	29648077	        37.81 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/scan-8           	    1974	    628406 ns/op	      89 B/op	       0 allocs/op
+BenchmarkCollection/count-8          	  855321	      1432 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/range-8          	   16892	     70650 ns/op	       9 B/op	       0 allocs/op
+BenchmarkCollection/update-at-8      	 3576921	       344.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/update-all-8     	    1165	   1002941 ns/op	    4074 B/op	       0 allocs/op
+BenchmarkCollection/delete-at-8      	 8455353	       134.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/delete-all-8     	 2398639	       499.2 ns/op	       0 B/op	       0 allocs/op
 */
 func BenchmarkCollection(b *testing.B) {
 	b.Run("insert", func(b *testing.B) {
@@ -323,6 +323,21 @@ func TestCollection(t *testing.T) {
 	}
 }
 
+func TestInsertObject(t *testing.T) {
+	col := NewCollection()
+	col.CreateColumn("name", ForString())
+	col.Insert(Object{"name": "A"})
+	col.Insert(Object{"name": "B"})
+
+	assert.Equal(t, 2, col.Count())
+	assert.NoError(t, col.Query(func(txn *Txn) error {
+		selector, ok := txn.ReadAt(0)
+		assert.True(t, ok)
+		assert.Equal(t, "A", selector.StringAt("name"))
+		return nil
+	}))
+}
+
 func TestExpire(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -367,8 +382,8 @@ func TestInsertParallel(t *testing.T) {
 
 	col := NewCollection()
 	var wg sync.WaitGroup
-	for i := 0; i < 5000; i++ {
-		wg.Add(1)
+	wg.Add(500)
+	for i := 0; i < 500; i++ {
 		go func() {
 			col.Insert(obj)
 			wg.Done()
@@ -376,7 +391,11 @@ func TestInsertParallel(t *testing.T) {
 	}
 
 	wg.Wait()
-	assert.Equal(t, 5000, col.Count())
+	assert.Equal(t, 500, col.Count())
+	assert.NoError(t, col.Query(func(txn *Txn) error {
+		assert.Equal(t, 500, txn.Count())
+		return nil
+	}))
 }
 
 // loadPlayers loads a list of players from the fixture
@@ -418,8 +437,8 @@ func loadPlayers(amount int) *Collection {
 	})
 
 	// Load the items into the collection
-	out.CreateColumn("serial", ForString())
-	out.CreateColumn("name", ForString())
+	out.CreateColumn("serial", ForEnum())
+	out.CreateColumn("name", ForEnum())
 	out.CreateColumn("active", ForBool())
 	out.CreateColumn("class", ForEnum())
 	out.CreateColumn("race", ForEnum())

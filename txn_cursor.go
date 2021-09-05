@@ -163,7 +163,7 @@ func (cur *Cursor) Bool() bool {
 // executed once the current the transaction completes.
 func (cur *Cursor) Delete() {
 	cur.txn.dirty.Set(cur.idx >> chunkShift)
-	cur.txn.deletes.Set(cur.idx)
+	cur.txn.deleteAt(cur.idx)
 }
 
 // Set updates a column value for the current item. The actual operation

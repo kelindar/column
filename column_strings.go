@@ -58,8 +58,8 @@ func (c *columnEnum) Grow(idx uint32) {
 // Apply applies a set of operations to the column.
 func (c *columnEnum) Apply(r *commit.Reader) {
 	for r.Next() {
-		if r.Type == commit.Put {
-
+		switch r.Type {
+		case commit.Put:
 			// Attempt to find if we already have the location of this value from the
 			// cache, and if we don't, find it and set the offset for faster lookup.
 			value := r.String()
@@ -78,6 +78,11 @@ func (c *columnEnum) Apply(r *commit.Reader) {
 			// Set the value at the index
 			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 			c.locs[r.Offset] = offset
+
+		case commit.Delete:
+			c.fill.Remove(r.Index())
+			// TODO: remove unused strings, need some reference counting for that
+			// and can proably be done during vacuum() instead
 		}
 	}
 }
@@ -111,15 +116,6 @@ func (c *columnEnum) readAt(at uint32) string {
 	size := uint32(c.data[at])
 	data := c.data[at+1 : at+1+size]
 	return toString(&data)
-}
-
-// Delete deletes a set of items from the column.
-func (c *columnEnum) Delete(offset int, items bitmap.Bitmap) {
-	fill := c.fill[offset:]
-	fill.AndNot(items)
-
-	// TODO: remove unused strings, need some reference counting for that
-	// and can proably be done during vacuum() instead
 }
 
 // Value retrieves a value at a specified index
@@ -217,17 +213,14 @@ func (c *columnString) Apply(r *commit.Reader) {
 
 	// Update the values of the column, for this one we can only process stores
 	for r.Next() {
-		if r.Type == commit.Put {
+		switch r.Type {
+		case commit.Put:
 			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 			c.data[r.Offset] = string(r.Bytes())
+		case commit.Delete:
+			c.fill.Remove(r.Index())
 		}
 	}
-}
-
-// Delete deletes a set of items from the column.
-func (c *columnString) Delete(offset int, items bitmap.Bitmap) {
-	fill := c.fill[offset:]
-	fill.AndNot(items)
 }
 
 // Value retrieves a value at a specified index

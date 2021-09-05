@@ -27,8 +27,10 @@ type OpType uint8
 
 // Various update operations supported.
 const (
-	Put OpType = iota // Put stores a value regardless of a previous value
-	Add               // Add increments the current stored value by the amount
+	Put    OpType = iota // Put stores a value regardless of a previous value
+	Add                  // Add increments the current stored value by the amount
+	Delete               // Delete deletes an entire row or a set of rows
+	Insert               // Insert inserts a new row or a set of rows
 )
 
 // --------------------------- Delta log ----------------------------
@@ -55,6 +57,22 @@ func NewBuffer(capacity int) *Buffer {
 	return &Buffer{
 		chunk:  math.MaxUint32,
 		buffer: make([]byte, 0, capacity),
+	}
+}
+
+// Clone clones the buffer
+func (b *Buffer) Clone() *Buffer {
+	buffer := make([]byte, len(b.buffer))
+	copy(buffer, b.buffer)
+
+	chunks := make([]header, 0, len(b.chunks))
+	chunks = append(chunks, b.chunks...)
+	return &Buffer{
+		Column: b.Column,
+		buffer: buffer,
+		chunks: chunks,
+		last:   b.last,
+		chunk:  b.chunk,
 	}
 }
 

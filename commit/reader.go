@@ -220,6 +220,25 @@ func (r *Reader) Range(buf *Buffer, chunk uint32, fn func(*Reader)) {
 	}
 }
 
+// MaxOffset returns the maximum offset for a chunk
+func (r *Reader) MaxOffset(buf *Buffer, chunk uint32) (max uint32) {
+	if buf == nil {
+		return
+	}
+
+	r.Range(buf, chunk, func(r *Reader) {
+		for r.Next() {
+			if max < r.Index() {
+				max = r.Index()
+			}
+		}
+	})
+
+	// Rewind after this, so we can re-use the reader after
+	r.Rewind()
+	return
+}
+
 // --------------------------- Next Iterator ----------------------------
 
 // Next reads the current operation and returns false if there is no more
