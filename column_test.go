@@ -58,6 +58,10 @@ func TestColumns(t *testing.T) {
 		t.Run(fmt.Sprintf("%T-cursor", tc.column), func(t *testing.T) {
 			testColumnCursor(t, tc.column, tc.value)
 		})
+
+		t.Run(fmt.Sprintf("%T-put-delete", tc.column), func(t *testing.T) {
+			testPutDelete(t, tc.column, tc.value)
+		})
 	}
 }
 
@@ -167,6 +171,16 @@ func testColumnCursor(t *testing.T, column Column, value interface{}) {
 			})
 		})
 	})
+}
+
+// testPutDelete test a put and a delete
+func testPutDelete(t *testing.T, column Column, value interface{}) {
+	applyChanges(column, Update{commit.Put, 0, value})
+	applyChanges(column, Update{commit.Delete, 0, false})
+
+	// Should be deleted
+	_, ok := column.Value(0)
+	assert.False(t, ok)
 }
 
 func TestFromKind(t *testing.T) {
