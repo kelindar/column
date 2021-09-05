@@ -420,31 +420,31 @@ When testing for larger collections, I added a small example (see `examples` fol
 
 ```
 running insert of 20000000 rows...
--> insert took 22.6758949s                      
-                                                
-running full scan of age >= 30...               
--> result = 10200000                            
--> full scan took 71.334496ms                   
-                                                
-running full scan of class == "rogue"...        
--> result = 7160000                             
--> full scan took 88.987218ms                   
-                                                
-running indexed query of human mages...         
--> result = 1360000                             
--> indexed query took 541.126µs                 
-                                                
-running indexed query of human female mages...  
--> result = 640000                              
--> indexed query took 724.593µs                 
-                                                
-running update of balance of everyone...        
--> updated 20000000 rows                        
--> update took 301.445804ms                     
-                                                
-running update of age of mages...               
--> updated 6040000 rows                         
--> update took 95.673186ms
+-> insert took 27.8103257s
+
+running full scan of age >= 30...
+-> result = 10200000
+-> full scan took 55.142806ms
+
+running full scan of class == "rogue"...
+-> result = 7160000
+-> full scan took 82.8865ms
+
+running indexed query of human mages...
+-> result = 1360000
+-> indexed query took 544.578µs
+
+running indexed query of human female mages...
+-> result = 640000
+-> indexed query took 721.409µs
+
+running update of balance of everyone...
+-> updated 20000000 rows
+-> update took 247.224012ms
+
+running update of age of mages...
+-> updated 6040000 rows
+-> update took 85.669422ms   
 ```
 
 ## Contributing

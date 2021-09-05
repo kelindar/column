@@ -27,7 +27,6 @@ func newTxnPool() *txnPool {
 				return &Txn{
 					index:   make(bitmap.Bitmap, 0, 4),
 					dirty:   make(bitmap.Bitmap, 0, 4),
-					scratch: make(bitmap.Bitmap, 0, 4),
 					updates: make([]*commit.Buffer, 0, 256),
 					columns: make([]columnCache, 0, 16),
 					reader:  commit.NewReader(),
@@ -81,7 +80,6 @@ type Txn struct {
 	columns []columnCache    // The column mapping
 	writer  commit.Writer    // The optional commit writer
 	reader  *commit.Reader   // The commit reader to re-use
-	scratch bitmap.Bitmap    // The scratch for inserts and deletes (only 1 chunk)
 }
 
 // Reset resets the transaction state so it can be used again.
@@ -439,7 +437,6 @@ func (txn *Txn) commitUpdates(chunk uint32, fill bitmap.Bitmap) (updated bool) {
 			// Range through all of the pending updates and apply them to the column
 			// and its associated computed columns.
 			for _, v := range columns {
-				r.Rewind()
 				v.Apply(r)
 			}
 		})
@@ -449,34 +446,28 @@ func (txn *Txn) commitUpdates(chunk uint32, fill bitmap.Bitmap) (updated bool) {
 
 // commitMarkers commits inserts and deletes to the collection.
 func (txn *Txn) commitMarkers(chunk uint32, fill bitmap.Bitmap, buffer *commit.Buffer) {
-	fill.Clone(&txn.scratch)
-
-	// Prepare a scratch
 	txn.reader.Range(buffer, chunk, func(r *commit.Reader) {
 		for r.Rewind(); r.Next(); {
-			relativeOffset := uint32(r.Offset - int32(chunk<<(chunkShift-6)))
+			txn.owner.lock.Lock()
 			switch r.Bool() {
 			case true:
-				txn.scratch.Set(relativeOffset)
+				txn.owner.fill.Set(r.Index())
 			case false:
-				txn.scratch.Remove(relativeOffset)
+				txn.owner.fill.Remove(r.Index())
 			}
+			txn.owner.lock.Unlock()
 		}
 	})
 
-	// Iterate over each column in this chunk
+	// We also need to apply the delete operations on the column so it
+	// can remove unnecessary data.
 	txn.reader.Range(buffer, chunk, func(r *commit.Reader) {
 		txn.owner.cols.Range(func(column *column) {
-
-			// We also need to apply the delete operations on the column so it
-			// can remove unnecessary data.
-			r.Rewind()
 			column.Apply(r)
 		})
 	})
 
 	txn.owner.lock.Lock()
-	txn.scratch.Clone(&fill)
 	atomic.StoreUint64(&txn.owner.count, uint64(txn.owner.fill.Count()))
 	txn.owner.lock.Unlock()
 }

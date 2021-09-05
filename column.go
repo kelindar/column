@@ -8,6 +8,7 @@ package column
 import (
 	"fmt"
 	"reflect"
+	"sync"
 
 	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
@@ -118,8 +119,9 @@ func ForKind(kind reflect.Kind) Column {
 // column represents a column wrapper that synchronizes operations
 type column struct {
 	Column
-	kind columnType // The type of the colum
-	name string     // The name of the column
+	lock sync.RWMutex // The lock to protect the entire column
+	kind columnType   // The type of the colum
+	name string       // The name of the column
 }
 
 // columnFor creates a synchronized column for a column implementation
@@ -141,8 +143,20 @@ func (c *column) IsTextual() bool {
 	return (c.kind & typeTextual) == typeTextual
 }
 
+// Grow grows the size of the column
+func (c *column) Grow(idx uint32) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.Column.Grow(idx)
+}
+
 // Apply performs a series of operations on a column.
 func (c *column) Apply(r *commit.Reader) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	r.Rewind()
 	c.Column.Apply(r)
 }
 

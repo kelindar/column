@@ -84,18 +84,6 @@ func main() {
 		})
 		fmt.Printf("-> updated %v rows\n", updates)
 	}, runs)
-
-	// update names of males
-	measure("update", "name of males", func() {
-		updates := 0
-		players.Query(func(txn *column.Txn) error {
-			return txn.With("male").Range("name", func(v column.Cursor) {
-				updates++
-				v.SetString("Sir " + v.String())
-			})
-		})
-		fmt.Printf("-> updated %v rows\n", updates)
-	}, runs)
 }
 
 // createCollection loads a collection of players

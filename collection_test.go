@@ -23,15 +23,15 @@ import (
 
 /*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkCollection/insert-8         	    1981	    547077 ns/op	    1295 B/op	       1 allocs/op
-BenchmarkCollection/fetch-8          	29645366	        36.82 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/scan-8           	    3620	    351029 ns/op	      63 B/op	       0 allocs/op
-BenchmarkCollection/count-8          	 1000000	      1436 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/range-8          	   31090	     37810 ns/op	       5 B/op	       0 allocs/op
-BenchmarkCollection/update-at-8      	 3773277	       320.0 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/update-all-8     	    1185	   1003236 ns/op	    4032 B/op	       0 allocs/op
-BenchmarkCollection/delete-at-8      	 8463207	       151.0 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/delete-all-8     	     165	   7194162 ns/op	   11943 B/op	       0 allocs/op
+BenchmarkCollection/insert-8         	    1742	    575151 ns/op	    1398 B/op	       1 allocs/op
+BenchmarkCollection/fetch-8          	29648077	        37.81 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/scan-8           	    1974	    628406 ns/op	      89 B/op	       0 allocs/op
+BenchmarkCollection/count-8          	  855321	      1432 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/range-8          	   16892	     70650 ns/op	       9 B/op	       0 allocs/op
+BenchmarkCollection/update-at-8      	 3576921	       344.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/update-all-8     	    1165	   1002941 ns/op	    4074 B/op	       0 allocs/op
+BenchmarkCollection/delete-at-8      	 8455353	       134.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/delete-all-8     	 2398639	       499.2 ns/op	       0 B/op	       0 allocs/op
 */
 func BenchmarkCollection(b *testing.B) {
 	b.Run("insert", func(b *testing.B) {
@@ -382,8 +382,8 @@ func TestInsertParallel(t *testing.T) {
 
 	col := NewCollection()
 	var wg sync.WaitGroup
-	for i := 0; i < 5000; i++ {
-		wg.Add(1)
+	wg.Add(500)
+	for i := 0; i < 500; i++ {
 		go func() {
 			col.Insert(obj)
 			wg.Done()
@@ -391,7 +391,11 @@ func TestInsertParallel(t *testing.T) {
 	}
 
 	wg.Wait()
-	assert.Equal(t, 5000, col.Count())
+	assert.Equal(t, 500, col.Count())
+	assert.NoError(t, col.Query(func(txn *Txn) error {
+		assert.Equal(t, 500, txn.Count())
+		return nil
+	}))
 }
 
 // loadPlayers loads a list of players from the fixture
