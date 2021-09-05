@@ -267,7 +267,6 @@ func (txn *Txn) DeleteAt(index uint32) bool {
 	}
 
 	txn.deleteAt(index)
-	txn.dirty.Set(index >> chunkShift)
 	return true
 }
 
@@ -301,7 +300,6 @@ func (txn *Txn) insert(object Object, expireAt int64) uint32 {
 
 	// Set the insert bit and generate the updates
 	txn.bufferFor(rowColumn).PutBool(commit.Insert, slot.idx, true)
-	txn.dirty.Set(slot.idx >> chunkShift)
 	for k, v := range object {
 		if _, ok := txn.columnAt(k); ok {
 			slot.SetAt(k, v)
@@ -336,7 +334,6 @@ func (txn *Txn) DeleteIf(fn func(v Selector) bool) {
 	txn.index.Range(func(x uint32) {
 		if fn(Selector{idx: x, txn: txn}) {
 			txn.deleteAt(x)
-			txn.dirty.Set(x >> chunkShift)
 		}
 	})
 }
@@ -346,7 +343,6 @@ func (txn *Txn) DeleteIf(fn func(v Selector) bool) {
 func (txn *Txn) DeleteAll() {
 	txn.index.Range(func(x uint32) {
 		txn.deleteAt(x)
-		txn.dirty.Set(x >> chunkShift) // TODO: optimize
 	})
 }
 
@@ -381,15 +377,15 @@ func (txn *Txn) rollback() {
 func (txn *Txn) commit() {
 	defer txn.reset()
 
-	// Get the upper bound chunk
-	lastChunk, _ := txn.dirty.Max()
-
 	// Mark the dirty chunks from the updates
 	for _, u := range txn.updates {
 		u.RangeChunks(func(chunk uint32) {
 			txn.dirty.Set(chunk)
 		})
 	}
+
+	// Get the upper bound chunk
+	lastChunk, _ := txn.dirty.Max()
 
 	// Grow the size of the fill list
 	markers, changedRows := txn.findMarkers()
@@ -410,7 +406,6 @@ func (txn *Txn) commit() {
 		if (changedRows || updated) && txn.writer != nil {
 			txn.writer.Write(commit.Commit{
 				Chunk:   chunk,
-				Dirty:   txn.dirty,
 				Updates: txn.updates,
 			})
 		}
