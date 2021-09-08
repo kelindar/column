@@ -12,10 +12,11 @@ import (
 
 /*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkQueue/rw-u16-8         	     189	   6118292 ns/op	       8 B/op	       0 allocs/op
-BenchmarkQueue/rw-u32-8         	     196	   6031313 ns/op	       7 B/op	       0 allocs/op
-BenchmarkQueue/rw-u64-8         	     187	   6401486 ns/op	       8 B/op	       0 allocs/op
-BenchmarkQueue/rw-str-8         	     100	  11089264 ns/op	      15 B/op	       0 allocs/op
+BenchmarkQueue/rw-u16-8         	     202	   5891099 ns/op	       7 B/op	       0 allocs/op
+BenchmarkQueue/rw-u32-8         	     200	   5932520 ns/op	       7 B/op	       0 allocs/op
+BenchmarkQueue/rw-u64-8         	     190	   6192885 ns/op	       8 B/op	       0 allocs/op
+BenchmarkQueue/rw-str-8         	      98	  11060616 ns/op	      15 B/op	       0 allocs/op
+BenchmarkQueue/rw-bool-8        	     213	   5615013 ns/op	       7 B/op	       0 allocs/op
 */
 func BenchmarkQueue(b *testing.B) {
 	const count = 1000000
@@ -52,6 +53,15 @@ func BenchmarkQueue(b *testing.B) {
 		}
 		for r.Seek(buf); r.Next(); {
 			_ = r.String()
+		}
+	})
+
+	run("rw-bool", b, count, func(buf *Buffer, r *Reader) {
+		for i := uint32(0); i < count; i++ {
+			buf.PutBool(i, true)
+		}
+		for r.Seek(buf); r.Next(); {
+			_ = r.Bool()
 		}
 	})
 }
@@ -96,8 +106,8 @@ func TestReadWrite(t *testing.T) {
 	buf.PutString(Put, 90, "900")
 	buf.PutString(Put, 91, "hello world")
 	buf.PutBytes(Put, 100, []byte("binary"))
-	buf.PutBool(Put, 110, true)
-	buf.PutBool(Put, 111, false)
+	buf.PutBool(110, true)
+	buf.PutBool(111, false)
 	buf.PutInt(Put, 120, 1000)
 	buf.PutUint(Put, 130, 1100)
 	buf.PutNumber(Put, 140, 12.34)
@@ -163,4 +173,14 @@ func TestBufferClone(t *testing.T) {
 
 	cloned := buf.Clone()
 	assert.EqualValues(t, buf, cloned)
+}
+
+func TestPutNil(t *testing.T) {
+	buf := NewBuffer(0)
+	buf.PutAny(PutTrue, 0, nil)
+
+	r := NewReader()
+	r.Seek(buf)
+	assert.True(t, r.Next())
+	assert.True(t, r.Bool())
 }

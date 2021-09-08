@@ -192,11 +192,11 @@ func (cur *Cursor) SetStringAt(column string, value string) {
 // SetBool updates a column value for the current item. The actual operation
 // will be queued and executed once the current the transaction completes.
 func (cur *Cursor) SetBool(value bool) {
-	cur.update.PutBool(commit.Put, cur.idx, value)
+	cur.update.PutBool(cur.idx, value)
 }
 
 // SetBoolAt updates a specified column value for the current item. The actual operation
 // will be queued and executed once the current the transaction completes.
 func (cur *Cursor) SetBoolAt(column string, value bool) {
-	cur.txn.bufferFor(column).PutBool(commit.Put, cur.idx, value)
+	cur.txn.bufferFor(column).PutBool(cur.idx, value)
 }

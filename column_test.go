@@ -30,7 +30,6 @@ func BenchmarkColumn(b *testing.B) {
 			}
 		}
 	})
-
 }
 
 func TestColumns(t *testing.T) {
@@ -178,8 +177,10 @@ func testColumnCursor(t *testing.T, column Column, value interface{}) {
 
 // testPutDelete test a put and a delete
 func testPutDelete(t *testing.T, column Column, value interface{}) {
-	applyChanges(column, Update{commit.Put, 0, value})
-	applyChanges(column, Update{commit.Delete, 0, false})
+	applyChanges(column,
+		Update{commit.Put, 0, value},
+		Update{commit.Delete, 0, nil},
+	)
 
 	// Should be deleted
 	_, ok := column.Value(0)

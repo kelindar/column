@@ -4,7 +4,7 @@ This is an example benchmark with various workloads (90% read / 10% write, etc) 
  * Read transactions that query a random index and iterate over the results over a single column.
  * Write transactions that update a random element (point-write).
 
-Note that the goal of this benchmark is to validater concurrency, not throughput this represents the current "best" case scenario when the updates are random and do less likely to incur contention. Reads, however quite often would hit the same chunks as only the index itself is randomized.
+Note that the goal of this benchmark is to validate concurrency, not throughput this represents the current "best" case scenario when the updates are random and do less likely to incur contention. Reads, however quite often would hit the same chunks as only the index itself is randomized.
 
 ```
 90%-10%       1 procs      249,208,310 read/s        117 write/s
