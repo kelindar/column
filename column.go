@@ -202,50 +202,43 @@ func (c *column) Uint64(idx uint32) (v uint64, ok bool) {
 
 // columnBool represents a boolean column
 type columnBool struct {
-	fill bitmap.Bitmap // The fill-list
-	data bitmap.Bitmap // The actual values
+	data bitmap.Bitmap
 }
 
 // makeBools creates a new boolean column
 func makeBools() Column {
 	return &columnBool{
-		fill: make(bitmap.Bitmap, 0, 4),
 		data: make(bitmap.Bitmap, 0, 4),
 	}
 }
 
 // Grow grows the size of the column until we have enough to store
 func (c *columnBool) Grow(idx uint32) {
-	c.fill.Grow(idx)
 	c.data.Grow(idx)
 }
 
 // Apply applies a set of operations to the column.
 func (c *columnBool) Apply(r *commit.Reader) {
 	for r.Next() {
+		v := uint64(1) << (r.Offset & 0x3f)
 		switch r.Type {
-		case commit.Put:
-			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
-			if r.Bool() {
-				c.data.Set(uint32(r.Offset))
-			} else {
-				c.data.Remove(uint32(r.Offset))
-			}
-		case commit.Delete:
-			c.fill.Remove(r.Index())
-			c.data.Remove(r.Index())
+		case commit.PutTrue:
+			c.data[r.Offset>>6] |= v
+		case commit.PutFalse: // also "delete"
+			c.data[r.Offset>>6] &^= v
 		}
 	}
 }
 
 // Value retrieves a value at a specified index
 func (c *columnBool) Value(idx uint32) (interface{}, bool) {
-	return c.data.Contains(idx), c.fill.Contains(idx)
+	value := c.data.Contains(idx)
+	return value, value
 }
 
 // Contains checks whether the column has a value at a specified index.
 func (c *columnBool) Contains(idx uint32) bool {
-	return c.fill.Contains(idx)
+	return c.data.Contains(idx)
 }
 
 // Index returns the fill list for the column

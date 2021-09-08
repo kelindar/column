@@ -127,7 +127,7 @@ func (r *Reader) String() string {
 
 // Bool reads a boolean value.
 func (r *Reader) Bool() bool {
-	return r.buffer[r.i0] != 0
+	return r.Type == PutTrue
 }
 
 // --------------------------- Value Swap ----------------------------
@@ -328,7 +328,7 @@ func (r *Reader) readOffset() {
 
 // readFixed reads the fixed-size value at the current position.
 func (r *Reader) readFixed(v byte) {
-	size := int(1 << ((v & 0x30) >> 4))
+	size := int(1 << (v >> 4 & 0b11) & 0b1110)
 	r.Type = OpType(v & 0xf)
 	r.head++
 	r.i0 = r.head

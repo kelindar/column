@@ -272,7 +272,7 @@ func (txn *Txn) DeleteAt(index uint32) bool {
 
 // deleteAt marks an index as deleted
 func (txn *Txn) deleteAt(idx uint32) {
-	txn.bufferFor(rowColumn).PutBool(commit.Delete, idx, false)
+	txn.bufferFor(rowColumn).PutOperation(commit.Delete, idx)
 }
 
 // Insert inserts an object at a new index and returns the index for this object. This is
@@ -299,7 +299,7 @@ func (txn *Txn) insert(object Object, expireAt int64) uint32 {
 	}
 
 	// Set the insert bit and generate the updates
-	txn.bufferFor(rowColumn).PutBool(commit.Insert, slot.idx, true)
+	txn.bufferFor(rowColumn).PutOperation(commit.Insert, slot.idx)
 	for k, v := range object {
 		if _, ok := txn.columnAt(k); ok {
 			slot.SetAt(k, v)
@@ -442,12 +442,12 @@ func (txn *Txn) commitUpdates(chunk uint32, fill bitmap.Bitmap) (updated bool) {
 // commitMarkers commits inserts and deletes to the collection.
 func (txn *Txn) commitMarkers(chunk uint32, fill bitmap.Bitmap, buffer *commit.Buffer) {
 	txn.reader.Range(buffer, chunk, func(r *commit.Reader) {
-		for r.Rewind(); r.Next(); {
+		for r.Next() {
 			txn.owner.lock.Lock()
-			switch r.Bool() {
-			case true:
+			switch r.Type {
+			case commit.Insert:
 				txn.owner.fill.Set(r.Index())
-			case false:
+			case commit.Delete:
 				txn.owner.fill.Remove(r.Index())
 			}
 			txn.owner.lock.Unlock()

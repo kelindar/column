@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -16,6 +15,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/kelindar/async"
 	"github.com/kelindar/column"
+	"github.com/kelindar/rand"
 )
 
 var (
@@ -53,10 +53,10 @@ func main() {
 				wg.Add(1)
 				work <- async.NewTask(func(ctx context.Context) (interface{}, error) {
 					defer wg.Done()
-					offset := uint32(rand.Int31n(int32(amount - 1)))
+					offset := uint32(rand.Uint32n(uint32(amount - 1)))
 
 					// Given our write probabiliy, randomly update an offset
-					if rand.Int31n(100) < int32(w) {
+					if rand.Uint32n(100) < uint32(w) {
 						players.UpdateAt(offset, "balance", 0.0)
 						atomic.AddInt64(&writes, 1)
 						return nil, nil
@@ -65,7 +65,7 @@ func main() {
 					// Otherwise, randomly read something
 					players.Query(func(txn *column.Txn) error {
 						var count int64
-						txn.With(races[rand.Int31n(4)]).Range("balance", func(v column.Cursor) {
+						txn.With(races[rand.Uint32n(4)]).Range("balance", func(v column.Cursor) {
 							count++
 						})
 						atomic.AddInt64(&reads, count)

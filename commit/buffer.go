@@ -12,7 +12,7 @@ import (
 
 const (
 	chunkShift = 14     // 16K elements
-	size1      = 0      // 1 byte in size
+	size0      = 0      // 0 byte in size
 	size2      = 1 << 4 // 2 bytes in size
 	size4      = 2 << 4 // 4 bytes in size
 	size8      = 3 << 4 // 8 bytes in size
@@ -27,10 +27,12 @@ type OpType uint8
 
 // Various update operations supported.
 const (
-	Put    OpType = iota // Put stores a value regardless of a previous value
-	Add                  // Add increments the current stored value by the amount
-	Delete               // Delete deletes an entire row or a set of rows
-	Insert               // Insert inserts a new row or a set of rows
+	Delete   OpType = 0 // Delete deletes an entire row or a set of rows
+	Insert   OpType = 1 // Insert inserts a new row or a set of rows
+	PutFalse OpType = 0 // PutFalse is a combination of Put+False for boolean values
+	PutTrue  OpType = 1 // PutTrue is a combination of Put+True for boolean values
+	Put      OpType = 2 // Put stores a value regardless of a previous value
+	Add      OpType = 3 // Add increments the current stored value by the amount
 )
 
 // --------------------------- Delta log ----------------------------
@@ -129,7 +131,9 @@ func (b *Buffer) PutAny(op OpType, idx uint32, value interface{}) {
 	case uint:
 		b.PutUint64(op, idx, uint64(v))
 	case bool:
-		b.PutBool(op, idx, v)
+		b.PutBool(idx, v)
+	case nil:
+		b.PutOperation(op, idx)
 	default:
 		panic(fmt.Errorf("column: unsupported type (%T)", value))
 	}
@@ -191,25 +195,30 @@ func (b *Buffer) PutUint16(op OpType, idx uint32, value uint16) {
 	b.writeOffset(uint32(delta))
 }
 
-// PutBool appends a boolean value.
-func (b *Buffer) PutBool(op OpType, idx uint32, value bool) {
+// PutOperation appends an operation type without a value.
+func (b *Buffer) PutOperation(op OpType, idx uint32) {
 	b.writeChunk(idx)
 	delta := int32(idx) - b.last
 	b.last = int32(idx)
-
-	// let the compiler do its magic: https://github.com/golang/go/issues/6011
-	v := 0
-	if value {
-		v = 1
-	}
-
 	if delta == 1 {
-		b.buffer = append(b.buffer, byte(op)|size1|isNext, byte(v))
+		b.buffer = append(b.buffer, byte(op)|size0|isNext)
 		return
 	}
 
-	b.buffer = append(b.buffer, byte(op)|size1, byte(v))
+	b.buffer = append(b.buffer, byte(op)|size0)
 	b.writeOffset(uint32(delta))
+}
+
+// PutBool appends a boolean value.
+func (b *Buffer) PutBool(idx uint32, value bool) {
+
+	// let the compiler do its magic: https://github.com/golang/go/issues/6011
+	op := PutFalse
+	if value {
+		op = PutTrue
+	}
+
+	b.PutOperation(op, idx)
 }
 
 // PutInt64 appends an int64 value.

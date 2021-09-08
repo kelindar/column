@@ -220,3 +220,13 @@ func TestRewindAfterMax(t *testing.T) {
 	assert.True(t, r.Next())
 	assert.Equal(t, 0, int(r.Index()))
 }
+
+func TestReadSize(t *testing.T) {
+	buf := NewBuffer(0)
+	buf.Reset("test")
+	buf.PutBool(123, true)
+
+	r := NewReader()
+	r.readFixed(buf.buffer[0])
+	assert.Equal(t, 0, r.i1-r.i0)
+}
