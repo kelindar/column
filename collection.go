@@ -141,18 +141,18 @@ func (c *Collection) UpdateAt(idx uint32, columnName string, fn func(v Cursor) e
 	})
 }
 
-// SelectAt performs a selection on a specific row specified by its index.
+// SelectAt performs a selection on a specific row specified by its index. It returns
+// a boolean value indicating whether an element is present at the index or not.
 func (c *Collection) SelectAt(idx uint32, fn func(v Selector)) bool {
-	c.lock.RLock()
-	contains := c.fill.Contains(idx)
-	c.lock.RUnlock()
-
-	// If it's empty or over the sequence, not found
-	if idx >= uint32(len(c.fill))<<6 || !contains {
+	chunk := uint(idx >> chunkShift)
+	if idx >= uint32(len(c.fill))<<6 || !c.fill.Contains(idx) {
 		return false
 	}
 
+	// Lock the chunk which we are about to read and call the selector delegate
+	c.slock.RLock(chunk)
 	fn(Selector{idx: idx, col: c})
+	c.slock.RUnlock(chunk)
 	return true
 }
 

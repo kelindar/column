@@ -257,17 +257,10 @@ func (txn *Txn) UpdateAt(index uint32, columnName string, fn func(v Cursor) erro
 	return fn(cursor)
 }
 
-// ReadAt returns a selector for a specified index together with a boolean value that indicates
-// whether an element is present at the specified index or not.
-func (txn *Txn) ReadAt(index uint32) (Selector, bool) {
-	if !txn.index.Contains(index) {
-		return Selector{}, false
-	}
-
-	return Selector{
-		idx: index,
-		txn: txn,
-	}, true
+// SelectAt performs a selection on a specific row specified by its index. It returns
+// a boolean value indicating whether an element is present at the index or not.
+func (txn *Txn) SelectAt(index uint32, fn func(v Selector)) bool {
+	return txn.owner.SelectAt(index, fn)
 }
 
 // DeleteAt attempts to delete an item at the specified index for this transaction. If the item

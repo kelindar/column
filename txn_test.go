@@ -130,11 +130,8 @@ func TestIndexInvalid(t *testing.T) {
 	}))
 
 	players.Query(func(txn *Txn) error {
-		_, ok := txn.ReadAt(999999)
-		assert.False(t, ok)
-
-		_, ok = txn.ReadAt(0)
-		assert.True(t, ok)
+		assert.False(t, txn.SelectAt(999999, func(v Selector) {}))
+		assert.True(t, txn.SelectAt(0, func(v Selector) {}))
 		return nil
 	})
 

@@ -256,15 +256,15 @@ func runReplication(t *testing.T, updates, inserts, concurrency int) {
 			return txn.Range("float64", func(v Cursor) {
 				v1, v2 := v.FloatAt("float64"), v.IntAt("int32")
 				if v1 != 0 {
-					clone, ok := txn.ReadAt(v.idx)
-					assert.True(t, ok)
-					assert.Equal(t, v.FloatAt("float64"), clone.FloatAt("float64"))
+					assert.True(t, txn.SelectAt(v.idx, func(s Selector) {
+						assert.Equal(t, v.FloatAt("float64"), s.FloatAt("float64"))
+					}))
 				}
 
 				if v2 != 0 {
-					clone, ok := txn.ReadAt(v.idx)
-					assert.True(t, ok)
-					assert.Equal(t, v.IntAt("int32"), clone.IntAt("int32"))
+					assert.True(t, txn.SelectAt(v.idx, func(s Selector) {
+						assert.Equal(t, v.IntAt("int32"), s.IntAt("int32"))
+					}))
 				}
 			})
 		})
@@ -341,9 +341,9 @@ func TestInsertObject(t *testing.T) {
 
 	assert.Equal(t, 2, col.Count())
 	assert.NoError(t, col.Query(func(txn *Txn) error {
-		selector, ok := txn.ReadAt(0)
-		assert.True(t, ok)
-		assert.Equal(t, "A", selector.StringAt("name"))
+		assert.True(t, txn.SelectAt(0, func(v Selector) {
+			assert.Equal(t, "A", v.StringAt("name"))
+		}))
 		return nil
 	}))
 }
@@ -489,6 +489,54 @@ func TestInsertParallel(t *testing.T) {
 		assert.Equal(t, 500, txn.Count())
 		return nil
 	}))
+}
+
+func TestConcurrentPointReads(t *testing.T) {
+	obj := Object{
+		"name":   "Roman",
+		"age":    35,
+		"wallet": 50.99,
+		"health": 100,
+		"mana":   200,
+	}
+
+	col := NewCollection()
+	col.CreateColumnsOf(obj)
+	for i := 0; i < 1000; i++ {
+		col.Insert(obj)
+	}
+
+	var ops int64
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// Reader
+	go func() {
+		for i := 0; i < 10000; i++ {
+			col.SelectAt(99, func(v Selector) {
+				_ = v.StringAt("name")
+			})
+			atomic.AddInt64(&ops, 1)
+			runtime.Gosched()
+		}
+		wg.Done()
+	}()
+
+	// Writer
+	go func() {
+		for i := 0; i < 10000; i++ {
+			col.UpdateAt(99, "name", func(v Cursor) error {
+				v.SetString("test")
+				return nil
+			})
+			atomic.AddInt64(&ops, 1)
+			runtime.Gosched()
+		}
+		wg.Done()
+	}()
+
+	wg.Wait()
+	assert.Equal(t, 20000, int(atomic.LoadInt64(&ops)))
 }
 
 // loadPlayers loads a list of players from the fixture
