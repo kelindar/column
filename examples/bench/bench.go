@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"hash/crc32"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -15,7 +16,6 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/kelindar/async"
 	"github.com/kelindar/column"
-	"github.com/kelindar/rand"
 )
 
 var (
@@ -28,63 +28,68 @@ func main() {
 	players := column.NewCollection(column.Options{
 		Capacity: amount,
 	})
-
-	// insert the data first
 	createCollection(players, amount)
 
-	// Iterate over various workloads
-	fmt.Printf("   WORK         PROCS              READS             WRITES\n")
-	for _, w := range []int{10, 50, 90} {
+	// This runs point query benchmarks
+	runBenchmark("Point Reads/Writes", func(writeTxn bool) (reads int, writes int) {
+
+		// To avoid task granuarity problem, load up a bit more work on each
+		// of the goroutines, a few hundred reads should be enough to amortize
+		// the cost of scheduling goroutines, so we can actually test our code.
+		for i := 0; i < 1000; i++ {
+			offset := randN(amount - 1)
+			if writeTxn {
+				players.UpdateAt(offset, "balance", func(v column.Cursor) error {
+					v.SetFloat64(0)
+					return nil
+				})
+				writes++
+			} else {
+				players.SelectAt(offset, func(v column.Selector) {
+					_ = v.FloatAt("balance") // Read
+				})
+				reads++
+			}
+		}
+		return
+	})
+}
+
+// runBenchmark runs a benchmark
+func runBenchmark(name string, fn func(bool) (int, int)) {
+	fmt.Printf("Benchmarking %v ...\n", name)
+	fmt.Printf("%7v\t%6v\t%17v\t%13v\n", "WORK", "PROCS", "READ RATE", "WRITE RATE")
+	for _, workload := range []int{0, 10, 50, 90, 100} {
 
 		// Iterate over various concurrency levels
-		for _, n := range []int{1, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096} {
-
-			// Create a pool of N goroutines
+		for _, n := range []int{1, 2, 4, 8, 16, 32, 64, 128, 256, 512} {
 			work := make(chan async.Task, n)
 			pool := async.Consume(context.Background(), n, work)
 
-			//run(fmt.Sprintf("(%v/%v)-%v", 100-w, w, n), func(b *testing.B) {
-			var reads int64
-			var writes int64
-
+			var reads, writes int64
 			var wg sync.WaitGroup
-
 			start := time.Now()
-			for time.Since(start) < 2*time.Second {
+			for time.Since(start) < time.Second {
 				wg.Add(1)
 				work <- async.NewTask(func(ctx context.Context) (interface{}, error) {
 					defer wg.Done()
-					offset := uint32(rand.Uint32n(uint32(amount - 1)))
 
-					// Given our write probabiliy, randomly read/write at an offset
-					if rand.Uint32n(100) < uint32(w) {
-						players.UpdateAt(offset, "balance", func(v column.Cursor) error {
-							v.SetFloat64(0)
-							return nil
-						})
-						atomic.AddInt64(&writes, 1)
-					} else {
-						players.SelectAt(offset, func(v column.Selector) {
-							_ = v.FloatAt("balance") // Read
-						})
-						atomic.AddInt64(&reads, 1)
-					}
+					r, w := fn(chanceOf(workload))
+					atomic.AddInt64(&reads, int64(r))
+					atomic.AddInt64(&writes, int64(w))
 					return nil, nil
 				})
 			}
 
-			elapsed := time.Since(start)
-			readsPerSec := int64(float64(reads) / elapsed.Seconds())
-			writesPerSec := int64(float64(writes) / elapsed.Seconds())
-
 			wg.Wait()
 			pool.Cancel()
-			fmt.Printf("%v%%-%v%%    %4v procs    %15v    %15v\n", 100-w, w, n,
-				humanize.Comma(readsPerSec)+" txn/s",
-				humanize.Comma(writesPerSec)+" txn/s",
+
+			elapsed := time.Since(start)
+			fmt.Printf("%v%%-%v%%\t%6v\t%17v\t%13v\n", 100-workload, workload, n,
+				humanize.Comma(int64(float64(reads)/elapsed.Seconds()))+" txn/s",
+				humanize.Comma(int64(float64(writes)/elapsed.Seconds()))+" txn/s",
 			)
 		}
-
 	}
 }
 
@@ -138,4 +143,23 @@ func createCollection(out *column.Collection, amount int) *column.Collection {
 	}
 
 	return out
+}
+
+var epoch uint32
+
+// This random number generator not the most amazing one, but much better
+// than using math.Rand for our benchmarks, since it would create a lock
+// contention and bias the results.
+func randN(n int) uint32 {
+	v := atomic.AddUint32(&epoch, 1)
+	return crc32.ChecksumIEEE([]byte{
+		byte(v >> 24),
+		byte(v >> 16),
+		byte(v >> 8),
+		byte(v),
+	}) % uint32(n)
+}
+
+func chanceOf(chance int) bool {
+	return randN(100) < uint32(chance)
 }
