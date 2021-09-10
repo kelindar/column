@@ -23,15 +23,15 @@ import (
 
 /*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkCollection/insert-8         	    1861	    582483 ns/op	    1249 B/op	       1 allocs/op
-BenchmarkCollection/fetch-8          	30763866	        38.66 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/scan-8           	    1906	    618875 ns/op	     102 B/op	       0 allocs/op
-BenchmarkCollection/count-8          	  748754	      1416 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/range-8          	   16807	     71049 ns/op	       7 B/op	       0 allocs/op
-BenchmarkCollection/update-at-8      	 3753175	       330.0 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/update-all-8     	    1156	    994670 ns/op	    4133 B/op	       0 allocs/op
-BenchmarkCollection/delete-at-8      	 8459896	       146.6 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/delete-all-8     	 2460322	       478.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/insert-8         	    2167	    578821 ns/op	    1223 B/op	       1 allocs/op
+BenchmarkCollection/select-at-8      	42703713	        27.72 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/scan-8           	    2032	    598751 ns/op	      49 B/op	       0 allocs/op
+BenchmarkCollection/count-8          	  800036	      1498 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/range-8          	   16833	     70556 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/update-at-8      	 3689354	       323.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/update-all-8     	    1198	   1003934 ns/op	    4004 B/op	       0 allocs/op
+BenchmarkCollection/delete-at-8      	 8071692	       145.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/delete-all-8     	 2328974	       494.7 ns/op	       0 B/op	       0 allocs/op
 */
 func BenchmarkCollection(b *testing.B) {
 	b.Run("insert", func(b *testing.B) {
@@ -58,14 +58,14 @@ func BenchmarkCollection(b *testing.B) {
 
 	amount := 100000
 	players := loadPlayers(amount)
-	b.Run("fetch", func(b *testing.B) {
+	b.Run("select-at", func(b *testing.B) {
 		name := ""
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			if s, ok := players.Fetch(20); ok {
-				name = s.StringAt("name")
-			}
+			players.SelectAt(20, func(v Selector) {
+				name = v.StringAt("name")
+			})
 		}
 		assert.NotEmpty(b, name)
 	})
@@ -118,7 +118,10 @@ func BenchmarkCollection(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			players.UpdateAt(20, "balance", 1.0)
+			players.UpdateAt(20, "balance", func(v Cursor) error {
+				v.Set(1.0)
+				return nil
+			})
 		}
 	})
 
@@ -214,14 +217,17 @@ func runReplication(t *testing.T, updates, inserts, concurrency int) {
 
 				// Randomly update a column
 				offset := uint32(rand.Int31n(int32(inserts - 1)))
-				switch rand.Int31n(3) {
-				case 0:
-					primary.UpdateAt(offset, "float64", math.Round(rand.Float64()*1000)/100)
-				case 1:
-					primary.UpdateAt(offset, "int32", rand.Int31n(100000))
-				case 2:
-					primary.UpdateAt(offset, "string", fmt.Sprintf("hi %v", rand.Int31n(10)))
-				}
+				primary.UpdateAt(offset, "float64", func(v Cursor) error {
+					switch rand.Int31n(3) {
+					case 0:
+						v.SetFloat64(math.Round(rand.Float64()*1000) / 100)
+					case 1:
+						v.SetInt32At("int32", rand.Int31n(100000))
+					case 2:
+						v.SetStringAt("string", fmt.Sprintf("hi %v", rand.Int31n(10)))
+					}
+					return nil
+				})
 
 				// Randomly delete an item
 				if rand.Int31n(5) == 0 {
@@ -250,13 +256,13 @@ func runReplication(t *testing.T, updates, inserts, concurrency int) {
 			return txn.Range("float64", func(v Cursor) {
 				v1, v2 := v.FloatAt("float64"), v.IntAt("int32")
 				if v1 != 0 {
-					clone, ok := replica.Fetch(v.idx)
+					clone, ok := txn.ReadAt(v.idx)
 					assert.True(t, ok)
 					assert.Equal(t, v.FloatAt("float64"), clone.FloatAt("float64"))
 				}
 
 				if v2 != 0 {
-					clone, ok := replica.Fetch(v.idx)
+					clone, ok := txn.ReadAt(v.idx)
 					assert.True(t, ok)
 					assert.Equal(t, v.IntAt("int32"), clone.IntAt("int32"))
 				}
@@ -288,30 +294,34 @@ func TestCollection(t *testing.T) {
 	}))
 
 	{ // Find the object by its index
-		v, ok := col.Fetch(idx)
-		assert.True(t, ok)
-		assert.Equal(t, "Roman", v.StringAt("name"))
+		assert.True(t, col.SelectAt(idx, func(v Selector) {
+			assert.Equal(t, "Roman", v.StringAt("name"))
+		}))
 	}
 
 	{ // Remove the object
 		col.DeleteAt(idx)
-		_, ok := col.Fetch(idx)
-		assert.False(t, ok)
+		assert.False(t, col.SelectAt(idx, func(v Selector) {
+			assert.Fail(t, "unreachable")
+		}))
 	}
 
 	{ // Add a new one, should replace
 		idx := col.Insert(obj)
-		v, ok := col.Fetch(idx)
-		assert.True(t, ok)
-		assert.Equal(t, "Roman", v.StringAt("name"))
+		assert.True(t, col.SelectAt(idx, func(v Selector) {
+			assert.Equal(t, "Roman", v.StringAt("name"))
+		}))
 	}
 
 	{ // Update the wallet
-		col.UpdateAt(idx, "wallet", float64(1000))
-		v, ok := col.Fetch(idx)
-		assert.True(t, ok)
-		assert.Equal(t, int64(1000), v.IntAt("wallet"))
-		assert.Equal(t, true, v.BoolAt("rich"))
+		col.UpdateAt(idx, "wallet", func(v Cursor) error {
+			v.SetFloat64(1000)
+			return nil
+		})
+		assert.True(t, col.SelectAt(idx, func(v Selector) {
+			assert.Equal(t, int64(1000), v.IntAt("wallet"))
+			assert.Equal(t, true, v.BoolAt("rich"))
+		}))
 	}
 
 	{ // Drop the colun

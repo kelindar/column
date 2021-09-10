@@ -469,3 +469,30 @@ func TestUninitializedSet(t *testing.T) {
 		})
 	}))
 }
+
+func TestUpdateAt(t *testing.T) {
+	c := NewCollection()
+	c.CreateColumn("col1", ForString())
+	index := c.Insert(map[string]interface{}{
+		"col1": "hello",
+	})
+
+	assert.NoError(t, c.UpdateAt(index, "col1", func(v Cursor) error {
+		v.Set("hi")
+		return nil
+	}))
+
+	assert.True(t, c.SelectAt(index, func(v Selector) {
+		assert.Equal(t, "hi", v.StringAt("col1"))
+	}))
+}
+
+func TestUpdateAtInvalid(t *testing.T) {
+	c := NewCollection()
+	c.CreateColumn("col1", ForString())
+
+	assert.Error(t, c.UpdateAt(0, "col2", func(v Cursor) error {
+		v.SetString("hi")
+		return nil
+	}))
+}

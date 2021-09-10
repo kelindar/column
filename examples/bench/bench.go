@@ -33,6 +33,7 @@ func main() {
 	createCollection(players, amount)
 
 	// Iterate over various workloads
+	fmt.Printf("   WORK         PROCS              READS             WRITES\n")
 	for _, w := range []int{10, 50, 90} {
 
 		// Iterate over various concurrency levels
@@ -55,23 +56,19 @@ func main() {
 					defer wg.Done()
 					offset := uint32(rand.Uint32n(uint32(amount - 1)))
 
-					// Given our write probabiliy, randomly update an offset
+					// Given our write probabiliy, randomly read/write at an offset
 					if rand.Uint32n(100) < uint32(w) {
-						players.UpdateAt(offset, "balance", 0.0)
-						atomic.AddInt64(&writes, 1)
-						return nil, nil
-					}
-
-					// Otherwise, randomly read something
-					players.Query(func(txn *column.Txn) error {
-						var count int64
-						txn.With(races[rand.Uint32n(4)]).Range("balance", func(v column.Cursor) {
-							count++
+						players.UpdateAt(offset, "balance", func(v column.Cursor) error {
+							v.SetFloat64(0)
+							return nil
 						})
-						atomic.AddInt64(&reads, count)
-						return nil
-					})
-
+						atomic.AddInt64(&writes, 1)
+					} else {
+						players.SelectAt(offset, func(v column.Selector) {
+							_ = v.FloatAt("balance") // Read
+						})
+						atomic.AddInt64(&reads, 1)
+					}
 					return nil, nil
 				})
 			}
@@ -82,9 +79,9 @@ func main() {
 
 			wg.Wait()
 			pool.Cancel()
-			fmt.Printf("%v%%-%v%%    %4v procs    %20v    %15v\n", 100-w, w, n,
-				humanize.Comma(readsPerSec)+" read/s",
-				humanize.Comma(writesPerSec)+" write/s",
+			fmt.Printf("%v%%-%v%%    %4v procs    %15v    %15v\n", 100-w, w, n,
+				humanize.Comma(readsPerSec)+" txn/s",
+				humanize.Comma(writesPerSec)+" txn/s",
 			)
 		}
 
