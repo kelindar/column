@@ -246,6 +246,17 @@ func (txn *Txn) Count() int {
 	return int(txn.index.Count())
 }
 
+// UpdateAt creates a cursor to a specific element that can be read or updated.
+func (txn *Txn) UpdateAt(index uint32, columnName string, fn func(v Cursor) error) error {
+	cursor, err := txn.cursorFor(columnName)
+	if err != nil {
+		return err
+	}
+
+	cursor.idx = index
+	return fn(cursor)
+}
+
 // ReadAt returns a selector for a specified index together with a boolean value that indicates
 // whether an element is present at the specified index or not.
 func (txn *Txn) ReadAt(index uint32) (Selector, bool) {

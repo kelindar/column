@@ -134,16 +134,26 @@ func (c *Collection) InsertWithTTL(obj Object, ttl time.Duration) (index uint32)
 	return
 }
 
-// UpdateAt updates a specific row/column combination and sets the value. It is also
-// possible to update during the query, which is much more convenient to use.
-func (c *Collection) UpdateAt(idx uint32, columnName string, value interface{}) {
-	c.Query(func(txn *Txn) error {
-		if cursor, err := txn.cursorFor(columnName); err == nil {
-			cursor.idx = idx
-			cursor.Set(value)
-		}
-		return nil
+// UpdateAt updates a specific row by initiating a separate transaction for the update.
+func (c *Collection) UpdateAt(idx uint32, columnName string, fn func(v Cursor) error) error {
+	return c.Query(func(txn *Txn) error {
+		return txn.UpdateAt(idx, columnName, fn)
 	})
+}
+
+// SelectAt performs a selection on a specific row specified by its index.
+func (c *Collection) SelectAt(idx uint32, fn func(v Selector)) bool {
+	c.lock.RLock()
+	contains := c.fill.Contains(idx)
+	c.lock.RUnlock()
+
+	// If it's empty or over the sequence, not found
+	if idx >= uint32(len(c.fill))<<6 || !contains {
+		return false
+	}
+
+	fn(Selector{idx: idx, col: c})
+	return true
 }
 
 // DeleteAt attempts to delete an item at the specified index for this collection. If the item
@@ -229,23 +239,6 @@ func (c *Collection) DropIndex(indexName string) error {
 	c.cols.DeleteIndex(columnName, indexName)
 	c.cols.DeleteColumn(indexName)
 	return nil
-}
-
-// Fetch retrieves an object by its handle and returns a Selector for it.
-func (c *Collection) Fetch(idx uint32) (Selector, bool) {
-	c.lock.RLock()
-	contains := c.fill.Contains(idx)
-	c.lock.RUnlock()
-
-	// If it's empty or over the sequence, not found
-	if idx >= uint32(len(c.fill))<<6 || !contains {
-		return Selector{}, false
-	}
-
-	return Selector{
-		idx: idx,
-		col: c,
-	}, true
 }
 
 // Query creates a transaction which allows for filtering and iteration over the
