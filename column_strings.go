@@ -5,6 +5,7 @@ package column
 
 import (
 	"encoding/binary"
+	"hash/crc32"
 	"math"
 	"reflect"
 	"sync"
@@ -90,7 +91,7 @@ func (c *columnEnum) Apply(r *commit.Reader) {
 // Search for the string or adds it and returns the offset
 func (c *columnEnum) findOrAdd(v string) uint32 {
 	value := toBytes(v)
-	target := hash32(value)
+	target := crc32.ChecksumIEEE(value)
 	for i := 0; i < len(c.data); {
 		hash := binary.BigEndian.Uint32(c.data[i : i+4])
 		size := int(c.data[i+4])
@@ -148,17 +149,14 @@ func (c *columnEnum) FilterString(offset uint32, index bitmap.Bitmap, predicate 
 	// caching the last seen index/value combination.
 	index.Filter(func(idx uint32) bool {
 		idx = offset + idx
-		if idx < uint32(len(c.locs)) {
-			if at := c.locs[idx]; at != cache.index {
-				cache.index = at
-				cache.value = predicate(c.readAt(at))
-				return cache.value
-			}
-
-			// The value is cached, avoid evaluating it
+		if at := c.locs[idx]; at != cache.index {
+			cache.index = at
+			cache.value = predicate(c.readAt(at))
 			return cache.value
 		}
-		return false
+
+		// The value is cached, avoid evaluating it
+		return cache.value
 	})
 }
 
@@ -256,54 +254,6 @@ func (c *columnString) FilterString(offset uint32, index bitmap.Bitmap, predicat
 		idx = offset + idx
 		return idx < uint32(len(c.data)) && predicate(c.data[idx])
 	})
-}
-
-// --------------------------- Hash ----------------------------
-
-const (
-	offset32 = uint32(2166136261)
-	prime32  = uint32(16777619)
-	init32   = offset32
-)
-
-// hash32 returns the hash of b.
-func hash32(b []byte) uint32 {
-	return hashBytes32(init32, b)
-}
-
-// hashBytes32 adds the hash of b to the precomputed hash value h.
-func hashBytes32(h uint32, b []byte) uint32 {
-	for len(b) >= 8 {
-		h = (h ^ uint32(b[0])) * prime32
-		h = (h ^ uint32(b[1])) * prime32
-		h = (h ^ uint32(b[2])) * prime32
-		h = (h ^ uint32(b[3])) * prime32
-		h = (h ^ uint32(b[4])) * prime32
-		h = (h ^ uint32(b[5])) * prime32
-		h = (h ^ uint32(b[6])) * prime32
-		h = (h ^ uint32(b[7])) * prime32
-		b = b[8:]
-	}
-
-	if len(b) >= 4 {
-		h = (h ^ uint32(b[0])) * prime32
-		h = (h ^ uint32(b[1])) * prime32
-		h = (h ^ uint32(b[2])) * prime32
-		h = (h ^ uint32(b[3])) * prime32
-		b = b[4:]
-	}
-
-	if len(b) >= 2 {
-		h = (h ^ uint32(b[0])) * prime32
-		h = (h ^ uint32(b[1])) * prime32
-		b = b[2:]
-	}
-
-	if len(b) > 0 {
-		h = (h ^ uint32(b[0])) * prime32
-	}
-
-	return h
 }
 
 // --------------------------- Convert ----------------------------
