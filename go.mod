@@ -6,7 +6,6 @@ require (
 	github.com/dustin/go-humanize v1.0.0
 	github.com/kelindar/async v1.0.0
 	github.com/kelindar/bitmap v1.1.1
-	github.com/kelindar/rand v1.0.2
 	github.com/kelindar/smutex v1.0.0
 	github.com/stretchr/testify v1.7.0
 )
