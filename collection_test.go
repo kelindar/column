@@ -371,6 +371,89 @@ func TestExpire(t *testing.T) {
 	assert.Equal(t, 0, col.Count())
 }
 
+func TestCreateIndex(t *testing.T) {
+	row := Object{
+		"age": 35,
+	}
+
+	// Create a collection with 1 row
+	col := NewCollection()
+	col.CreateColumnsOf(row)
+	col.Insert(row)
+	defer col.Close()
+
+	// Create an index, add 1 more row
+	assert.NoError(t, col.CreateIndex("young", "age", func(r Reader) bool {
+		return r.Int() < 50
+	}))
+	col.Insert(row)
+
+	// We now should have 2 rows in the index
+	col.Query(func(txn *Txn) error {
+		assert.Equal(t, 2, txn.With("young").Count())
+		return nil
+	})
+}
+
+func TestCreateIndexInvalidColumn(t *testing.T) {
+	col := NewCollection()
+	defer col.Close()
+
+	assert.Error(t, col.CreateIndex("young", "invalid", func(r Reader) bool {
+		return r.Int() < 50
+	}))
+}
+
+func TestDropIndex(t *testing.T) {
+	row := Object{
+		"age": 35,
+	}
+
+	// Create a collection with 1 row
+	col := NewCollection()
+	col.CreateColumnsOf(row)
+	col.Insert(row)
+	defer col.Close()
+
+	// Create an index
+	assert.NoError(t, col.CreateIndex("young", "age", func(r Reader) bool {
+		return r.Int() < 50
+	}))
+
+	// Drop it, should be successful
+	assert.NoError(t, col.DropIndex("young"))
+}
+
+func TestDropInvalidIndex(t *testing.T) {
+	col := NewCollection()
+	defer col.Close()
+	assert.Error(t, col.DropIndex("young"))
+}
+
+func TestDropColumnNotIndex(t *testing.T) {
+	col := NewCollection()
+	col.CreateColumn("age", ForInt())
+	defer col.Close()
+	assert.Error(t, col.DropIndex("age"))
+}
+
+func TestDropOneOfMultipleIndices(t *testing.T) {
+	col := NewCollection()
+	col.CreateColumn("age", ForInt())
+	defer col.Close()
+
+	// Create a couple of indices
+	assert.NoError(t, col.CreateIndex("young", "age", func(r Reader) bool {
+		return r.Int() < 50
+	}))
+	assert.NoError(t, col.CreateIndex("old", "age", func(r Reader) bool {
+		return r.Int() >= 50
+	}))
+
+	// Drop one of them
+	assert.NoError(t, col.DropIndex("old"))
+}
+
 func TestInsertParallel(t *testing.T) {
 	obj := Object{
 		"name":   "Roman",
@@ -406,6 +489,20 @@ func loadPlayers(amount int) *Collection {
 		Writer:   new(noopWriter),
 	})
 
+	// Load the items into the collection
+	out.CreateColumn("serial", ForEnum())
+	out.CreateColumn("name", ForEnum())
+	out.CreateColumn("active", ForBool())
+	out.CreateColumn("class", ForEnum())
+	out.CreateColumn("race", ForEnum())
+	out.CreateColumn("age", ForFloat64())
+	out.CreateColumn("hp", ForFloat64())
+	out.CreateColumn("mp", ForFloat64())
+	out.CreateColumn("balance", ForFloat64())
+	out.CreateColumn("gender", ForEnum())
+	out.CreateColumn("guild", ForEnum())
+	//out.CreateColumn("location", ForString())
+
 	// index on humans
 	out.CreateIndex("human", "race", func(r Reader) bool {
 		return r.String() == "human"
@@ -435,20 +532,6 @@ func loadPlayers(amount int) *Collection {
 	out.CreateIndex("old", "age", func(r Reader) bool {
 		return r.Float() >= 30
 	})
-
-	// Load the items into the collection
-	out.CreateColumn("serial", ForEnum())
-	out.CreateColumn("name", ForEnum())
-	out.CreateColumn("active", ForBool())
-	out.CreateColumn("class", ForEnum())
-	out.CreateColumn("race", ForEnum())
-	out.CreateColumn("age", ForFloat64())
-	out.CreateColumn("hp", ForFloat64())
-	out.CreateColumn("mp", ForFloat64())
-	out.CreateColumn("balance", ForFloat64())
-	out.CreateColumn("gender", ForEnum())
-	out.CreateColumn("guild", ForEnum())
-	//out.CreateColumn("location", ForString())
 
 	// Load and copy until we reach the amount required
 	data := loadFixture("players.json")
