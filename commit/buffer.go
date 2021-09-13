@@ -30,7 +30,7 @@ const (
 	Delete   OpType = 0 // Delete deletes an entire row or a set of rows
 	Insert   OpType = 1 // Insert inserts a new row or a set of rows
 	PutFalse OpType = 0 // PutFalse is a combination of Put+False for boolean values
-	PutTrue  OpType = 1 // PutTrue is a combination of Put+True for boolean values
+	PutTrue  OpType = 2 // PutTrue is a combination of Put+True for boolean values
 	Put      OpType = 2 // Put stores a value regardless of a previous value
 	Add      OpType = 3 // Add increments the current stored value by the amount
 )
