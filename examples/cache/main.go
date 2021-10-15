@@ -15,16 +15,17 @@ func main() {
 	amount := 50000
 	cache := New()
 
-	fmt.Println("inserting users...")
-	for i := 0; i < amount; i++ {
-		key := fmt.Sprintf("user_%d", i)
-		val := fmt.Sprintf("Hi, User %d", i)
-		cache.Set(key, val)
+	measure("insert", fmt.Sprintf("%v rows", amount), func() {
+		for i := 0; i < amount; i++ {
+			key := fmt.Sprintf("user_%d", i)
+			val := fmt.Sprintf("Hi, User %d", i)
+			cache.Set(key, val)
 
-		if (i+1)%10000 == 0 {
-			fmt.Printf("-> inserted %v rows\n", i+1)
+			if (i+1)%10000 == 0 {
+				fmt.Printf("-> inserted %v rows\n", i+1)
+			}
 		}
-	}
+	}, 1)
 
 	for i := 0; i < 10; i++ {
 		key := fmt.Sprintf("user_%d", xxrand.Intn(amount))
