@@ -102,50 +102,51 @@ func (c *Cache) Set(key, value string) {
 Below are some results for the cache, it first populates 50,000 items, which is kind of slow. Then, does 10 random searches and measures it. Here, since we have 100 buckets and 50,000 items the search would produce around 500 elements per retrieval, after the binary AND operation.
 
 ```
-inserting users...
+running insert of 50000 rows...
 -> inserted 10000 rows
 -> inserted 20000 rows
 -> inserted 30000 rows
 -> inserted 40000 rows
 -> inserted 50000 rows
+-> insert took 214.1031ms
 
-running query of user_26610...
-Hi, User 26610 true
--> query took 8.656µs
+running query of user_10156...
+Hi, User 10156 true
+-> query took 3.683µs
 
-running query of user_24331...
-Hi, User 24331 true
--> query took 9.01µs
+running query of user_26245...
+Hi, User 26245 true
+-> query took 3.862µs
 
-running query of user_3037...
-Hi, User 3037 true
--> query took 9.028µs
+running query of user_4187...
+Hi, User 4187 true
+-> query took 3.427µs
 
-running query of user_11939...
-Hi, User 11939 true
--> query took 8.516µs
+running query of user_10333...
+Hi, User 10333 true
+-> query took 3.529µs
 
-running query of user_17105...
-Hi, User 17105 true
--> query took 8.255µs
+running query of user_22579...
+Hi, User 22579 true
+-> query took 3.508µs
 
-running query of user_21641...
-Hi, User 21641 true
--> query took 9.183µs
+running query of user_14530...
+Hi, User 14530 true
+-> query took 3.352µs
 
-running query of user_2246...
-Hi, User 2246 true
--> query took 8.885µs
+running query of user_11922...
+Hi, User 11922 true
+-> query took 3.508µs
 
-running query of user_39395...
-Hi, User 39395 true
--> query took 9.156µs
+running query of user_24969...
+Hi, User 24969 true
+-> query took 3.542µs
 
-running query of user_15154...
-Hi, User 15154 true
--> query took 8.983µs
+running query of user_44266...
+Hi, User 44266 true
+-> query took 7.024µs
 
-running query of user_8555...
-Hi, User 8555 true
--> query took 8.75µs
+running query of user_482...
+Hi, User 482 true
+-> query took 3.503µs
 ```
