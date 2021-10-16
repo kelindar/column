@@ -35,6 +35,7 @@ type Collection struct {
 	fill   bitmap.Bitmap      // The fill-list
 	size   int                // The initial size for new columns
 	writer commit.Writer      // The commit writer
+	pk     *columnKey         // The primary key column
 	cancel context.CancelFunc // The cancellation function for the context
 }
 
@@ -115,21 +116,40 @@ func (c *Collection) findFreeIndex(count uint64) uint32 {
 	return idx
 }
 
-// Insert adds an object to a collection and returns the allocated index.
-func (c *Collection) Insert(obj Object) (index uint32) {
+// InsertObject adds an object to a collection and returns the allocated index.
+func (c *Collection) InsertObject(obj Object) (index uint32) {
 	c.Query(func(txn *Txn) error {
-		index = txn.Insert(obj)
+		index, _ = txn.InsertObject(obj)
 		return nil
 	})
 	return
 }
 
-// InsertWithTTL adds an object to a collection, sets the expiration time
+// InsertObjectWithTTL adds an object to a collection, sets the expiration time
 // based on the specified time-to-live and returns the allocated index.
-func (c *Collection) InsertWithTTL(obj Object, ttl time.Duration) (index uint32) {
+func (c *Collection) InsertObjectWithTTL(obj Object, ttl time.Duration) (index uint32) {
 	c.Query(func(txn *Txn) error {
-		index = txn.InsertWithTTL(obj, ttl)
+		index, _ = txn.InsertObjectWithTTL(obj, ttl)
 		return nil
+	})
+	return
+}
+
+// Insert executes a mutable cursor trasactionally at a new offset.
+func (c *Collection) Insert(columnName string, fn func(v Cursor) error) (index uint32, err error) {
+	err = c.Query(func(txn *Txn) (innerErr error) {
+		index, innerErr = txn.Insert(columnName, fn)
+		return
+	})
+	return
+}
+
+// InsertWithTTL executes a mutable cursor trasactionally at a new offset and sets the expiration time
+// based on the specified time-to-live and returns the allocated index.
+func (c *Collection) InsertWithTTL(columnName string, ttl time.Duration, fn func(v Cursor) error) (index uint32, err error) {
+	err = c.Query(func(txn *Txn) (innerErr error) {
+		index, innerErr = txn.InsertWithTTL(columnName, ttl, fn)
+		return
 	})
 	return
 }
@@ -138,6 +158,13 @@ func (c *Collection) InsertWithTTL(obj Object, ttl time.Duration) (index uint32)
 func (c *Collection) UpdateAt(idx uint32, columnName string, fn func(v Cursor) error) error {
 	return c.Query(func(txn *Txn) error {
 		return txn.UpdateAt(idx, columnName, fn)
+	})
+}
+
+// UpdateAtKey updates a specific row by initiating a separate transaction for the update.
+func (c *Collection) UpdateAtKey(key, columnName string, fn func(v Cursor) error) error {
+	return c.Query(func(txn *Txn) error {
+		return txn.UpdateAtKey(key, columnName, fn)
 	})
 }
 
@@ -156,6 +183,19 @@ func (c *Collection) SelectAt(idx uint32, fn func(v Selector)) bool {
 	return true
 }
 
+// SelectAtKey performs a selection on a specific row specified by its key. It returns
+// a boolean value indicating whether an element is present at the key or not.
+func (c *Collection) SelectAtKey(key string, fn func(v Selector)) (found bool) {
+	if c.pk == nil {
+		return false
+	}
+
+	if idx, ok := c.pk.OffsetOf(key); ok {
+		found = c.SelectAt(idx, fn)
+	}
+	return
+}
+
 // DeleteAt attempts to delete an item at the specified index for this collection. If the item
 // exists, it marks at as deleted and returns true, otherwise it returns false.
 func (c *Collection) DeleteAt(idx uint32) (deleted bool) {
@@ -171,17 +211,35 @@ func (c *Collection) Count() (count int) {
 	return int(atomic.LoadUint64(&c.count))
 }
 
+// createColumnKey attempts to create a primary key column
+func (c *Collection) createColumnKey(columnName string, column *columnKey) error {
+	if c.pk != nil {
+		return fmt.Errorf("column: unable to create key column '%s', another one exists", columnName)
+	}
+
+	c.pk = column
+	c.pk.name = columnName
+	return nil
+}
+
 // CreateColumnsOf registers a set of columns that are present in the target object.
-func (c *Collection) CreateColumnsOf(object Object) {
+func (c *Collection) CreateColumnsOf(object Object) error {
 	for k, v := range object {
 		c.CreateColumn(k, ForKind(reflect.TypeOf(v).Kind()))
 	}
+	return nil
 }
 
 // CreateColumn creates a column of a specified type and adds it to the collection.
-func (c *Collection) CreateColumn(columnName string, column Column) {
+func (c *Collection) CreateColumn(columnName string, column Column) error {
 	column.Grow(uint32(c.size))
 	c.cols.Store(columnName, columnFor(columnName, column))
+
+	// If necessary, create a primary key column
+	if pk, ok := column.(*columnKey); ok {
+		return c.createColumnKey(columnName, pk)
+	}
+	return nil
 }
 
 // DropColumn removes the column (or an index) with the specified name. If the column with this

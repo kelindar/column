@@ -415,7 +415,7 @@ func TestCountTwice(t *testing.T) {
 	})
 	model.Query(func(txn *Txn) error {
 		for i := 0; i < 20000; i++ {
-			txn.Insert(map[string]interface{}{
+			txn.InsertObject(map[string]interface{}{
 				"string": fmt.Sprint(i),
 			})
 		}
@@ -447,7 +447,7 @@ func TestUninitializedSet(t *testing.T) {
 
 	assert.NoError(t, c.Query(func(txn *Txn) error {
 		for i := 0; i < 20000; i++ {
-			txn.Insert(map[string]interface{}{
+			txn.InsertObject(map[string]interface{}{
 				"col1": fmt.Sprint(i % 3),
 			})
 		}
@@ -470,7 +470,7 @@ func TestUninitializedSet(t *testing.T) {
 func TestUpdateAt(t *testing.T) {
 	c := NewCollection()
 	c.CreateColumn("col1", ForString())
-	index := c.Insert(map[string]interface{}{
+	index := c.InsertObject(map[string]interface{}{
 		"col1": "hello",
 	})
 
@@ -492,4 +492,35 @@ func TestUpdateAtInvalid(t *testing.T) {
 		v.SetString("hi")
 		return nil
 	}))
+}
+
+func TestUpsertKey(t *testing.T) {
+	c := NewCollection()
+	c.CreateColumn("key", ForKey())
+	c.CreateColumn("val", ForString())
+	assert.NoError(t, c.UpdateAtKey("1", "val", func(v Cursor) error {
+		v.Set("Roman")
+		return nil
+	}))
+
+	count := 0
+	c.SelectAtKey("1", func(v Selector) {
+		assert.Equal(t, "Roman", v.StringAt("val"))
+		count++
+	})
+	assert.Equal(t, 1, count)
+}
+
+func TestUpsertKeyNoColumn(t *testing.T) {
+	c := NewCollection()
+	c.CreateColumn("key", ForKey())
+	assert.Error(t, c.UpdateAtKey("1", "xxx", func(v Cursor) error {
+		return nil
+	}))
+}
+
+func TestDuplicateKey(t *testing.T) {
+	c := NewCollection()
+	assert.NoError(t, c.CreateColumn("key1", ForKey()))
+	assert.Error(t, c.CreateColumn("key2", ForKey()))
 }

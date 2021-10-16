@@ -115,9 +115,9 @@ func (b *Buffer) PutAny(op OpType, idx uint32, value interface{}) {
 	case int32:
 		b.PutInt32(op, idx, v)
 	case int16:
-		b.PutUint16(op, idx, uint16(v))
+		b.PutInt16(op, idx, v)
 	case int8:
-		b.PutUint16(op, idx, uint16(v))
+		b.PutInt16(op, idx, int16(v))
 	case string:
 		b.PutString(op, idx, v)
 	case []byte:

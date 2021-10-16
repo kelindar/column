@@ -34,7 +34,7 @@ func main() {
 	// Perform a bulk insert
 	players.Query(func(txn *column.Txn) error {
 		for _, v := range loaded {
-			txn.Insert(v)
+			txn.InsertObject(v)
 		}
 		return nil
 	})

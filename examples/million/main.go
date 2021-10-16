@@ -140,7 +140,7 @@ func createCollection(out *column.Collection, amount int) *column.Collection {
 
 		out.Query(func(txn *column.Txn) error {
 			for _, p := range data {
-				txn.Insert(p)
+				txn.InsertObject(p)
 			}
 			return nil
 		})

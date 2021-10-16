@@ -27,12 +27,11 @@ func main() {
 		}
 	}, 1)
 
-	for i := 0; i < 10; i++ {
-		key := fmt.Sprintf("user_%d", xxrand.Intn(amount))
-		measure("query", key, func() {
-			fmt.Println(cache.Get(key))
-		}, 10000)
-	}
+	key := fmt.Sprintf("user_%d", xxrand.Intn(amount))
+	measure("query", key, func() {
+		xxrand.Intn(amount)
+		fmt.Println(cache.Get(key))
+	}, 100000)
 }
 
 func measure(action, name string, fn func(), iterations int) {

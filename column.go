@@ -80,6 +80,7 @@ var (
 	ForUint64  = makeUint64s
 	ForBool    = makeBools
 	ForEnum    = makeEnum
+	ForKey     = makeKey
 )
 
 // ForKind creates a new column instance for a specified reflect.Kind
