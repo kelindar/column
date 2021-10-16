@@ -159,7 +159,7 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 func testColumnCursor(t *testing.T, column Column, value interface{}) {
 	col := NewCollection()
 	col.CreateColumn("test", column)
-	col.Insert(map[string]interface{}{
+	col.InsertObject(map[string]interface{}{
 		"test": value,
 	})
 
@@ -312,7 +312,7 @@ func TestForString(t *testing.T) {
 
 	data := []string{"a", "b", "c", "d"}
 	for i, d := range data {
-		coll.Insert(map[string]interface{}{"id": i, "data": d})
+		coll.InsertObject(map[string]interface{}{"id": i, "data": d})
 	}
 
 	coll.Query(func(tx *Txn) error {
@@ -328,4 +328,39 @@ func TestForKind(t *testing.T) {
 	assert.Panics(t, func() {
 		ForKind(reflect.Invalid)
 	})
+}
+
+func TestAtKey(t *testing.T) {
+	const serial = "c68a66f6-7b90-4b3a-8105-cfde490df780"
+
+	// Update a name
+	players := loadPlayers(500)
+	players.UpdateAtKey(serial, "name", func(v Cursor) error {
+		v.SetString("Roman")
+		return nil
+	})
+
+	// Read back and assert
+	assertion := func(v Selector) {
+		assert.Equal(t, "Roman", v.StringAt("name"))
+		assert.Equal(t, "elf", v.StringAt("race"))
+	}
+
+	assert.True(t, players.SelectAtKey(serial, assertion))
+	assert.NoError(t, players.Query(func(txn *Txn) error {
+		assert.True(t, txn.SelectAtKey(serial, assertion))
+		return nil
+	}))
+}
+
+func TestUpdateAtKeyWithoutPK(t *testing.T) {
+	col := NewCollection()
+	assert.Error(t, col.UpdateAtKey("test", "name", func(v Cursor) error {
+		return nil
+	}))
+}
+
+func TestSelectAtKeyWithoutPK(t *testing.T) {
+	col := NewCollection()
+	assert.False(t, col.SelectAtKey("test", func(v Selector) {}))
 }

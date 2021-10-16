@@ -4,12 +4,17 @@
 package column
 
 import (
+	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
+)
+
+var (
+	errNoKey = errors.New("column: collection does not have a key column")
 )
 
 // --------------------------- Pool of Transactions ----------------------------
@@ -246,6 +251,22 @@ func (txn *Txn) Count() int {
 	return int(txn.index.Count())
 }
 
+// UpdateAtKey creates a cursor to a specific element at a given key that can be read or updated.
+func (txn *Txn) UpdateAtKey(key, columnName string, fn func(v Cursor) error) error {
+	if txn.owner.pk == nil {
+		return errNoKey
+	}
+
+	if idx, ok := txn.owner.pk.OffsetOf(key); ok {
+		return txn.UpdateAt(idx, columnName, fn)
+	}
+
+	// If not found, insert at a new index
+	idx, err := txn.insert(columnName, fn, 0)
+	txn.bufferFor(txn.owner.pk.name).PutString(commit.Put, idx, key)
+	return err
+}
+
 // UpdateAt creates a cursor to a specific element that can be read or updated.
 func (txn *Txn) UpdateAt(index uint32, columnName string, fn func(v Cursor) error) error {
 	cursor, err := txn.cursorFor(columnName)
@@ -261,6 +282,12 @@ func (txn *Txn) UpdateAt(index uint32, columnName string, fn func(v Cursor) erro
 // a boolean value indicating whether an element is present at the index or not.
 func (txn *Txn) SelectAt(index uint32, fn func(v Selector)) bool {
 	return txn.owner.SelectAt(index, fn)
+}
+
+// SelectAtKey performs a selection on a specific row specified by its key. It returns
+// a boolean value indicating whether an element is present at the key or not.
+func (txn *Txn) SelectAtKey(key string, fn func(v Selector)) (found bool) {
+	return txn.owner.SelectAtKey(key, fn)
 }
 
 // DeleteAt attempts to delete an item at the specified index for this transaction. If the item
@@ -279,42 +306,55 @@ func (txn *Txn) deleteAt(idx uint32) {
 	txn.bufferFor(rowColumn).PutOperation(commit.Delete, idx)
 }
 
-// Insert inserts an object at a new index and returns the index for this object. This is
-// done transactionally and the object will only be visible after the transaction is committed.
-func (txn *Txn) Insert(object Object) uint32 {
-	return txn.insert(object, 0)
+// InsertObject adds an object to a collection and returns the allocated index.
+func (txn *Txn) InsertObject(object Object) (uint32, error) {
+	return txn.insertObject(object, 0)
 }
 
-// InsertWithTTL inserts an object at a new index and returns the index for this object. In
-// addition, it also sets the time-to-live of an object to the specified time. This is done
-// transactionally and the object will only be visible after the transaction is committed.
-func (txn *Txn) InsertWithTTL(object Object, ttl time.Duration) uint32 {
-	return txn.insert(object, time.Now().Add(ttl).UnixNano())
+// InsertObjectWithTTL adds an object to a collection, sets the expiration time
+// based on the specified time-to-live and returns the allocated index.
+func (txn *Txn) InsertObjectWithTTL(object Object, ttl time.Duration) (uint32, error) {
+	return txn.insertObject(object, time.Now().Add(ttl).UnixNano())
 }
 
-// Insert inserts an object at a new index and returns the index for this object. This is
-// done transactionally and the object will only be visible after the transaction is committed.
-func (txn *Txn) insert(object Object, expireAt int64) uint32 {
-	slot := Cursor{
-		Selector: Selector{
-			idx: txn.owner.next(),
-			txn: txn,
-		},
-	}
+// Insert executes a mutable cursor trasactionally at a new offset.
+func (txn *Txn) Insert(columnName string, fn func(v Cursor) error) (uint32, error) {
+	return txn.insert(columnName, fn, 0)
+}
 
-	// Set the insert bit and generate the updates
-	txn.bufferFor(rowColumn).PutOperation(commit.Insert, slot.idx)
-	for k, v := range object {
-		if _, ok := txn.columnAt(k); ok {
-			slot.SetAt(k, v)
+// InsertWithTTL executes a mutable cursor trasactionally at a new offset and sets the expiration time
+// based on the specified time-to-live and returns the allocated index.
+func (txn *Txn) InsertWithTTL(columnName string, ttl time.Duration, fn func(v Cursor) error) (uint32, error) {
+	return txn.insert(columnName, fn, time.Now().Add(ttl).UnixNano())
+}
+
+// insertObject inserts all of the keys of a map, if previously registered as columns.
+func (txn *Txn) insertObject(object Object, expireAt int64) (uint32, error) {
+	return txn.insert(expireColumn, func(cursor Cursor) error {
+		for k, v := range object {
+			if _, ok := txn.columnAt(k); ok {
+				cursor.SetAt(k, v)
+			}
 		}
+		return nil
+	}, expireAt)
+}
+
+// insert creates an insertion cursor for a given column and expiration time.
+func (txn *Txn) insert(columnName string, fn func(v Cursor) error, expireAt int64) (uint32, error) {
+	cursor, err := txn.cursorFor(columnName)
+	if err != nil {
+		return 0, err
 	}
 
-	// Add expiration if specified
+	// At a new index, add the insertion marker
+	cursor.idx = txn.owner.next()
+	txn.bufferFor(rowColumn).PutOperation(commit.Insert, cursor.idx)
 	if expireAt != 0 {
-		slot.SetAt(expireColumn, expireAt)
+		cursor.SetAt(expireColumn, expireAt)
 	}
-	return slot.idx
+
+	return cursor.idx, fn(cursor)
 }
 
 // Select iterates over the result set and allows to read any column. While this

@@ -4,6 +4,8 @@
 package column
 
 import (
+	"sync"
+
 	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
 )
@@ -104,4 +106,55 @@ func (c *columnIndex) Contains(idx uint32) bool {
 // Index returns the fill list for the column
 func (c *columnIndex) Index() *bitmap.Bitmap {
 	return &c.fill
+}
+
+// --------------------------- Key ----------------------------
+
+// columnKey represents the primary key column implementation
+type columnKey struct {
+	columnString
+	name string            // Name of the column
+	lock sync.RWMutex      // Lock to protect the lookup table
+	seek map[string]uint32 // Lookup table for O(1) index seek
+}
+
+// makeKey creates a new primary key column
+func makeKey() Column {
+	return &columnKey{
+		seek: make(map[string]uint32, 64),
+		columnString: columnString{
+			fill: make(bitmap.Bitmap, 0, 4),
+			data: make([]string, 0, 64),
+		},
+	}
+}
+
+// Apply applies a set of operations to the column.
+func (c *columnKey) Apply(r *commit.Reader) {
+	for r.Next() {
+		switch r.Type {
+		case commit.Put:
+			value := string(r.Bytes())
+
+			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
+			c.data[r.Offset] = value
+			c.lock.Lock()
+			c.seek[value] = uint32(r.Offset)
+			c.lock.Unlock()
+
+		case commit.Delete:
+			c.fill.Remove(r.Index())
+			c.lock.Lock()
+			delete(c.seek, string(c.data[r.Offset]))
+			c.lock.Unlock()
+		}
+	}
+}
+
+// OffsetOf returns the offset for a particular value
+func (c *columnKey) OffsetOf(v string) (uint32, bool) {
+	c.lock.RLock()
+	idx, ok := c.seek[v]
+	c.lock.RUnlock()
+	return idx, ok
 }

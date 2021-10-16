@@ -49,7 +49,7 @@ func BenchmarkCollection(b *testing.B) {
 
 			temp.Query(func(txn *Txn) error {
 				for _, p := range data {
-					txn.Insert(p)
+					txn.InsertObject(p)
 				}
 				return nil
 			})
@@ -201,7 +201,7 @@ func runReplication(t *testing.T, updates, inserts, concurrency int) {
 
 		// Write some objects
 		for i := 0; i < inserts; i++ {
-			primary.Insert(object)
+			primary.InsertObject(object)
 		}
 
 		work := make(chan async.Task)
@@ -236,7 +236,7 @@ func runReplication(t *testing.T, updates, inserts, concurrency int) {
 
 				// Randomly insert an item
 				if rand.Int31n(5) == 0 {
-					primary.Insert(object)
+					primary.InsertObject(object)
 				}
 				return nil, nil
 			})
@@ -282,7 +282,7 @@ func TestCollection(t *testing.T) {
 
 	col := NewCollection()
 	col.CreateColumnsOf(obj)
-	idx := col.Insert(obj)
+	idx := col.InsertObject(obj)
 
 	// Should not drop, since it's not an index
 	col.DropIndex("name")
@@ -307,7 +307,7 @@ func TestCollection(t *testing.T) {
 	}
 
 	{ // Add a new one, should replace
-		idx := col.Insert(obj)
+		idx := col.InsertObject(obj)
 		assert.True(t, col.SelectAt(idx, func(v Selector) {
 			assert.Equal(t, "Roman", v.StringAt("name"))
 		}))
@@ -336,8 +336,8 @@ func TestCollection(t *testing.T) {
 func TestInsertObject(t *testing.T) {
 	col := NewCollection()
 	col.CreateColumn("name", ForString())
-	col.Insert(Object{"name": "A"})
-	col.Insert(Object{"name": "B"})
+	col.InsertObject(Object{"name": "A"})
+	col.InsertObject(Object{"name": "B"})
 
 	assert.Equal(t, 2, col.Count())
 	assert.NoError(t, col.Query(func(txn *Txn) error {
@@ -364,7 +364,7 @@ func TestExpire(t *testing.T) {
 	defer col.Close()
 
 	// Insert an object
-	col.InsertWithTTL(obj, time.Microsecond)
+	col.InsertObjectWithTTL(obj, time.Microsecond)
 	col.Query(func(txn *Txn) error {
 		return txn.Range(expireColumn, func(v Cursor) {
 			expireAt := time.Unix(0, int64(v.Int()))
@@ -389,14 +389,14 @@ func TestCreateIndex(t *testing.T) {
 	// Create a collection with 1 row
 	col := NewCollection()
 	col.CreateColumnsOf(row)
-	col.Insert(row)
+	col.InsertObject(row)
 	defer col.Close()
 
 	// Create an index, add 1 more row
 	assert.NoError(t, col.CreateIndex("young", "age", func(r Reader) bool {
 		return r.Int() < 50
 	}))
-	col.Insert(row)
+	col.InsertObject(row)
 
 	// We now should have 2 rows in the index
 	col.Query(func(txn *Txn) error {
@@ -422,7 +422,7 @@ func TestDropIndex(t *testing.T) {
 	// Create a collection with 1 row
 	col := NewCollection()
 	col.CreateColumnsOf(row)
-	col.Insert(row)
+	col.InsertObject(row)
 	defer col.Close()
 
 	// Create an index
@@ -478,7 +478,7 @@ func TestInsertParallel(t *testing.T) {
 	wg.Add(500)
 	for i := 0; i < 500; i++ {
 		go func() {
-			col.Insert(obj)
+			col.InsertObject(obj)
 			wg.Done()
 		}()
 	}
@@ -503,7 +503,7 @@ func TestConcurrentPointReads(t *testing.T) {
 	col := NewCollection()
 	col.CreateColumnsOf(obj)
 	for i := 0; i < 1000; i++ {
-		col.Insert(obj)
+		col.InsertObject(obj)
 	}
 
 	var ops int64
@@ -539,6 +539,34 @@ func TestConcurrentPointReads(t *testing.T) {
 	assert.Equal(t, 20000, int(atomic.LoadInt64(&ops)))
 }
 
+func TestInsert(t *testing.T) {
+	c := NewCollection()
+	c.CreateColumn("name", ForString())
+
+	idx, err := c.Insert("name", func(v Cursor) error {
+		v.Set("Roman")
+		return nil
+	})
+	assert.Equal(t, uint32(0), idx)
+	assert.NoError(t, err)
+}
+
+func TestInsertWithTTL(t *testing.T) {
+	c := NewCollection()
+	c.CreateColumn("name", ForString())
+
+	idx, err := c.InsertWithTTL("name", time.Hour, func(v Cursor) error {
+		v.Set("Roman")
+		return nil
+	})
+	assert.Equal(t, uint32(0), idx)
+	assert.NoError(t, err)
+
+	c.SelectAt(idx, func(v Selector) {
+		assert.NotZero(t, v.IntAt(expireColumn))
+	})
+}
+
 // loadPlayers loads a list of players from the fixture
 func loadPlayers(amount int) *Collection {
 	out := NewCollection(Options{
@@ -548,7 +576,7 @@ func loadPlayers(amount int) *Collection {
 	})
 
 	// Load the items into the collection
-	out.CreateColumn("serial", ForEnum())
+	out.CreateColumn("serial", ForKey())
 	out.CreateColumn("name", ForEnum())
 	out.CreateColumn("active", ForBool())
 	out.CreateColumn("class", ForEnum())
@@ -596,7 +624,7 @@ func loadPlayers(amount int) *Collection {
 	for i := 0; i < amount/len(data); i++ {
 		out.Query(func(txn *Txn) error {
 			for _, p := range data {
-				txn.Insert(p)
+				txn.InsertObject(p)
 			}
 			return nil
 		})
