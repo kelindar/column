@@ -141,72 +141,64 @@ func (b *Buffer) PutAny(op OpType, idx uint32, value interface{}) {
 
 // PutUint64 appends a uint64 value.
 func (b *Buffer) PutUint64(op OpType, idx uint32, value uint64) {
-	b.writeChunk(idx)
-	delta := int32(idx) - b.last
-	b.last = int32(idx)
-	if delta == 1 {
+	delta := b.writeChunk(idx)
+	switch delta {
+	case 1:
 		b.buffer = append(b.buffer,
 			byte(op)|size8|isNext,
 			byte(value>>56), byte(value>>48), byte(value>>40), byte(value>>32),
 			byte(value>>24), byte(value>>16), byte(value>>8), byte(value),
 		)
-		return
+	default:
+		b.buffer = append(b.buffer,
+			byte(op)|size8,
+			byte(value>>56), byte(value>>48), byte(value>>40), byte(value>>32),
+			byte(value>>24), byte(value>>16), byte(value>>8), byte(value),
+		)
+		b.writeOffset(uint32(delta))
 	}
-
-	b.buffer = append(b.buffer,
-		byte(op)|size8,
-		byte(value>>56), byte(value>>48), byte(value>>40), byte(value>>32),
-		byte(value>>24), byte(value>>16), byte(value>>8), byte(value),
-	)
-	b.writeOffset(uint32(delta))
 }
 
 // PutUint32 appends a uint32 value.
 func (b *Buffer) PutUint32(op OpType, idx uint32, value uint32) {
-	b.writeChunk(idx)
-	delta := int32(idx) - b.last
-	b.last = int32(idx)
-	if delta == 1 {
+	delta := b.writeChunk(idx)
+	switch delta {
+	case 1:
 		b.buffer = append(b.buffer,
 			byte(op)|size4|isNext,
 			byte(value>>24), byte(value>>16), byte(value>>8), byte(value),
 		)
-		return
+	default:
+		b.buffer = append(b.buffer,
+			byte(op)|size4,
+			byte(value>>24), byte(value>>16), byte(value>>8), byte(value),
+		)
+		b.writeOffset(uint32(delta))
 	}
-
-	b.buffer = append(b.buffer,
-		byte(op)|size4,
-		byte(value>>24), byte(value>>16), byte(value>>8), byte(value),
-	)
-	b.writeOffset(uint32(delta))
 }
 
 // PutUint16 appends a uint16 value.
 func (b *Buffer) PutUint16(op OpType, idx uint32, value uint16) {
-	b.writeChunk(idx)
-	delta := int32(idx) - b.last
-	b.last = int32(idx)
-	if delta == 1 {
+	delta := b.writeChunk(idx)
+	switch delta {
+	case 1:
 		b.buffer = append(b.buffer, byte(op)|size2|isNext, byte(value>>8), byte(value))
-		return
+	default:
+		b.buffer = append(b.buffer, byte(op)|size2, byte(value>>8), byte(value))
+		b.writeOffset(uint32(delta))
 	}
-
-	b.buffer = append(b.buffer, byte(op)|size2, byte(value>>8), byte(value))
-	b.writeOffset(uint32(delta))
 }
 
 // PutOperation appends an operation type without a value.
 func (b *Buffer) PutOperation(op OpType, idx uint32) {
-	b.writeChunk(idx)
-	delta := int32(idx) - b.last
-	b.last = int32(idx)
-	if delta == 1 {
+	delta := b.writeChunk(idx)
+	switch delta {
+	case 1:
 		b.buffer = append(b.buffer, byte(op)|size0|isNext)
-		return
+	default:
+		b.buffer = append(b.buffer, byte(op)|size0)
+		b.writeOffset(uint32(delta))
 	}
-
-	b.buffer = append(b.buffer, byte(op)|size0)
-	b.writeOffset(uint32(delta))
 }
 
 // PutBool appends a boolean value.
@@ -263,29 +255,25 @@ func (b *Buffer) PutUint(op OpType, idx uint32, value uint) {
 
 // PutBytes appends a binary value.
 func (b *Buffer) PutBytes(op OpType, idx uint32, value []byte) {
-	b.writeChunk(idx)
-	delta := int32(idx) - b.last
-	b.last = int32(idx)
-
-	// Write a 2-byte length (max 65K slices)
-	length := len(value)
-	if delta == 1 {
+	delta := b.writeChunk(idx)
+	length := len(value) // max 65K slices
+	switch delta {
+	case 1:
 		b.buffer = append(b.buffer,
 			byte(op)|size2|isString|isNext,
 			byte(length>>8), byte(length),
 		)
 		b.buffer = append(b.buffer, value...)
-		return
+	default:
+		b.buffer = append(b.buffer,
+			byte(op)|size2|isString,
+			byte(length>>8), byte(length),
+		)
+
+		// Write the the data itself and the offset
+		b.buffer = append(b.buffer, value...)
+		b.writeOffset(uint32(delta))
 	}
-
-	b.buffer = append(b.buffer,
-		byte(op)|size2|isString,
-		byte(length>>8), byte(length),
-	)
-
-	// Write the the data itself and the offset
-	b.buffer = append(b.buffer, value...)
-	b.writeOffset(uint32(delta))
 }
 
 // PutString appends a string value.
@@ -303,8 +291,8 @@ func (b *Buffer) writeOffset(delta uint32) {
 	b.buffer = append(b.buffer, byte(delta))
 }
 
-// writeChunk writes a chunk if changed
-func (b *Buffer) writeChunk(idx uint32) {
+// writeChunk writes a chunk if changed and returns the delta
+func (b *Buffer) writeChunk(idx uint32) int32 {
 	if chunk := idx >> chunkShift; b.chunk != chunk {
 		b.chunk = chunk
 		b.chunks = append(b.chunks, header{
@@ -313,6 +301,10 @@ func (b *Buffer) writeChunk(idx uint32) {
 			Value: uint32(b.last),
 		})
 	}
+
+	delta := int32(idx) - b.last
+	b.last = int32(idx)
+	return delta
 }
 
 // toBytes converts a string to a byte slice without allocating.

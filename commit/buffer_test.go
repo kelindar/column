@@ -12,15 +12,30 @@ import (
 
 /*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkQueue/rw-u16-8         	     202	   5891099 ns/op	       7 B/op	       0 allocs/op
-BenchmarkQueue/rw-u32-8         	     200	   5932520 ns/op	       7 B/op	       0 allocs/op
-BenchmarkQueue/rw-u64-8         	     190	   6192885 ns/op	       8 B/op	       0 allocs/op
-BenchmarkQueue/rw-str-8         	      98	  11060616 ns/op	      15 B/op	       0 allocs/op
-BenchmarkQueue/rw-bool-8        	     213	   5615013 ns/op	       7 B/op	       0 allocs/op
+BenchmarkQueue/u16-rw-8                      154           7691836 ns/op              19 B/op          0 allocs/op
+BenchmarkQueue/u16-next-8                    214           5542922 ns/op               7 B/op          0 allocs/op
+BenchmarkQueue/u32-rw-8                      152           7743216 ns/op              20 B/op          0 allocs/op
+BenchmarkQueue/u32-next-8                    212           5616605 ns/op               7 B/op          0 allocs/op
+BenchmarkQueue/u64-rw-8                      148           8000536 ns/op              20 B/op          0 allocs/op
+BenchmarkQueue/u64-next-8                    194           6126377 ns/op               7 B/op          0 allocs/op
+BenchmarkQueue/str-rw-8                       91          12935521 ns/op              33 B/op          0 allocs/op
+BenchmarkQueue/str-next-8                     98          10901156 ns/op              15 B/op          0 allocs/op
+BenchmarkQueue/bool-rw-8                     169           6950441 ns/op              18 B/op          0 allocs/op
+BenchmarkQueue/bool-next-8                   228           5195821 ns/op               6 B/op          0 allocs/op
 */
 func BenchmarkQueue(b *testing.B) {
 	const count = 1000000
-	run("rw-u16", b, count, func(buf *Buffer, r *Reader) {
+
+	run("u16-rw", b, count, func(buf *Buffer, r *Reader) {
+		for i := uint32(0); i < count*2; i += 2 {
+			buf.PutUint16(Put, i, uint16(i))
+		}
+		for r.Seek(buf); r.Next(); {
+			_ = r.Uint16()
+		}
+	})
+
+	run("u16-next", b, count, func(buf *Buffer, r *Reader) {
 		for i := uint32(0); i < count; i++ {
 			buf.PutUint16(Put, i, uint16(i))
 		}
@@ -29,7 +44,16 @@ func BenchmarkQueue(b *testing.B) {
 		}
 	})
 
-	run("rw-u32", b, count, func(buf *Buffer, r *Reader) {
+	run("u32-rw", b, count, func(buf *Buffer, r *Reader) {
+		for i := uint32(0); i < count*2; i += 2 {
+			buf.PutUint32(Put, i, i)
+		}
+		for r.Seek(buf); r.Next(); {
+			_ = r.Uint32()
+		}
+	})
+
+	run("u32-next", b, count, func(buf *Buffer, r *Reader) {
 		for i := uint32(0); i < count; i++ {
 			buf.PutUint32(Put, i, i)
 		}
@@ -38,7 +62,16 @@ func BenchmarkQueue(b *testing.B) {
 		}
 	})
 
-	run("rw-u64", b, count, func(buf *Buffer, r *Reader) {
+	run("u64-rw", b, count, func(buf *Buffer, r *Reader) {
+		for i := uint32(0); i < count*2; i += 2 {
+			buf.PutUint64(Put, i, uint64(i))
+		}
+		for r.Seek(buf); r.Next(); {
+			_ = r.Uint64()
+		}
+	})
+
+	run("u64-next", b, count, func(buf *Buffer, r *Reader) {
 		for i := uint32(0); i < count; i++ {
 			buf.PutUint64(Put, i, uint64(i))
 		}
@@ -47,7 +80,16 @@ func BenchmarkQueue(b *testing.B) {
 		}
 	})
 
-	run("rw-str", b, count, func(buf *Buffer, r *Reader) {
+	run("str-rw", b, count, func(buf *Buffer, r *Reader) {
+		for i := uint32(0); i < count*2; i += 2 {
+			buf.PutString(Put, i, "hello world")
+		}
+		for r.Seek(buf); r.Next(); {
+			_ = r.String()
+		}
+	})
+
+	run("str-next", b, count, func(buf *Buffer, r *Reader) {
 		for i := uint32(0); i < count; i++ {
 			buf.PutString(Put, i, "hello world")
 		}
@@ -56,7 +98,16 @@ func BenchmarkQueue(b *testing.B) {
 		}
 	})
 
-	run("rw-bool", b, count, func(buf *Buffer, r *Reader) {
+	run("bool-rw", b, count, func(buf *Buffer, r *Reader) {
+		for i := uint32(0); i < count*2; i += 2 {
+			buf.PutBool(i, true)
+		}
+		for r.Seek(buf); r.Next(); {
+			_ = r.Bool()
+		}
+	})
+
+	run("bool-next", b, count, func(buf *Buffer, r *Reader) {
 		for i := uint32(0); i < count; i++ {
 			buf.PutBool(i, true)
 		}
