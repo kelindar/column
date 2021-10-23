@@ -13,9 +13,9 @@ import (
 type Reader struct {
 	head   int    // The read position
 	i0, i1 int    // The value start and end
+	Type   OpType // The current operation type
 	buffer []byte // The log slice
 	Offset int32  // The current offset
-	Type   OpType // The current operation type
 	start  int32  // The start offset
 }
 
@@ -329,20 +329,19 @@ func (r *Reader) readOffset() {
 // readFixed reads the fixed-size value at the current position.
 func (r *Reader) readFixed(v byte) {
 	size := int(1 << (v >> 4 & 0b11) & 0b1110)
-	r.Type = OpType(v & 0xf)
 	r.head++
 	r.i0 = r.head
 	r.head += size
 	r.i1 = r.head
+	r.Type = OpType(v & 0xf)
 }
 
 // readString reads the operation type and the value at the current position.
 func (r *Reader) readString(v byte) {
-	_ = r.buffer[r.head+2]
 	size := int(r.buffer[r.head+2]) | int(r.buffer[r.head+1])<<8
-	r.Type = OpType(v & 0xf)
 	r.head += 3
 	r.i0 = r.head
 	r.head += size
 	r.i1 = r.head
+	r.Type = OpType(v & 0xf)
 }
