@@ -4,37 +4,35 @@
 package column
 
 import (
-	"encoding/binary"
 	"hash/crc32"
 	"math"
-	"reflect"
 	"sync"
-	"unsafe"
 
 	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
+	"github.com/kelindar/intmap"
 )
 
 // --------------------------- Enum ----------------------------
 
 var _ Textual = new(columnEnum)
 
-// columnEnum represents a enumerable string column
+// columnEnum represents a string column
 type columnEnum struct {
-	lock  sync.RWMutex
-	fill  bitmap.Bitmap     // The fill-list
-	locs  []uint32          // The list of locations
-	data  []byte            // The actual values
-	cache map[string]uint32 // Cache for string locations (no need to persist)
+	lock sync.RWMutex
+	fill bitmap.Bitmap // The fill-list
+	locs []uint32      // The list of locations
+	seek *intmap.Map   // The hash->location table
+	data []string      // The string data
 }
 
 // makeEnum creates a new column
 func makeEnum() Column {
 	return &columnEnum{
-		fill:  make(bitmap.Bitmap, 0, 4),
-		locs:  make([]uint32, 0, 64),
-		data:  make([]byte, 0, 16*32),
-		cache: make(map[string]uint32, 16),
+		fill: make(bitmap.Bitmap, 0, 4),
+		locs: make([]uint32, 0, 64),
+		seek: intmap.New(64, .95),
+		data: make([]string, 0, 64),
 	}
 }
 
@@ -61,24 +59,9 @@ func (c *columnEnum) Apply(r *commit.Reader) {
 	for r.Next() {
 		switch r.Type {
 		case commit.Put:
-			// Attempt to find if we already have the location of this value from the
-			// cache, and if we don't, find it and set the offset for faster lookup.
-			value := r.String()
-
-			c.lock.RLock()
-			offset, cached := c.cache[value]
-			c.lock.RUnlock()
-
-			if !cached {
-				c.lock.Lock()
-				offset = c.findOrAdd(value)
-				c.cache[value] = offset
-				c.lock.Unlock()
-			}
-
 			// Set the value at the index
 			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
-			c.locs[r.Offset] = offset
+			c.locs[r.Offset] = c.findOrAdd(r.Bytes())
 
 		case commit.Delete:
 			c.fill.Remove(r.Index())
@@ -89,34 +72,24 @@ func (c *columnEnum) Apply(r *commit.Reader) {
 }
 
 // Search for the string or adds it and returns the offset
-func (c *columnEnum) findOrAdd(v string) uint32 {
-	value := toBytes(v)
-	target := crc32.ChecksumIEEE(value)
-	for i := 0; i < len(c.data); {
-		hash := binary.BigEndian.Uint32(c.data[i : i+4])
-		size := int(c.data[i+4])
-		if hash == target {
-			return uint32(i + 4)
-		}
+func (c *columnEnum) findOrAdd(v []byte) uint32 {
+	target := crc32.ChecksumIEEE(v)
 
-		i += 5 + size
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if at, ok := c.seek.Load(target); ok {
+		return at
 	}
 
-	// Not found, add
-	var head [5]byte
-	binary.BigEndian.PutUint32(head[0:4], target)
-	head[4] = byte(len(value)) // Max 255 chars
-	addedAt := len(c.data)
-	c.data = append(c.data, head[:]...)
-	c.data = append(c.data, value...)
-	return uint32(addedAt + 4)
+	offset := uint32(len(c.data))
+	c.data = append(c.data, string(v))
+	c.seek.Store(target, offset)
+	return offset
 }
 
 // readAt reads a string at a location
 func (c *columnEnum) readAt(at uint32) string {
-	size := uint32(c.data[at])
-	data := c.data[at+1 : at+1+size]
-	return toString(&data)
+	return c.data[at]
 }
 
 // Value retrieves a value at a specified index
@@ -254,23 +227,4 @@ func (c *columnString) FilterString(offset uint32, index bitmap.Bitmap, predicat
 		idx = offset + idx
 		return idx < uint32(len(c.data)) && predicate(c.data[idx])
 	})
-}
-
-// --------------------------- Convert ----------------------------
-
-// toBytes converts a string to a byte slice without allocating.
-func toBytes(v string) (b []byte) {
-	strHeader := (*reflect.StringHeader)(unsafe.Pointer(&v))
-	byteHeader := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-	byteHeader.Data = strHeader.Data
-
-	l := len(v)
-	byteHeader.Len = l
-	byteHeader.Cap = l
-	return
-}
-
-// toString converts a strign to a byte slice without allocating.
-func toString(b *[]byte) string {
-	return *(*string)(unsafe.Pointer(b))
 }
