@@ -6,8 +6,6 @@ package commit
 import (
 	"fmt"
 	"math"
-	"reflect"
-	"unsafe"
 )
 
 const (
@@ -39,7 +37,7 @@ const (
 
 // Buffer represents a buffer of delta operations.
 type Buffer struct {
-	last   int32    // The last offset writte
+	last   int32    // The last offset written
 	chunk  uint32   // The current chunk
 	buffer []byte   // The destination buffer
 	chunks []header // The offsets of chunks
@@ -305,16 +303,4 @@ func (b *Buffer) writeChunk(idx uint32) int32 {
 	delta := int32(idx) - b.last
 	b.last = int32(idx)
 	return delta
-}
-
-// toBytes converts a string to a byte slice without allocating.
-func toBytes(v string) (b []byte) {
-	strHeader := (*reflect.StringHeader)(unsafe.Pointer(&v))
-	byteHeader := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-	byteHeader.Data = strHeader.Data
-
-	l := len(v)
-	byteHeader.Len = l
-	byteHeader.Cap = l
-	return
 }

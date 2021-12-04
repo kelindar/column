@@ -349,19 +349,6 @@ func (c *Collection) vacuum(ctx context.Context, interval time.Duration) {
 	}
 }
 
-// Replay replays a commit on a collection, applying the changes.
-func (c *Collection) Replay(change commit.Commit) error {
-	return c.Query(func(txn *Txn) error {
-		txn.dirty.Set(change.Chunk)
-		for i := range change.Updates {
-			if !change.Updates[i].IsEmpty() {
-				txn.updates = append(txn.updates, change.Updates[i])
-			}
-		}
-		return nil
-	})
-}
-
 // --------------------------- column registry ---------------------------
 
 // columns represents a concurrent column registry.
@@ -385,11 +372,14 @@ type columnEntry struct {
 }
 
 // Range iterates over columns in the registry.
-func (c *columns) Range(fn func(column *column)) {
+func (c *columns) Range(fn func(column *column) error) error {
 	cols := c.cols.Load().([]columnEntry)
 	for _, v := range cols {
-		fn(v.cols[0])
+		if err := fn(v.cols[0]); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // Load loads a column by its name.

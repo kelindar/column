@@ -4,6 +4,8 @@
 package commit
 
 import (
+	"io"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -17,4 +19,16 @@ func TestWriterChannel(t *testing.T) {
 
 	out := <-w
 	assert.Equal(t, 123, int(out.Chunk))
+}
+
+type limitWriter struct {
+	value uint32
+	Limit int
+}
+
+func (w *limitWriter) Write(p []byte) (int, error) {
+	if n := atomic.AddUint32(&w.value, uint32(len(p))); int(n) > w.Limit {
+		return 0, io.ErrShortBuffer
+	}
+	return len(p), nil
 }

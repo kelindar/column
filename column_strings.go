@@ -137,6 +137,24 @@ func (c *columnEnum) Index() *bitmap.Bitmap {
 	return &c.fill
 }
 
+// Snapshot writes the entire column into the specified destination buffer
+func (c *columnEnum) Snapshot(dst *commit.Buffer) {
+	cache := struct {
+		index uint32 // Last seen offset
+		value string // Last seen value
+	}{
+		index: math.MaxUint32,
+	}
+
+	c.fill.Range(func(idx uint32) {
+		if at := c.locs[idx]; at != cache.index {
+			cache.index = at
+			cache.value = c.readAt(at)
+		}
+		dst.PutString(commit.Put, idx, cache.value)
+	})
+}
+
 // --------------------------- String ----------------------------
 
 var _ Textual = new(columnString)
@@ -220,5 +238,12 @@ func (c *columnString) FilterString(offset uint32, index bitmap.Bitmap, predicat
 	index.Filter(func(idx uint32) (match bool) {
 		idx = offset + idx
 		return idx < uint32(len(c.data)) && predicate(c.data[idx])
+	})
+}
+
+// Snapshot writes the entire column into the specified destination buffer
+func (c *columnString) Snapshot(dst *commit.Buffer) {
+	c.fill.Range(func(idx uint32) {
+		dst.PutString(commit.Put, idx, c.data[idx])
 	})
 }

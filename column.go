@@ -7,6 +7,7 @@ package column
 
 import (
 	"fmt"
+	"io"
 	"reflect"
 	"sync"
 
@@ -43,6 +44,7 @@ type Column interface {
 	Value(idx uint32) (interface{}, bool)
 	Contains(idx uint32) bool
 	Index() *bitmap.Bitmap
+	Snapshot(*commit.Buffer)
 }
 
 // Numeric represents a column that stores numbers.
@@ -161,6 +163,14 @@ func (c *column) Apply(r *commit.Reader) {
 	c.Column.Apply(r)
 }
 
+// Snapshot snapshots the column into a temporary buffer and writes the content into the
+// destionation io.Writer.
+func (c *column) WriteTo(w io.Writer, tmp *commit.Buffer) (int64, error) {
+	tmp.Reset(c.name)
+	c.Column.Snapshot(tmp)
+	return tmp.WriteTo(w)
+}
+
 // Value retrieves a value at a specified index
 func (c *column) Value(idx uint32) (v interface{}, ok bool) {
 	v, ok = c.Column.Value(idx)
@@ -245,6 +255,13 @@ func (c *columnBool) Contains(idx uint32) bool {
 // Index returns the fill list for the column
 func (c *columnBool) Index() *bitmap.Bitmap {
 	return &c.data
+}
+
+// Snapshot writes the entire column into the specified destination buffer
+func (c *columnBool) Snapshot(dst *commit.Buffer) {
+	c.data.Range(func(idx uint32) {
+		dst.PutOperation(commit.PutTrue, idx)
+	})
 }
 
 // --------------------------- funcs ----------------------------

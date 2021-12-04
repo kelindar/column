@@ -64,6 +64,10 @@ func TestColumns(t *testing.T) {
 		t.Run(fmt.Sprintf("%T-put-delete", tc.column), func(t *testing.T) {
 			testPutDelete(t, tc.column, tc.value)
 		})
+
+		t.Run(fmt.Sprintf("%T-snapshot", tc.column), func(t *testing.T) {
+			testSnapshot(t, tc.column, tc.value)
+		})
 	}
 }
 
@@ -187,6 +191,13 @@ func testPutDelete(t *testing.T, column Column, value interface{}) {
 	assert.False(t, ok)
 }
 
+// testSnapshot test a snapshot of a column
+func testSnapshot(t *testing.T, column Column, value interface{}) {
+	buf := commit.NewBuffer(8)
+	column.Snapshot(buf)
+	assert.False(t, buf.IsEmpty())
+}
+
 func TestFromKind(t *testing.T) {
 	for _, v := range []reflect.Kind{
 		reflect.Int, reflect.Int16, reflect.Int32, reflect.Int64,
@@ -197,9 +208,6 @@ func TestFromKind(t *testing.T) {
 		column := ForKind(v)
 		_, ok := column.Value(100)
 		assert.False(t, ok)
-	}
-	for i := 0; i < 26; i++ {
-
 	}
 }
 
@@ -363,4 +371,49 @@ func TestUpdateAtKeyWithoutPK(t *testing.T) {
 func TestSelectAtKeyWithoutPK(t *testing.T) {
 	col := NewCollection()
 	assert.False(t, col.SelectAtKey("test", func(v Selector) {}))
+}
+
+func TestSnapshotBool(t *testing.T) {
+	input := ForBool()
+	input.Grow(8)
+	applyChanges(input,
+		Update{commit.Put, 2, true},
+		Update{commit.Put, 5, true},
+	)
+
+	// Snapshot into a new buffer
+	buf := commit.NewBuffer(8)
+	input.Snapshot(buf)
+
+	// Create a new reader and read the column
+	rdr := commit.NewReader()
+	rdr.Seek(buf)
+	output := ForBool()
+	output.Grow(8)
+	output.Apply(rdr)
+	assert.Equal(t, input, output)
+}
+
+func TestSnapshotIndex(t *testing.T) {
+	predicateFn := func(Reader) bool {
+		return true
+	}
+	input := newIndex("test", "a", predicateFn)
+	input.Grow(8)
+	applyChanges(input,
+		Update{commit.Put, 2, true},
+		Update{commit.Put, 5, true},
+	)
+
+	// Snapshot into a new buffer
+	buf := commit.NewBuffer(8)
+	input.Snapshot(buf)
+
+	// Create a new reader and read the column
+	rdr := commit.NewReader()
+	rdr.Seek(buf)
+	output := newIndex("test", "a", predicateFn)
+	output.Grow(8)
+	output.Apply(rdr)
+	assert.Equal(t, input.Column.(*columnIndex).fill, output.Column.(*columnIndex).fill)
 }

@@ -4,9 +4,11 @@
 package column
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"math/rand"
 	"os"
@@ -567,6 +569,77 @@ func TestInsertWithTTL(t *testing.T) {
 	})
 }
 
+// --------------------------- Snapshotting ----------------------------
+
+func TestSnapshot(t *testing.T) {
+	input := NewCollection()
+	input.CreateColumn("name", ForString())
+	for i := 0; i < 50000; i++ {
+		input.Insert("name", func(v Cursor) error {
+			v.Set("Roman")
+			return nil
+		})
+	}
+
+	// Write a snapshot into a buffer
+	buffer := bytes.NewBuffer(nil)
+	n, err := input.WriteTo(buffer)
+	assert.NotZero(t, n)
+	assert.NoError(t, err)
+
+	// Restore the collection from the snapshot
+	output := NewCollection()
+	output.CreateColumn("name", ForString())
+	m, err := output.ReadFrom(buffer)
+	assert.NotZero(t, m)
+	assert.NoError(t, err)
+	assert.Equal(t, input.Count(), output.Count())
+}
+
+func TestWriteToFailures(t *testing.T) {
+	input := NewCollection()
+	input.CreateColumn("name", ForString())
+	input.Insert("name", func(v Cursor) error {
+		v.Set("Roman")
+		return nil
+	})
+
+	for size := 0; size < 30; size++ {
+		output := &limitWriter{Limit: size}
+		_, err := input.WriteTo(output)
+		assert.Error(t, err)
+	}
+}
+
+func TestWriteToEmpty(t *testing.T) {
+	input := NewCollection()
+	input.CreateColumn("name", ForString())
+	_, err := input.WriteTo(bytes.NewBuffer(nil))
+	assert.Error(t, err)
+}
+
+func TestReadFromFailures(t *testing.T) {
+	input := NewCollection()
+	input.CreateColumn("name", ForString())
+	input.Insert("name", func(v Cursor) error {
+		v.Set("Roman")
+		return nil
+	})
+
+	buffer := bytes.NewBuffer(nil)
+	n, err := input.WriteTo(buffer)
+	assert.NoError(t, err)
+
+	for size := 0; size < int(n)-1; size += 18 {
+		output := NewCollection()
+		output.CreateColumn("name", ForString())
+		_, err := output.ReadFrom(bytes.NewReader(buffer.Bytes()[:size]))
+		assert.Error(t, err, fmt.Sprintf("read size %v", size))
+	}
+}
+
+// --------------------------- Mocks & Fixtures ----------------------------
+
 // loadPlayers loads a list of players from the fixture
 func loadPlayers(amount int) *Collection {
 	out := NewCollection(Options{
@@ -656,4 +729,18 @@ type noopWriter struct {
 func (w *noopWriter) Write(commit commit.Commit) error {
 	atomic.AddUint64(&w.commits, 1)
 	return nil
+}
+
+// limitWriter is a io.Writer that allows for limiting input
+type limitWriter struct {
+	value uint32
+	Limit int
+}
+
+// Write returns either an error or no error, depending on whether the limit is reached
+func (w *limitWriter) Write(p []byte) (int, error) {
+	if n := atomic.AddUint32(&w.value, uint32(len(p))); int(n) > w.Limit {
+		return 0, io.ErrShortBuffer
+	}
+	return len(p), nil
 }
