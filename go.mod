@@ -4,9 +4,10 @@ go 1.17
 
 require (
 	github.com/kelindar/bitmap v1.1.3
-	github.com/kelindar/intmap v1.0.1
+	github.com/kelindar/intmap v1.1.0
 	github.com/kelindar/smutex v1.0.0
 	github.com/stretchr/testify v1.7.0
+	github.com/zeebo/xxh3 v1.0.1
 )
 
 require (
