@@ -4,13 +4,12 @@
 package column
 
 import (
-	"hash/crc32"
 	"math"
-	"sync"
 
 	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
 	"github.com/kelindar/intmap"
+	"github.com/zeebo/xxh3"
 )
 
 // --------------------------- Enum ----------------------------
@@ -19,10 +18,9 @@ var _ Textual = new(columnEnum)
 
 // columnEnum represents a string column
 type columnEnum struct {
-	lock sync.RWMutex
 	fill bitmap.Bitmap // The fill-list
 	locs []uint32      // The list of locations
-	seek *intmap.Map   // The hash->location table
+	seek *intmap.Sync  // The hash->location table
 	data []string      // The string data
 }
 
@@ -31,7 +29,7 @@ func makeEnum() Column {
 	return &columnEnum{
 		fill: make(bitmap.Bitmap, 0, 4),
 		locs: make([]uint32, 0, 64),
-		seek: intmap.New(64, .95),
+		seek: intmap.NewSync(64, .95),
 		data: make([]string, 0, 64),
 	}
 }
@@ -73,18 +71,12 @@ func (c *columnEnum) Apply(r *commit.Reader) {
 
 // Search for the string or adds it and returns the offset
 func (c *columnEnum) findOrAdd(v []byte) uint32 {
-	target := crc32.ChecksumIEEE(v)
-
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if at, ok := c.seek.Load(target); ok {
-		return at
-	}
-
-	offset := uint32(len(c.data))
-	c.data = append(c.data, string(v))
-	c.seek.Store(target, offset)
-	return offset
+	target := uint32(xxh3.Hash(v))
+	at, _ := c.seek.LoadOrStore(target, func() uint32 {
+		c.data = append(c.data, string(v))
+		return uint32(len(c.data)) - 1
+	})
+	return at
 }
 
 // readAt reads a string at a location
@@ -111,8 +103,10 @@ func (c *columnEnum) FilterString(offset uint32, index bitmap.Bitmap, predicate 
 	cache := struct {
 		index uint32 // Last seen offset
 		value bool   // Last evaluated predicate
-	}{}
-	cache.index = math.MaxUint32
+	}{
+		index: math.MaxUint32,
+		value: false,
+	}
 
 	// Do a quick ellimination of elements which are NOT contained in this column, this
 	// allows us not to check contains during the filter itself
