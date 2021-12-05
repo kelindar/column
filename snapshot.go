@@ -10,6 +10,7 @@ import (
 
 	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
+	"github.com/klauspost/compress/s2"
 )
 
 // --------------------------- Commit Replay ---------------------------
@@ -41,30 +42,39 @@ func (c *Collection) WriteTo(w io.Writer) (int64, error) {
 		return 0, fmt.Errorf("column: unable to write an empty collection")
 	}
 
+	// Create a compressed source
+	encoder := c.codec.EncoderFor(w)
+
 	// Write the fill bitmap
-	n, err := c.fill.WriteTo(w)
+	n, err := c.fill.WriteTo(encoder)
 	if err != nil {
+		encoder.Close()
 		return 0, err
 	}
 
 	// Snapshot each column and write the buffer
 	tmp := commit.NewBuffer(8192)
-	err = c.cols.Range(func(column *column) error {
-		m, err := column.WriteTo(w, tmp)
+	if err := c.cols.Range(func(column *column) error {
+		m, err := column.WriteTo(encoder, tmp)
 		if err != nil {
 			return err
 		}
 
 		n += m
 		return nil
-	})
-	return n, err
+	}); err != nil {
+		encoder.Close()
+		return n, err
+	}
+
+	return n, encoder.Close()
 }
 
 // ReadFrom reads a collection from the provided reader source until EOF or error. The
 // return value n is the number of bytes read. Any error except EOF encountered during
 // the read is also returned.
 func (c *Collection) ReadFrom(r io.Reader) (int64, error) {
+	r = c.codec.DecoderFor(r)
 	fill, err := bitmap.ReadFrom(r)
 	if err != nil {
 		return 0, err
@@ -97,4 +107,49 @@ func (c *Collection) ReadFrom(r io.Reader) (int64, error) {
 			return nil
 		})
 	}
+}
+
+// --------------------------- Compression Codec ----------------------------
+
+// newCodec creates a new compressor for the destination writer
+func newCodec(options *Options) codec {
+	return &s2codec{
+		w: s2.NewWriter(nil),
+		r: s2.NewReader(nil),
+	}
+}
+
+type codec interface {
+	io.Writer
+	io.Reader
+	io.Closer
+	DecoderFor(reader io.Reader) io.Reader
+	EncoderFor(writer io.Writer) io.WriteCloser
+}
+
+type s2codec struct {
+	w *s2.Writer
+	r *s2.Reader
+}
+
+func (c *s2codec) Read(p []byte) (int, error) {
+	return c.r.Read(p)
+}
+
+func (c *s2codec) Write(p []byte) (int, error) {
+	return c.w.Write(p)
+}
+
+func (c *s2codec) DecoderFor(reader io.Reader) io.Reader {
+	c.r.Reset(reader)
+	return c
+}
+
+func (c *s2codec) EncoderFor(writer io.Writer) io.WriteCloser {
+	c.w.Reset(writer)
+	return c
+}
+
+func (c *s2codec) Close() error {
+	return c.w.Close()
 }

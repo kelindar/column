@@ -15,6 +15,7 @@ require (
 	github.com/dustin/go-humanize v1.0.0
 	github.com/kelindar/async v1.0.0
 	github.com/kelindar/xxrand v1.0.1
+	github.com/klauspost/compress v1.13.6
 	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect

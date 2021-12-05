@@ -13,6 +13,8 @@ github.com/kelindar/smutex v1.0.0 h1:+LIZYwPz+v3IWPOse764fNaVQGMVxKV6mbD6OWjQV3o
 github.com/kelindar/smutex v1.0.0/go.mod h1:nMbCZeAHWCsY9Kt4JqX7ETd+NJeR6Swy9im+Th+qUZQ=
 github.com/kelindar/xxrand v1.0.1 h1:TG9Ix5h3ulBXVWwRUF8ePXl65FjIj48CzsgZw0nHvfY=
 github.com/kelindar/xxrand v1.0.1/go.mod h1:tb7XX0TvlKSIsCqkVUs7GAWdkeab3Ln2vWWxHEADDuA=
+github.com/klauspost/compress v1.13.6 h1:P76CopJELS0TiO2mebmnzgWaajssP/EszplttgQxcgc=
+github.com/klauspost/compress v1.13.6/go.mod h1:/3/Vjq9QcHkK5uEr5lBEmyoZ1iFhe47etQ6QUkpK6sk=
 github.com/klauspost/cpuid/v2 v2.0.6/go.mod h1:FInQzS24/EEf25PyTYn52gqo7WaD8xa0213Md/qVLRg=
 github.com/klauspost/cpuid/v2 v2.0.9 h1:lgaqFMSdTdQYdZ04uHyN2d/eKdOMyi2YLSvlQIBFYa4=
 github.com/klauspost/cpuid/v2 v2.0.9/go.mod h1:FInQzS24/EEf25PyTYn52gqo7WaD8xa0213Md/qVLRg=

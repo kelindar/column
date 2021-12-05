@@ -4,13 +4,8 @@
 package column
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
-	"io"
-	"math"
-	"math/rand"
 	"os"
 	"runtime"
 	"sync"
@@ -18,8 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kelindar/async"
-	"github.com/kelindar/column/commit"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -158,118 +151,6 @@ func BenchmarkCollection(b *testing.B) {
 				return nil
 			})
 		}
-	})
-}
-
-// Test replication many times
-func TestReplicate(t *testing.T) {
-	for x := 0; x < 20; x++ {
-		rand.Seed(int64(x))
-		runReplication(t, 10000, 50, runtime.NumCPU())
-	}
-}
-
-// runReplication runs a concurrent replication test
-func runReplication(t *testing.T, updates, inserts, concurrency int) {
-	t.Run(fmt.Sprintf("replicate-%v-%v", updates, inserts), func(t *testing.T) {
-		writer := make(commit.Channel, 10)
-		object := map[string]interface{}{
-			"float64": float64(0),
-			"int32":   int32(0),
-			"string":  "",
-		}
-
-		// Create a primary
-		primary := NewCollection(Options{
-			Capacity: inserts,
-			Writer:   &writer,
-		})
-		// Replica with the same schema
-		replica := NewCollection(Options{
-			Capacity: inserts,
-		})
-
-		// Create schemas and start streaming replication into the replica
-		primary.CreateColumnsOf(object)
-		replica.CreateColumnsOf(object)
-		var done sync.WaitGroup
-		done.Add(1)
-		go func() {
-			defer done.Done() // Drained
-			for change := range writer {
-				assert.NoError(t, replica.Replay(change))
-			}
-		}()
-
-		// Write some objects
-		for i := 0; i < inserts; i++ {
-			primary.InsertObject(object)
-		}
-
-		work := make(chan async.Task)
-		pool := async.Consume(context.Background(), 50, work)
-		defer pool.Cancel()
-
-		// Random concurrent updates
-		var wg sync.WaitGroup
-		wg.Add(updates)
-		for i := 0; i < updates; i++ {
-			work <- async.NewTask(func(ctx context.Context) (interface{}, error) {
-				defer wg.Done()
-
-				// Randomly update a column
-				offset := uint32(rand.Int31n(int32(inserts - 1)))
-				primary.UpdateAt(offset, "float64", func(v Cursor) error {
-					switch rand.Int31n(3) {
-					case 0:
-						v.SetFloat64(math.Round(rand.Float64()*1000) / 100)
-					case 1:
-						v.SetInt32At("int32", rand.Int31n(100000))
-					case 2:
-						v.SetStringAt("string", fmt.Sprintf("hi %v", rand.Int31n(10)))
-					}
-					return nil
-				})
-
-				// Randomly delete an item
-				if rand.Int31n(5) == 0 {
-					primary.DeleteAt(uint32(rand.Int31n(int32(inserts - 1))))
-				}
-
-				// Randomly insert an item
-				if rand.Int31n(5) == 0 {
-					primary.InsertObject(object)
-				}
-				return nil, nil
-			})
-		}
-
-		// Replay all of the changes into the replica
-		wg.Wait()
-		close(writer)
-		done.Wait()
-
-		// Check if replica and primary are the same
-		if !assert.Equal(t, primary.Count(), replica.Count(), "replica and primary should be the same size") {
-			return
-		}
-
-		primary.Query(func(txn *Txn) error {
-			return txn.Range("float64", func(v Cursor) {
-				v1, v2 := v.FloatAt("float64"), v.IntAt("int32")
-				if v1 != 0 {
-					assert.True(t, txn.SelectAt(v.idx, func(s Selector) {
-						assert.Equal(t, v.FloatAt("float64"), s.FloatAt("float64"))
-					}))
-				}
-
-				if v2 != 0 {
-					assert.True(t, txn.SelectAt(v.idx, func(s Selector) {
-						assert.Equal(t, v.IntAt("int32"), s.IntAt("int32"))
-					}))
-				}
-			})
-		})
 	})
 }
 
@@ -569,75 +450,6 @@ func TestInsertWithTTL(t *testing.T) {
 	})
 }
 
-// --------------------------- Snapshotting ----------------------------
-
-func TestSnapshot(t *testing.T) {
-	input := NewCollection()
-	input.CreateColumn("name", ForString())
-	for i := 0; i < 50000; i++ {
-		input.Insert("name", func(v Cursor) error {
-			v.Set("Roman")
-			return nil
-		})
-	}
-
-	// Write a snapshot into a buffer
-	buffer := bytes.NewBuffer(nil)
-	n, err := input.WriteTo(buffer)
-	assert.NotZero(t, n)
-	assert.NoError(t, err)
-
-	// Restore the collection from the snapshot
-	output := NewCollection()
-	output.CreateColumn("name", ForString())
-	m, err := output.ReadFrom(buffer)
-	assert.NotZero(t, m)
-	assert.NoError(t, err)
-	assert.Equal(t, input.Count(), output.Count())
-}
-
-func TestWriteToFailures(t *testing.T) {
-	input := NewCollection()
-	input.CreateColumn("name", ForString())
-	input.Insert("name", func(v Cursor) error {
-		v.Set("Roman")
-		return nil
-	})
-
-	for size := 0; size < 30; size++ {
-		output := &limitWriter{Limit: size}
-		_, err := input.WriteTo(output)
-		assert.Error(t, err)
-	}
-}
-
-func TestWriteToEmpty(t *testing.T) {
-	input := NewCollection()
-	input.CreateColumn("name", ForString())
-	_, err := input.WriteTo(bytes.NewBuffer(nil))
-	assert.Error(t, err)
-}
-
-func TestReadFromFailures(t *testing.T) {
-	input := NewCollection()
-	input.CreateColumn("name", ForString())
-	input.Insert("name", func(v Cursor) error {
-		v.Set("Roman")
-		return nil
-	})
-
-	buffer := bytes.NewBuffer(nil)
-	n, err := input.WriteTo(buffer)
-	assert.NoError(t, err)
-
-	for size := 0; size < int(n)-1; size += 18 {
-		output := NewCollection()
-		output.CreateColumn("name", ForString())
-		_, err := output.ReadFrom(bytes.NewReader(buffer.Bytes()[:size]))
-		assert.Error(t, err, fmt.Sprintf("read size %v", size))
-	}
-}
-
 // --------------------------- Mocks & Fixtures ----------------------------
 
 // loadPlayers loads a list of players from the fixture
@@ -718,29 +530,4 @@ func loadFixture(name string) []Object {
 	}
 
 	return data
-}
-
-// noopWriter is a writer that simply counts the commits
-type noopWriter struct {
-	commits uint64
-}
-
-// Write clones the commit and writes it into the writer
-func (w *noopWriter) Write(commit commit.Commit) error {
-	atomic.AddUint64(&w.commits, 1)
-	return nil
-}
-
-// limitWriter is a io.Writer that allows for limiting input
-type limitWriter struct {
-	value uint32
-	Limit int
-}
-
-// Write returns either an error or no error, depending on whether the limit is reached
-func (w *limitWriter) Write(p []byte) (int, error) {
-	if n := atomic.AddUint32(&w.value, uint32(len(p))); int(n) > w.Limit {
-		return 0, io.ErrShortBuffer
-	}
-	return len(p), nil
 }

@@ -33,7 +33,8 @@ type Collection struct {
 	slock  *smutex.SMutex128  // The sharded mutex for the collection
 	cols   columns            // The map of columns
 	fill   bitmap.Bitmap      // The fill-list
-	size   int                // The initial size for new columns
+	opts   Options            // The options configured
+	codec  codec              // The compression codec
 	writer commit.Writer      // The commit writer
 	pk     *columnKey         // The primary key column
 	cancel context.CancelFunc // The cancellation function for the context
@@ -72,10 +73,11 @@ func NewCollection(opts ...Options) *Collection {
 	store := &Collection{
 		cols:   makeColumns(8),
 		txns:   newTxnPool(),
-		size:   options.Capacity,
+		opts:   options,
 		slock:  new(smutex.SMutex128),
 		fill:   make(bitmap.Bitmap, 0, options.Capacity>>6),
 		writer: options.Writer,
+		codec:  newCodec(&options),
 		cancel: cancel,
 	}
 
@@ -232,7 +234,7 @@ func (c *Collection) CreateColumnsOf(object Object) error {
 
 // CreateColumn creates a column of a specified type and adds it to the collection.
 func (c *Collection) CreateColumn(columnName string, column Column) error {
-	column.Grow(uint32(c.size))
+	column.Grow(uint32(c.opts.Capacity))
 	c.cols.Store(columnName, columnFor(columnName, column))
 
 	// If necessary, create a primary key column
@@ -265,7 +267,7 @@ func (c *Collection) CreateIndex(indexName, columnName string, fn func(r Reader)
 	// Create and add the index column,
 	index := newIndex(indexName, columnName, fn)
 	c.lock.Lock()
-	index.Grow(uint32(c.size))
+	index.Grow(uint32(c.opts.Capacity))
 	c.cols.Store(indexName, index)
 	c.cols.Store(columnName, column, index)
 	c.lock.Unlock()
