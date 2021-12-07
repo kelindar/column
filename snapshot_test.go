@@ -22,8 +22,8 @@ import (
 
 /*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkSave/write-to-8         	       8	 140197012 ns/op	225667126 B/op	     942 allocs/op
-BenchmarkSave/read-from-8        	      19	  63745737 ns/op	129222185 B/op	     177 allocs/op
+BenchmarkSave/write-to-8         	      12	  85822500 ns/op	41160691 B/op	     750 allocs/op
+BenchmarkSave/read-from-8        	      14	  90972757 ns/op	105677922 B/op	     183 allocs/op
 */
 func BenchmarkSave(b *testing.B) {
 	b.Run("write-to", func(b *testing.B) {
@@ -172,8 +172,8 @@ func runReplication(t *testing.T, updates, inserts, concurrency int) {
 
 func TestSnapshot(t *testing.T) {
 	input := NewCollection()
-	input.CreateColumn("name", ForString())
-	for i := 0; i < 50000; i++ {
+	input.CreateColumn("name", ForEnum())
+	for i := 0; i < 10; i++ {
 		input.Insert("name", func(v Cursor) error {
 			v.Set("Roman")
 			return nil
@@ -188,11 +188,15 @@ func TestSnapshot(t *testing.T) {
 
 	// Restore the collection from the snapshot
 	output := NewCollection()
-	output.CreateColumn("name", ForString())
+	output.CreateColumn("name", ForEnum())
 	m, err := output.ReadFrom(buffer)
 	assert.NotZero(t, m)
 	assert.NoError(t, err)
 	assert.Equal(t, input.Count(), output.Count())
+
+	output.SelectAt(0, func(v Selector) {
+		assert.Equal(t, "Roman", v.StringAt("name"))
+	})
 }
 
 func TestSnapshotSize(t *testing.T) {
@@ -200,7 +204,7 @@ func TestSnapshotSize(t *testing.T) {
 	output := bytes.NewBuffer(nil)
 	_, err := input.WriteTo(output)
 	assert.NoError(t, err)
-	assert.Equal(t, 107043, output.Len())
+	assert.Equal(t, 110299, output.Len())
 }
 
 func TestWriteToFailures(t *testing.T) {
@@ -212,7 +216,7 @@ func TestWriteToFailures(t *testing.T) {
 		return nil
 	})
 
-	for size := 0; size < 30; size++ {
+	for size := 0; size < 99; size++ {
 		output := &limitWriter{Limit: size}
 		_, err := input.WriteTo(output)
 		assert.Error(t, err)
@@ -239,7 +243,7 @@ func TestReadFromFailures(t *testing.T) {
 	_, err := input.WriteTo(buffer)
 	assert.NoError(t, err)
 
-	for size := 0; size < buffer.Len()-1; size += 18 {
+	for size := 0; size < buffer.Len()-1; size++ {
 		output := NewCollection()
 		output.codec = new(noopCodec)
 

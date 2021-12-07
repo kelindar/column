@@ -8,6 +8,7 @@ import (
 	"testing"
 	"unsafe"
 
+	"github.com/kelindar/bitmap"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -235,6 +236,16 @@ func TestPutNil(t *testing.T) {
 	r.Seek(buf)
 	assert.True(t, r.Next())
 	assert.True(t, r.Bool())
+}
+
+func TestPutBitmap(t *testing.T) {
+	buf := NewBuffer(0)
+	buf.PutBitmap(Insert, bitmap.Bitmap{0xff})
+
+	r := NewReader()
+	r.Seek(buf)
+	assert.True(t, r.Next())
+	assert.Equal(t, Insert, r.Type)
 }
 
 func TestWriteTo(t *testing.T) {

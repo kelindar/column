@@ -373,6 +373,12 @@ type columnEntry struct {
 	cols []*column // The columns and its computed
 }
 
+// Count returns the number of columns
+func (c *columns) Count() int {
+	cols := c.cols.Load().([]columnEntry)
+	return len(cols)
+}
+
 // Range iterates over columns in the registry.
 func (c *columns) Range(fn func(column *column) error) error {
 	cols := c.cols.Load().([]columnEntry)

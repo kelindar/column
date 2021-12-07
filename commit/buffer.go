@@ -6,6 +6,8 @@ package commit
 import (
 	"fmt"
 	"math"
+
+	"github.com/kelindar/bitmap"
 )
 
 const (
@@ -277,6 +279,13 @@ func (b *Buffer) PutBytes(op OpType, idx uint32, value []byte) {
 // PutString appends a string value.
 func (b *Buffer) PutString(op OpType, idx uint32, value string) {
 	b.PutBytes(op, idx, toBytes(value))
+}
+
+// PutBitmap iterates over the bitmap values and appends an operation for each bit set to one
+func (b *Buffer) PutBitmap(op OpType, value bitmap.Bitmap) {
+	value.Range(func(idx uint32) {
+		b.PutOperation(op, idx)
+	})
 }
 
 // writeOffset writes the offset at the current head.

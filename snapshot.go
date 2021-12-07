@@ -4,11 +4,10 @@
 package column
 
 import (
+	"encoding/binary"
 	"fmt"
 	"io"
-	"sync/atomic"
 
-	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
 	"github.com/klauspost/compress/s2"
 )
@@ -42,20 +41,29 @@ func (c *Collection) WriteTo(w io.Writer) (int64, error) {
 		return 0, fmt.Errorf("column: unable to write an empty collection")
 	}
 
-	// Create a compressed source
+	// Write the number of columns
 	encoder := c.codec.EncoderFor(w)
+	if _, err := writeUintTo(encoder, c.cols.Count()+1); err != nil {
+		encoder.Close()
+		return 0, err
+	}
 
-	// Write the fill bitmap
-	n, err := c.fill.WriteTo(encoder)
+	// Acquire a buffer which is re-used for each column
+	buffer := c.txns.acquirePage(rowColumn)
+	defer c.txns.releasePage(buffer)
+
+	// Write the inserts column
+	buffer.PutBitmap(commit.Insert, c.fill)
+	n, err := buffer.WriteTo(encoder)
 	if err != nil {
 		encoder.Close()
 		return 0, err
 	}
 
 	// Snapshot each column and write the buffer
-	tmp := commit.NewBuffer(8192)
 	if err := c.cols.Range(func(column *column) error {
-		m, err := column.WriteTo(encoder, tmp)
+		buffer.Reset(column.name)
+		m, err := column.WriteTo(encoder, buffer)
 		if err != nil {
 			return err
 		}
@@ -67,7 +75,7 @@ func (c *Collection) WriteTo(w io.Writer) (int64, error) {
 		return n, err
 	}
 
-	return n, encoder.Close()
+	return n + 4, encoder.Close()
 }
 
 // ReadFrom reads a collection from the provided reader source until EOF or error. The
@@ -75,38 +83,30 @@ func (c *Collection) WriteTo(w io.Writer) (int64, error) {
 // the read is also returned.
 func (c *Collection) ReadFrom(r io.Reader) (int64, error) {
 	r = c.codec.DecoderFor(r)
-	fill, err := bitmap.ReadFrom(r)
+	count, n, err := readUintFrom(r)
 	if err != nil {
-		return 0, err
+		return n, err
 	}
 
-	c.lock.Lock()
-	c.fill = fill
-	atomic.StoreUint64(&c.count, uint64(c.fill.Count()))
-	c.lock.Unlock()
-
-	max, _ := c.fill.Max()
-	tmp := commit.NewBuffer(8192)
-	var n int64
-	for {
-		m, err := tmp.ReadFrom(r)
-		if err == io.EOF {
-			return n, nil
+	return n, c.Query(func(txn *Txn) error {
+		for i := 0; i < count; i++ {
+			buffer := txn.owner.txns.acquirePage("")
+			m, err := buffer.ReadFrom(r)
+			switch {
+			case err == io.EOF && i < count:
+				return fmt.Errorf("unexpected EOF")
+			case err != nil:
+				return err
+			default:
+				txn.updates = append(txn.updates, buffer)
+				buffer.RangeChunks(func(chunk uint32) {
+					txn.dirty.Set(chunk)
+				})
+				n += m
+			}
 		}
-		if err != nil {
-			return 0, err
-		}
-
-		n += m
-		c.Query(func(txn *Txn) error {
-			txn.commitCapacity(max)
-			txn.updates = append(txn.updates, tmp)
-			tmp.RangeChunks(func(chunk uint32) {
-				txn.dirty.Set(chunk)
-			})
-			return nil
-		})
-	}
+		return nil
+	})
 }
 
 // --------------------------- Compression Codec ----------------------------
@@ -120,9 +120,6 @@ func newCodec(options *Options) codec {
 }
 
 type codec interface {
-	io.Writer
-	io.Reader
-	io.Closer
 	DecoderFor(reader io.Reader) io.Reader
 	EncoderFor(writer io.Writer) io.WriteCloser
 }
@@ -152,4 +149,21 @@ func (c *s2codec) EncoderFor(writer io.Writer) io.WriteCloser {
 
 func (c *s2codec) Close() error {
 	return c.w.Close()
+}
+
+// --------------------------- Read/Write ----------------------------
+
+// writeUintTo writes the length of something into the destination writer
+func writeUintTo(w io.Writer, v int) (n int, err error) {
+	var temp [4]byte
+	binary.BigEndian.PutUint32(temp[:], uint32(v))
+	return w.Write(temp[:])
+}
+
+// readUintFrom reads the unsigned integer from the reader
+func readUintFrom(r io.Reader) (int, int64, error) {
+	var temp [4]byte
+	n, err := io.ReadFull(r, temp[:])
+	v := int(binary.BigEndian.Uint32(temp[:]))
+	return v, int64(n), err
 }
