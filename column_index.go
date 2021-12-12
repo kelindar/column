@@ -108,6 +108,13 @@ func (c *columnIndex) Index() *bitmap.Bitmap {
 	return &c.fill
 }
 
+// Snapshot writes the entire column into the specified destination buffer
+func (c *columnIndex) Snapshot(dst *commit.Buffer) {
+	c.fill.Range(func(idx uint32) {
+		dst.PutOperation(commit.PutTrue, idx)
+	})
+}
+
 // --------------------------- Key ----------------------------
 
 // columnKey represents the primary key column implementation

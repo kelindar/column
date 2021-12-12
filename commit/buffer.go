@@ -6,8 +6,8 @@ package commit
 import (
 	"fmt"
 	"math"
-	"reflect"
-	"unsafe"
+
+	"github.com/kelindar/bitmap"
 )
 
 const (
@@ -39,7 +39,7 @@ const (
 
 // Buffer represents a buffer of delta operations.
 type Buffer struct {
-	last   int32    // The last offset writte
+	last   int32    // The last offset written
 	chunk  uint32   // The current chunk
 	buffer []byte   // The destination buffer
 	chunks []header // The offsets of chunks
@@ -281,6 +281,13 @@ func (b *Buffer) PutString(op OpType, idx uint32, value string) {
 	b.PutBytes(op, idx, toBytes(value))
 }
 
+// PutBitmap iterates over the bitmap values and appends an operation for each bit set to one
+func (b *Buffer) PutBitmap(op OpType, value bitmap.Bitmap) {
+	value.Range(func(idx uint32) {
+		b.PutOperation(op, idx)
+	})
+}
+
 // writeOffset writes the offset at the current head.
 func (b *Buffer) writeOffset(delta uint32) {
 	for delta >= 0x80 {
@@ -305,16 +312,4 @@ func (b *Buffer) writeChunk(idx uint32) int32 {
 	delta := int32(idx) - b.last
 	b.last = int32(idx)
 	return delta
-}
-
-// toBytes converts a string to a byte slice without allocating.
-func toBytes(v string) (b []byte) {
-	strHeader := (*reflect.StringHeader)(unsafe.Pointer(&v))
-	byteHeader := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-	byteHeader.Data = strHeader.Data
-
-	l := len(v)
-	byteHeader.Len = l
-	byteHeader.Cap = l
-	return
 }

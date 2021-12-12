@@ -134,6 +134,13 @@ func (c *columnfloat32) FilterUint64(offset uint32, index bitmap.Bitmap, predica
 	})
 }
 
+// Snapshot writes the entire column into the specified destination buffer
+func (c *columnfloat32) Snapshot(dst *commit.Buffer) {
+	c.fill.Range(func(idx uint32) {
+		dst.PutFloat32(commit.Put, idx, c.data[idx])
+	})
+}
+
 // --------------------------- Cursor Update ----------------------------
 
 // SetFloat32 updates a column value for the current item. The actual operation
@@ -283,6 +290,13 @@ func (c *columnfloat64) FilterUint64(offset uint32, index bitmap.Bitmap, predica
 	index.Filter(func(idx uint32) (match bool) {
 		idx = offset + idx
 		return idx < uint32(len(c.data)) && predicate(uint64(c.data[idx]))
+	})
+}
+
+// Snapshot writes the entire column into the specified destination buffer
+func (c *columnfloat64) Snapshot(dst *commit.Buffer) {
+	c.fill.Range(func(idx uint32) {
+		dst.PutFloat64(commit.Put, idx, c.data[idx])
 	})
 }
 
@@ -438,6 +452,13 @@ func (c *columnint) FilterUint64(offset uint32, index bitmap.Bitmap, predicate f
 	})
 }
 
+// Snapshot writes the entire column into the specified destination buffer
+func (c *columnint) Snapshot(dst *commit.Buffer) {
+	c.fill.Range(func(idx uint32) {
+		dst.PutInt(commit.Put, idx, c.data[idx])
+	})
+}
+
 // --------------------------- Cursor Update ----------------------------
 
 // SetInt updates a column value for the current item. The actual operation
@@ -587,6 +608,13 @@ func (c *columnint16) FilterUint64(offset uint32, index bitmap.Bitmap, predicate
 	index.Filter(func(idx uint32) (match bool) {
 		idx = offset + idx
 		return idx < uint32(len(c.data)) && predicate(uint64(c.data[idx]))
+	})
+}
+
+// Snapshot writes the entire column into the specified destination buffer
+func (c *columnint16) Snapshot(dst *commit.Buffer) {
+	c.fill.Range(func(idx uint32) {
+		dst.PutInt16(commit.Put, idx, c.data[idx])
 	})
 }
 
@@ -742,6 +770,13 @@ func (c *columnint32) FilterUint64(offset uint32, index bitmap.Bitmap, predicate
 	})
 }
 
+// Snapshot writes the entire column into the specified destination buffer
+func (c *columnint32) Snapshot(dst *commit.Buffer) {
+	c.fill.Range(func(idx uint32) {
+		dst.PutInt32(commit.Put, idx, c.data[idx])
+	})
+}
+
 // --------------------------- Cursor Update ----------------------------
 
 // SetInt32 updates a column value for the current item. The actual operation
@@ -891,6 +926,13 @@ func (c *columnint64) FilterUint64(offset uint32, index bitmap.Bitmap, predicate
 	index.Filter(func(idx uint32) (match bool) {
 		idx = offset + idx
 		return idx < uint32(len(c.data)) && predicate(uint64(c.data[idx]))
+	})
+}
+
+// Snapshot writes the entire column into the specified destination buffer
+func (c *columnint64) Snapshot(dst *commit.Buffer) {
+	c.fill.Range(func(idx uint32) {
+		dst.PutInt64(commit.Put, idx, c.data[idx])
 	})
 }
 
@@ -1046,6 +1088,13 @@ func (c *columnuint) FilterUint64(offset uint32, index bitmap.Bitmap, predicate 
 	})
 }
 
+// Snapshot writes the entire column into the specified destination buffer
+func (c *columnuint) Snapshot(dst *commit.Buffer) {
+	c.fill.Range(func(idx uint32) {
+		dst.PutUint(commit.Put, idx, c.data[idx])
+	})
+}
+
 // --------------------------- Cursor Update ----------------------------
 
 // SetUint updates a column value for the current item. The actual operation
@@ -1195,6 +1244,13 @@ func (c *columnuint16) FilterUint64(offset uint32, index bitmap.Bitmap, predicat
 	index.Filter(func(idx uint32) (match bool) {
 		idx = offset + idx
 		return idx < uint32(len(c.data)) && predicate(uint64(c.data[idx]))
+	})
+}
+
+// Snapshot writes the entire column into the specified destination buffer
+func (c *columnuint16) Snapshot(dst *commit.Buffer) {
+	c.fill.Range(func(idx uint32) {
+		dst.PutUint16(commit.Put, idx, c.data[idx])
 	})
 }
 
@@ -1350,6 +1406,13 @@ func (c *columnuint32) FilterUint64(offset uint32, index bitmap.Bitmap, predicat
 	})
 }
 
+// Snapshot writes the entire column into the specified destination buffer
+func (c *columnuint32) Snapshot(dst *commit.Buffer) {
+	c.fill.Range(func(idx uint32) {
+		dst.PutUint32(commit.Put, idx, c.data[idx])
+	})
+}
+
 // --------------------------- Cursor Update ----------------------------
 
 // SetUint32 updates a column value for the current item. The actual operation
@@ -1499,6 +1562,13 @@ func (c *columnuint64) FilterUint64(offset uint32, index bitmap.Bitmap, predicat
 	index.Filter(func(idx uint32) (match bool) {
 		idx = offset + idx
 		return idx < uint32(len(c.data)) && predicate(uint64(c.data[idx]))
+	})
+}
+
+// Snapshot writes the entire column into the specified destination buffer
+func (c *columnuint64) Snapshot(dst *commit.Buffer) {
+	c.fill.Range(func(idx uint32) {
+		dst.PutUint64(commit.Put, idx, c.data[idx])
 	})
 }
 

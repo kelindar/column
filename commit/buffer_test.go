@@ -4,9 +4,11 @@
 package commit
 
 import (
+	"bytes"
 	"testing"
 	"unsafe"
 
+	"github.com/kelindar/bitmap"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -234,4 +236,62 @@ func TestPutNil(t *testing.T) {
 	r.Seek(buf)
 	assert.True(t, r.Next())
 	assert.True(t, r.Bool())
+}
+
+func TestPutBitmap(t *testing.T) {
+	buf := NewBuffer(0)
+	buf.PutBitmap(Insert, bitmap.Bitmap{0xff})
+
+	r := NewReader()
+	r.Seek(buf)
+	assert.True(t, r.Next())
+	assert.Equal(t, Insert, r.Type)
+}
+
+func TestWriteTo(t *testing.T) {
+	input := NewBuffer(0)
+	input.Column = "test"
+	input.PutInt16(Put, 10, 100)
+	input.PutString(Put, 20, "hello")
+
+	buffer := bytes.NewBuffer(nil)
+	n, err := input.WriteTo(buffer)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(buffer.Len()), n)
+	assert.Equal(t, int64(36), n)
+
+	output := NewBuffer(0)
+	m, err := output.ReadFrom(buffer)
+	assert.Equal(t, int64(buffer.Len()), m)
+	assert.Equal(t, input, output)
+}
+
+func TestWriteToFailures(t *testing.T) {
+	buf := NewBuffer(0)
+	buf.Column = "test"
+	buf.PutInt16(Put, 10, 100)
+	buf.PutString(Put, 20, "hello")
+
+	for size := 0; size < 30; size++ {
+		output := &limitWriter{Limit: size}
+		_, err := buf.WriteTo(output)
+		assert.Error(t, err)
+	}
+}
+
+func TestReadFromFailures(t *testing.T) {
+	input := NewBuffer(0)
+	input.Column = "test"
+	input.PutInt16(Put, 10, 100)
+	input.PutString(Put, 20, "hello")
+
+	buffer := bytes.NewBuffer(nil)
+	n, err := input.WriteTo(buffer)
+	assert.NoError(t, err)
+
+	for size := 0; size < int(n)-1; size++ {
+		output := NewBuffer(0)
+		_, err := output.ReadFrom(bytes.NewReader(buffer.Bytes()[:size]))
+		assert.Error(t, err)
+	}
 }

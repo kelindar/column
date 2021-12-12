@@ -33,7 +33,8 @@ type Collection struct {
 	slock  *smutex.SMutex128  // The sharded mutex for the collection
 	cols   columns            // The map of columns
 	fill   bitmap.Bitmap      // The fill-list
-	size   int                // The initial size for new columns
+	opts   Options            // The options configured
+	codec  codec              // The compression codec
 	writer commit.Writer      // The commit writer
 	pk     *columnKey         // The primary key column
 	cancel context.CancelFunc // The cancellation function for the context
@@ -72,10 +73,11 @@ func NewCollection(opts ...Options) *Collection {
 	store := &Collection{
 		cols:   makeColumns(8),
 		txns:   newTxnPool(),
-		size:   options.Capacity,
+		opts:   options,
 		slock:  new(smutex.SMutex128),
 		fill:   make(bitmap.Bitmap, 0, options.Capacity>>6),
 		writer: options.Writer,
+		codec:  newCodec(&options),
 		cancel: cancel,
 	}
 
@@ -232,7 +234,7 @@ func (c *Collection) CreateColumnsOf(object Object) error {
 
 // CreateColumn creates a column of a specified type and adds it to the collection.
 func (c *Collection) CreateColumn(columnName string, column Column) error {
-	column.Grow(uint32(c.size))
+	column.Grow(uint32(c.opts.Capacity))
 	c.cols.Store(columnName, columnFor(columnName, column))
 
 	// If necessary, create a primary key column
@@ -265,7 +267,7 @@ func (c *Collection) CreateIndex(indexName, columnName string, fn func(r Reader)
 	// Create and add the index column,
 	index := newIndex(indexName, columnName, fn)
 	c.lock.Lock()
-	index.Grow(uint32(c.size))
+	index.Grow(uint32(c.opts.Capacity))
 	c.cols.Store(indexName, index)
 	c.cols.Store(columnName, column, index)
 	c.lock.Unlock()
@@ -349,19 +351,6 @@ func (c *Collection) vacuum(ctx context.Context, interval time.Duration) {
 	}
 }
 
-// Replay replays a commit on a collection, applying the changes.
-func (c *Collection) Replay(change commit.Commit) error {
-	return c.Query(func(txn *Txn) error {
-		txn.dirty.Set(change.Chunk)
-		for i := range change.Updates {
-			if !change.Updates[i].IsEmpty() {
-				txn.updates = append(txn.updates, change.Updates[i])
-			}
-		}
-		return nil
-	})
-}
-
 // --------------------------- column registry ---------------------------
 
 // columns represents a concurrent column registry.
@@ -384,12 +373,21 @@ type columnEntry struct {
 	cols []*column // The columns and its computed
 }
 
+// Count returns the number of columns
+func (c *columns) Count() int {
+	cols := c.cols.Load().([]columnEntry)
+	return len(cols)
+}
+
 // Range iterates over columns in the registry.
-func (c *columns) Range(fn func(column *column)) {
+func (c *columns) Range(fn func(column *column) error) error {
 	cols := c.cols.Load().([]columnEntry)
 	for _, v := range cols {
-		fn(v.cols[0])
+		if err := fn(v.cols[0]); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // Load loads a column by its name.

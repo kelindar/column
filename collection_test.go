@@ -6,9 +6,6 @@ package column
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"math"
-	"math/rand"
 	"os"
 	"runtime"
 	"sync"
@@ -16,22 +13,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kelindar/async"
-	"github.com/kelindar/column/commit"
 	"github.com/stretchr/testify/assert"
 )
 
 /*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkCollection/insert-8         	    2167	    578821 ns/op	    1223 B/op	       1 allocs/op
-BenchmarkCollection/select-at-8      	42703713	        27.72 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/scan-8           	    2032	    598751 ns/op	      49 B/op	       0 allocs/op
-BenchmarkCollection/count-8          	  800036	      1498 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/range-8          	   16833	     70556 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/update-at-8      	 3689354	       323.6 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/update-all-8     	    1198	   1003934 ns/op	    4004 B/op	       0 allocs/op
-BenchmarkCollection/delete-at-8      	 8071692	       145.7 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/delete-all-8     	 2328974	       494.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/insert-8         	    2608	    519498 ns/op	   24298 B/op	     500 allocs/op
+BenchmarkCollection/select-at-8      	42467803	        27.63 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/scan-8           	    1976	    574104 ns/op	      88 B/op	       0 allocs/op
+BenchmarkCollection/count-8          	  783828	      1516 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/range-8          	   17836	     67879 ns/op	       6 B/op	       0 allocs/op
+BenchmarkCollection/update-at-8      	 3707148	       322.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/update-all-8     	    1183	    976786 ns/op	    4025 B/op	       0 allocs/op
+BenchmarkCollection/delete-at-8      	 9005782	       130.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/delete-all-8     	 2359329	       493.3 ns/op	       0 B/op	       0 allocs/op
 */
 func BenchmarkCollection(b *testing.B) {
 	b.Run("insert", func(b *testing.B) {
@@ -156,118 +151,6 @@ func BenchmarkCollection(b *testing.B) {
 				return nil
 			})
 		}
-	})
-}
-
-// Test replication many times
-func TestReplicate(t *testing.T) {
-	for x := 0; x < 20; x++ {
-		rand.Seed(int64(x))
-		runReplication(t, 10000, 50, runtime.NumCPU())
-	}
-}
-
-// runReplication runs a concurrent replication test
-func runReplication(t *testing.T, updates, inserts, concurrency int) {
-	t.Run(fmt.Sprintf("replicate-%v-%v", updates, inserts), func(t *testing.T) {
-		writer := make(commit.Channel, 10)
-		object := map[string]interface{}{
-			"float64": float64(0),
-			"int32":   int32(0),
-			"string":  "",
-		}
-
-		// Create a primary
-		primary := NewCollection(Options{
-			Capacity: inserts,
-			Writer:   &writer,
-		})
-		// Replica with the same schema
-		replica := NewCollection(Options{
-			Capacity: inserts,
-		})
-
-		// Create schemas and start streaming replication into the replica
-		primary.CreateColumnsOf(object)
-		replica.CreateColumnsOf(object)
-		var done sync.WaitGroup
-		done.Add(1)
-		go func() {
-			defer done.Done() // Drained
-			for change := range writer {
-				assert.NoError(t, replica.Replay(change))
-			}
-		}()
-
-		// Write some objects
-		for i := 0; i < inserts; i++ {
-			primary.InsertObject(object)
-		}
-
-		work := make(chan async.Task)
-		pool := async.Consume(context.Background(), 50, work)
-		defer pool.Cancel()
-
-		// Random concurrent updates
-		var wg sync.WaitGroup
-		wg.Add(updates)
-		for i := 0; i < updates; i++ {
-			work <- async.NewTask(func(ctx context.Context) (interface{}, error) {
-				defer wg.Done()
-
-				// Randomly update a column
-				offset := uint32(rand.Int31n(int32(inserts - 1)))
-				primary.UpdateAt(offset, "float64", func(v Cursor) error {
-					switch rand.Int31n(3) {
-					case 0:
-						v.SetFloat64(math.Round(rand.Float64()*1000) / 100)
-					case 1:
-						v.SetInt32At("int32", rand.Int31n(100000))
-					case 2:
-						v.SetStringAt("string", fmt.Sprintf("hi %v", rand.Int31n(10)))
-					}
-					return nil
-				})
-
-				// Randomly delete an item
-				if rand.Int31n(5) == 0 {
-					primary.DeleteAt(uint32(rand.Int31n(int32(inserts - 1))))
-				}
-
-				// Randomly insert an item
-				if rand.Int31n(5) == 0 {
-					primary.InsertObject(object)
-				}
-				return nil, nil
-			})
-		}
-
-		// Replay all of the changes into the replica
-		wg.Wait()
-		close(writer)
-		done.Wait()
-
-		// Check if replica and primary are the same
-		if !assert.Equal(t, primary.Count(), replica.Count(), "replica and primary should be the same size") {
-			return
-		}
-
-		primary.Query(func(txn *Txn) error {
-			return txn.Range("float64", func(v Cursor) {
-				v1, v2 := v.FloatAt("float64"), v.IntAt("int32")
-				if v1 != 0 {
-					assert.True(t, txn.SelectAt(v.idx, func(s Selector) {
-						assert.Equal(t, v.FloatAt("float64"), s.FloatAt("float64"))
-					}))
-				}
-
-				if v2 != 0 {
-					assert.True(t, txn.SelectAt(v.idx, func(s Selector) {
-						assert.Equal(t, v.IntAt("int32"), s.IntAt("int32"))
-					}))
-				}
-			})
-		})
 	})
 }
 
@@ -567,6 +450,8 @@ func TestInsertWithTTL(t *testing.T) {
 	})
 }
 
+// --------------------------- Mocks & Fixtures ----------------------------
+
 // loadPlayers loads a list of players from the fixture
 func loadPlayers(amount int) *Collection {
 	out := NewCollection(Options{
@@ -645,15 +530,4 @@ func loadFixture(name string) []Object {
 	}
 
 	return data
-}
-
-// noopWriter is a writer that simply counts the commits
-type noopWriter struct {
-	commits uint64
-}
-
-// Write clones the commit and writes it into the writer
-func (w *noopWriter) Write(commit commit.Commit) error {
-	atomic.AddUint64(&w.commits, 1)
-	return nil
 }
