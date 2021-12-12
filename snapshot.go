@@ -4,12 +4,17 @@
 package column
 
 import (
-	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 
 	"github.com/kelindar/column/commit"
+	"github.com/kelindar/iostream"
 	"github.com/klauspost/compress/s2"
+)
+
+var (
+	errUnexpectedEOF = errors.New("column: unable to restore, unexpected EOF")
 )
 
 // --------------------------- Commit Replay ---------------------------
@@ -32,7 +37,7 @@ func (c *Collection) Replay(change commit.Commit) error {
 // WriteTo writes collection encoded into binary format into the destination writer until
 // there's no more data to write or when an error occurs. The return value n is the number
 // of bytes written. Any error encountered during the write is also returned.
-func (c *Collection) WriteTo(w io.Writer) (int64, error) {
+func (c *Collection) WriteTo(dst io.Writer) (int64, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -41,60 +46,66 @@ func (c *Collection) WriteTo(w io.Writer) (int64, error) {
 		return 0, fmt.Errorf("column: unable to write an empty collection")
 	}
 
-	// Write the number of columns
-	encoder := c.codec.EncoderFor(w)
-	if _, err := writeUintTo(encoder, c.cols.Count()+1); err != nil {
-		encoder.Close()
-		return 0, err
-	}
-
-	// Acquire a buffer which is re-used for each column
+	// Create a writer, encoder and a reusable buffer
+	encoder := c.codec.EncoderFor(dst)
+	writer := iostream.NewWriter(c.codec.EncoderFor(dst))
 	buffer := c.txns.acquirePage(rowColumn)
 	defer c.txns.releasePage(buffer)
 
+	// Write the schema version
+	if err := writer.WriteUvarint(0x1); err != nil {
+		return writer.Offset(), err
+	}
+
+	// Write the number of columns
+	if err := writer.WriteUvarint(uint64(c.cols.Count()) + 1); err != nil {
+		return writer.Offset(), err
+	}
+
 	// Write the inserts column
 	buffer.PutBitmap(commit.Insert, c.fill)
-	n, err := buffer.WriteTo(encoder)
-	if err != nil {
-		encoder.Close()
-		return 0, err
+	if err := writer.WriteSelf(buffer); err != nil {
+		return writer.Offset(), err
 	}
 
 	// Snapshot each column and write the buffer
 	if err := c.cols.Range(func(column *column) error {
 		buffer.Reset(column.name)
-		m, err := column.WriteTo(encoder, buffer)
-		if err != nil {
-			return err
-		}
-
-		n += m
-		return nil
+		column.Snapshot(buffer)
+		return writer.WriteSelf(buffer)
 	}); err != nil {
-		encoder.Close()
-		return n, err
+		return writer.Offset(), err
 	}
 
-	return n + 4, encoder.Close()
+	return writer.Offset(), encoder.Close()
 }
 
 // ReadFrom reads a collection from the provided reader source until EOF or error. The
 // return value n is the number of bytes read. Any error except EOF encountered during
 // the read is also returned.
-func (c *Collection) ReadFrom(r io.Reader) (int64, error) {
-	r = c.codec.DecoderFor(r)
-	count, n, err := readUintFrom(r)
-	if err != nil {
-		return n, err
+func (c *Collection) ReadFrom(src io.Reader) (int64, error) {
+	r := iostream.NewReader(c.codec.DecoderFor(src))
+
+	// Read the version and make sure it matches
+	version, err := r.ReadUvarint()
+	if err != nil || version != 0x1 {
+		return r.Offset(), fmt.Errorf("column: unable to restore (version %d) %v", version, err)
 	}
 
-	return n, c.Query(func(txn *Txn) error {
-		for i := 0; i < count; i++ {
+	// Read the number of columns
+	count, err := r.ReadUvarint()
+	if err != nil {
+		return r.Offset(), err
+	}
+
+	// Read each column
+	err = c.Query(func(txn *Txn) error {
+		for i := uint64(0); i < count; i++ {
 			buffer := txn.owner.txns.acquirePage("")
-			m, err := buffer.ReadFrom(r)
+			_, err := buffer.ReadFrom(r)
 			switch {
 			case err == io.EOF && i < count:
-				return fmt.Errorf("unexpected EOF")
+				return errUnexpectedEOF
 			case err != nil:
 				return err
 			default:
@@ -102,11 +113,11 @@ func (c *Collection) ReadFrom(r io.Reader) (int64, error) {
 				buffer.RangeChunks(func(chunk uint32) {
 					txn.dirty.Set(chunk)
 				})
-				n += m
 			}
 		}
 		return nil
 	})
+	return r.Offset(), err
 }
 
 // --------------------------- Compression Codec ----------------------------
@@ -149,21 +160,4 @@ func (c *s2codec) EncoderFor(writer io.Writer) io.WriteCloser {
 
 func (c *s2codec) Close() error {
 	return c.w.Close()
-}
-
-// --------------------------- Read/Write ----------------------------
-
-// writeUintTo writes the length of something into the destination writer
-func writeUintTo(w io.Writer, v int) (n int, err error) {
-	var temp [4]byte
-	binary.BigEndian.PutUint32(temp[:], uint32(v))
-	return w.Write(temp[:])
-}
-
-// readUintFrom reads the unsigned integer from the reader
-func readUintFrom(r io.Reader) (int, int64, error) {
-	var temp [4]byte
-	n, err := io.ReadFull(r, temp[:])
-	v := int(binary.BigEndian.Uint32(temp[:]))
-	return v, int64(n), err
 }

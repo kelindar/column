@@ -258,10 +258,11 @@ func TestWriteTo(t *testing.T) {
 	n, err := input.WriteTo(buffer)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(buffer.Len()), n)
-	assert.Equal(t, int64(45), n)
+	assert.Equal(t, int64(36), n)
 
 	output := NewBuffer(0)
-	output.ReadFrom(buffer)
+	m, err := output.ReadFrom(buffer)
+	assert.Equal(t, int64(buffer.Len()), m)
 	assert.Equal(t, input, output)
 }
 

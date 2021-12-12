@@ -22,8 +22,8 @@ import (
 
 /*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkSave/write-to-8         	      12	  85822500 ns/op	41160691 B/op	     750 allocs/op
-BenchmarkSave/read-from-8        	      14	  90972757 ns/op	105677922 B/op	     183 allocs/op
+BenchmarkSave/write-to-8         	      12	  87761500 ns/op	1193.94 MB/s	41037068 B/op	     679 allocs/op
+BenchmarkSave/read-from-8        	      13	  85118831 ns/op	1231.01 MB/s	105711508 B/op	      91 allocs/op
 */
 func BenchmarkSave(b *testing.B) {
 	b.Run("write-to", func(b *testing.B) {
@@ -35,7 +35,8 @@ func BenchmarkSave(b *testing.B) {
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
 			output.Reset()
-			input.WriteTo(output)
+			n, _ := input.WriteTo(output)
+			b.SetBytes(n)
 		}
 	})
 
@@ -49,7 +50,8 @@ func BenchmarkSave(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			output.ReadFrom(bytes.NewBuffer(buffer.Bytes()))
+			n, _ := output.ReadFrom(bytes.NewBuffer(buffer.Bytes()))
+			b.SetBytes(n)
 		}
 	})
 }
@@ -204,7 +206,7 @@ func TestSnapshotSize(t *testing.T) {
 	output := bytes.NewBuffer(nil)
 	_, err := input.WriteTo(output)
 	assert.NoError(t, err)
-	assert.Equal(t, 110299, output.Len())
+	assert.Equal(t, 110097, output.Len())
 }
 
 func TestWriteToFailures(t *testing.T) {
@@ -216,10 +218,10 @@ func TestWriteToFailures(t *testing.T) {
 		return nil
 	})
 
-	for size := 0; size < 99; size++ {
+	for size := 0; size < 69; size++ {
 		output := &limitWriter{Limit: size}
 		_, err := input.WriteTo(output)
-		assert.Error(t, err)
+		assert.Error(t, err, fmt.Sprintf("write failure size=%d", size))
 	}
 }
 

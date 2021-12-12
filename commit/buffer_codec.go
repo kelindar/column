@@ -8,164 +8,100 @@ import (
 	"io"
 	"reflect"
 	"unsafe"
+
+	"github.com/kelindar/iostream"
 )
 
 // --------------------------- WriteTo ----------------------------
 
 // WriteTo writes data to w until there's no more data to write or when an error occurs. The return
 // value n is the number of bytes written. Any error encountered during the write is also returned.
-func (b *Buffer) WriteTo(w io.Writer) (n int64, err error) {
-	nName, err := writeBytesTo(w, toBytes(b.Column))
-	if err != nil {
-		return 0, err
+func (b *Buffer) WriteTo(dst io.Writer) (int64, error) {
+	w := iostream.NewWriter(dst)
+	if err := w.WriteString(b.Column); err != nil {
+		return w.Offset(), err
 	}
 
-	nLast, err := writeUintTo(w, int(b.last))
-	if err != nil {
-		return 0, err
+	if err := w.WriteInt32(b.last); err != nil {
+		return w.Offset(), err
 	}
 
-	nHead, err := writeChunksTo(w, b.chunks)
-	if err != nil {
-		return 0, err
+	if err := writeChunksTo(w, b.chunks); err != nil {
+		return w.Offset(), err
 	}
 
-	nBody, err := writeBytesTo(w, b.buffer)
-	if err != nil {
-		return 0, err
-	}
-
-	n += int64(nLast + nName + nHead + nBody)
-	return
-}
-
-// writeBytesTo writes the string to the output buffer
-func writeBytesTo(w io.Writer, v []byte) (n int, err error) {
-	nSize, err := writeUintTo(w, len(v))
-	if err != nil {
-		return 0, err
-	}
-
-	nText, err := w.Write(v)
-	if err != nil {
-		return 0, err
-	}
-
-	n += nSize + nText
-	return
+	err := w.WriteBytes(b.buffer)
+	return w.Offset(), err
 }
 
 // writeChunksTo writes a header with chunk offsets
-func writeChunksTo(w io.Writer, chunks []header) (n int, err error) {
-	m, err := writeUintTo(w, len(chunks))
-	if err != nil {
-		return 0, err
+func writeChunksTo(w *iostream.Writer, chunks []header) error {
+	if err := w.WriteUvarint(uint64(len(chunks))); err != nil {
+		return err
 	}
 
-	n += m
 	var temp [12]byte
 	for _, v := range chunks {
 		binary.BigEndian.PutUint32(temp[0:4], v.Chunk)
 		binary.BigEndian.PutUint32(temp[4:8], v.Start)
 		binary.BigEndian.PutUint32(temp[8:12], v.Value)
-		m, err := w.Write(temp[:])
-		if err != nil {
-			return 0, err
+		if _, err := w.Write(temp[:]); err != nil {
+			return err
 		}
-
-		n += m
 	}
-	return
-}
-
-// writeUintTo writes the length of something into the destination writer
-func writeUintTo(w io.Writer, v int) (n int, err error) {
-	var temp [4]byte
-	binary.BigEndian.PutUint32(temp[:], uint32(v))
-	return w.Write(temp[:])
+	return nil
 }
 
 // --------------------------- ReadFrom ----------------------------
 
 // ReadFrom reads data from r until EOF or error. The return value n is the number of
 // bytes read. Any error except EOF encountered during the read is also returned.
-func (b *Buffer) ReadFrom(r io.Reader) (n int64, err error) {
-	name, nName, err := readBytesFrom(r)
-	if err != nil {
-		return 0, err
+func (b *Buffer) ReadFrom(src io.Reader) (int64, error) {
+	r := iostream.NewReader(src)
+	var err error
+	if b.Column, err = r.ReadString(); err != nil {
+		return r.Offset(), err
 	}
 
-	last, nLast, err := readUintFrom(r)
-	if err != nil {
-		return 0, err
+	if b.last, err = r.ReadInt32(); err != nil {
+		return r.Offset(), err
 	}
 
-	head, nHead, err := readChunksFrom(r)
-	if err != nil {
-		return 0, err
+	if b.chunks, err = readChunksFrom(r); err != nil {
+		return r.Offset(), err
 	}
 
-	body, nBody, err := readBytesFrom(r)
-	if err != nil {
-		return 0, err
+	if b.buffer, err = r.ReadBytes(); err != nil {
+		return r.Offset(), err
 	}
 
-	b.Column = string(name)
-	b.chunks = head
-	b.buffer = body
-	b.last = int32(last)
-	if len(head) > 0 {
-		last := head[len(head)-1]
+	if len(b.chunks) > 0 {
+		last := b.chunks[len(b.chunks)-1]
 		b.chunk = last.Chunk
 	}
 
-	n += int64(nName + nLast + nHead + nBody)
-	return
-}
-
-// readBytesFrom reads the bytes prefixed with the length from the reader
-func readBytesFrom(r io.Reader) (v []byte, n int, err error) {
-	size, nSize, err := readUintFrom(r)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	v = make([]byte, size)
-	n, err = io.ReadFull(r, v)
-	n += nSize
-	return
+	return r.Offset(), nil
 }
 
 // readChunksFrom reads the list of chunks from the reader
-func readChunksFrom(r io.Reader) (v []header, n int, err error) {
-	size, m, err := readUintFrom(r)
+func readChunksFrom(r *iostream.Reader) ([]header, error) {
+	size, err := r.ReadUvarint()
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
-	n += m
-	v = make([]header, size)
+	v := make([]header, size)
 	var temp [12]byte
-	for i := 0; i < size; i++ {
-		m, err := io.ReadFull(r, temp[:])
-		if err != nil {
-			return nil, 0, err
+	for i := 0; i < int(size); i++ {
+		if _, err := io.ReadFull(r, temp[:]); err != nil {
+			return nil, err
 		}
 
 		v[i].Chunk = binary.BigEndian.Uint32(temp[0:4])
 		v[i].Start = binary.BigEndian.Uint32(temp[4:8])
 		v[i].Value = binary.BigEndian.Uint32(temp[8:12])
-		n += m
 	}
-	return
-}
-
-// readUintFrom reads the unsigned integer from the reader
-func readUintFrom(r io.Reader) (v int, n int, err error) {
-	var temp [4]byte
-	n, err = io.ReadFull(r, temp[:])
-	v = int(binary.BigEndian.Uint32(temp[:]))
-	return
+	return v, nil
 }
 
 // toBytes converts a string to a byte slice without allocating.

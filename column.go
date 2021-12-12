@@ -7,7 +7,6 @@ package column
 
 import (
 	"fmt"
-	"io"
 	"reflect"
 	"sync"
 
@@ -161,14 +160,6 @@ func (c *column) Apply(r *commit.Reader) {
 
 	r.Rewind()
 	c.Column.Apply(r)
-}
-
-// Snapshot snapshots the column into a temporary buffer and writes the content into the
-// destionation io.Writer.
-func (c *column) WriteTo(w io.Writer, tmp *commit.Buffer) (int64, error) {
-	tmp.Reset(c.name)
-	c.Column.Snapshot(tmp)
-	return tmp.WriteTo(w)
 }
 
 // Value retrieves a value at a specified index
