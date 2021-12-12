@@ -225,11 +225,23 @@ func TestWriteToFailures(t *testing.T) {
 	}
 }
 
-func TestWriteToEmpty(t *testing.T) {
-	input := NewCollection()
-	input.CreateColumn("name", ForString())
-	_, err := input.WriteTo(bytes.NewBuffer(nil))
-	assert.Error(t, err)
+func TestWriteEmpty(t *testing.T) {
+	buffer := bytes.NewBuffer(nil)
+
+	{ // Write the collection
+		input := NewCollection()
+		input.CreateColumn("name", ForString())
+		_, err := input.WriteTo(buffer)
+		assert.NoError(t, err)
+	}
+
+	{ // Read the collection back
+		output := NewCollection()
+		output.CreateColumn("name", ForString())
+		_, err := output.ReadFrom(buffer)
+		assert.NoError(t, err)
+		assert.Equal(t, 0, output.Count())
+	}
 }
 
 func TestReadFromFailures(t *testing.T) {

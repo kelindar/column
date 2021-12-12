@@ -41,11 +41,6 @@ func (c *Collection) WriteTo(dst io.Writer) (int64, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	// Check if there's any data to write
-	if c.fill.Count() == 0 {
-		return 0, fmt.Errorf("column: unable to write an empty collection")
-	}
-
 	// Create a writer, encoder and a reusable buffer
 	encoder := c.codec.EncoderFor(dst)
 	writer := iostream.NewWriter(c.codec.EncoderFor(dst))
