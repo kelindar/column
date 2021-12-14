@@ -65,7 +65,7 @@ func TestRange(t *testing.T) {
 
 	r := NewReader()
 	for i := 0; i < 100; i++ {
-		r.Range(buf, uint32(i), func(r *Reader) {
+		r.Range(buf, Chunk(i), func(r *Reader) {
 			for r.Next() {
 				assert.Equal(t, Put, r.Type)
 				assert.Equal(t, i, int(r.Offset>>chunkShift))
@@ -96,8 +96,8 @@ func TestReadSwap(t *testing.T) {
 	// Should only have 1 chunk
 	assert.False(t, buf.IsEmpty())
 	assert.Equal(t, 1, len(buf.chunks))
-	buf.RangeChunks(func(chunk uint32) {
-		assert.Equal(t, uint32(0), chunk)
+	buf.RangeChunks(func(chunk Chunk) {
+		assert.Equal(t, Chunk(0), chunk)
 	})
 
 	r := NewReader()

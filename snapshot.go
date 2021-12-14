@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
 	"github.com/kelindar/iostream"
 	"github.com/klauspost/compress/s2"
@@ -22,7 +23,7 @@ var (
 // Replay replays a commit on a collection, applying the changes.
 func (c *Collection) Replay(change commit.Commit) error {
 	return c.Query(func(txn *Txn) error {
-		txn.dirty.Set(change.Chunk)
+		txn.dirty.Set(uint32(change.Chunk))
 		for i := range change.Updates {
 			if !change.Updates[i].IsEmpty() {
 				txn.updates = append(txn.updates, change.Updates[i])
@@ -38,8 +39,6 @@ func (c *Collection) Replay(change commit.Commit) error {
 // there's no more data to write or when an error occurs. The return value n is the number
 // of bytes written. Any error encountered during the write is also returned.
 func (c *Collection) WriteTo(dst io.Writer) (int64, error) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
 
 	// Create a writer, encoder and a reusable buffer
 	encoder := c.codec.EncoderFor(dst)
@@ -52,24 +51,37 @@ func (c *Collection) WriteTo(dst io.Writer) (int64, error) {
 		return writer.Offset(), err
 	}
 
+	// Load the number of columns and the max index
+	c.lock.Lock()
+	ccount := uint64(c.cols.Count()) + 1
+	max, _ := c.fill.Max()
+	c.lock.Unlock()
+
 	// Write the number of columns
-	if err := writer.WriteUvarint(uint64(c.cols.Count()) + 1); err != nil {
+	if err := writer.WriteUvarint(ccount); err != nil {
 		return writer.Offset(), err
 	}
 
-	// Write the inserts column
-	buffer.PutBitmap(commit.Insert, c.fill)
-	if err := writer.WriteSelf(buffer); err != nil {
-		return writer.Offset(), err
-	}
+	// Write all chunks, one at a time
+	var err error
+	for chunk := commit.Chunk(0); chunk < commit.ChunkAt(max)+1; chunk++ {
+		c.writeAtChunk(chunk, func(chunk commit.Chunk, fill bitmap.Bitmap) {
 
-	// Snapshot each column and write the buffer
-	if err := c.cols.Range(func(column *column) error {
-		buffer.Reset(column.name)
-		column.Snapshot(buffer)
-		return writer.WriteSelf(buffer)
-	}); err != nil {
-		return writer.Offset(), err
+			// Write the inserts column
+			buffer.PutBitmap(commit.Insert, chunk, c.fill)
+			if err = writer.WriteSelf(buffer); err != nil {
+				return
+			}
+
+			// Snapshot each column and write the buffer
+			if err = c.cols.Range(func(column *column) error {
+				buffer.Reset(column.name)
+				column.Snapshot(chunk, buffer)
+				return writer.WriteSelf(buffer)
+			}); err != nil {
+				return
+			}
+		})
 	}
 
 	return writer.Offset(), encoder.Close()
@@ -105,8 +117,8 @@ func (c *Collection) ReadFrom(src io.Reader) (int64, error) {
 				return err
 			default:
 				txn.updates = append(txn.updates, buffer)
-				buffer.RangeChunks(func(chunk uint32) {
-					txn.dirty.Set(chunk)
+				buffer.RangeChunks(func(chunk commit.Chunk) {
+					txn.dirty.Set(uint32(chunk))
 				})
 			}
 		}

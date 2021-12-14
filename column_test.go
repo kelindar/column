@@ -194,7 +194,7 @@ func testPutDelete(t *testing.T, column Column, value interface{}) {
 // testSnapshot test a snapshot of a column
 func testSnapshot(t *testing.T, column Column, value interface{}) {
 	buf := commit.NewBuffer(8)
-	column.Snapshot(buf)
+	column.Snapshot(0, buf)
 	assert.False(t, buf.IsEmpty())
 }
 
@@ -383,7 +383,7 @@ func TestSnapshotBool(t *testing.T) {
 
 	// Snapshot into a new buffer
 	buf := commit.NewBuffer(8)
-	input.Snapshot(buf)
+	input.Snapshot(0, buf)
 
 	// Create a new reader and read the column
 	rdr := commit.NewReader()
@@ -407,7 +407,7 @@ func TestSnapshotIndex(t *testing.T) {
 
 	// Snapshot into a new buffer
 	buf := commit.NewBuffer(8)
-	input.Snapshot(buf)
+	input.Snapshot(0, buf)
 
 	// Create a new reader and read the column
 	rdr := commit.NewReader()

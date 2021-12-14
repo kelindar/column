@@ -138,8 +138,8 @@ func (c *columnNumber) FilterUint64(offset uint32, index bitmap.Bitmap, predicat
 }
 
 // Snapshot writes the entire column into the specified destination buffer
-func (c *columnNumber) Snapshot(dst *commit.Buffer) {
-	c.fill.Range(func(idx uint32) {
+func (c *columnNumber) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
+	chunk.Range(c.fill, func(idx uint32) {
 		dst.PutNumber(commit.Put, idx, c.data[idx])
 	})
 }

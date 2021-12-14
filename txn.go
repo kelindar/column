@@ -423,8 +423,8 @@ func (txn *Txn) commit() {
 
 	// Mark the dirty chunks from the updates
 	for _, u := range txn.updates {
-		u.RangeChunks(func(chunk uint32) {
-			txn.dirty.Set(chunk)
+		u.RangeChunks(func(chunk commit.Chunk) {
+			txn.dirty.Set(uint32(chunk))
 		})
 	}
 
@@ -433,13 +433,13 @@ func (txn *Txn) commit() {
 
 	// Grow the size of the fill list
 	markers, changedRows := txn.findMarkers()
-	max := txn.reader.MaxOffset(markers, lastChunk)
+	max := txn.reader.MaxOffset(markers, commit.Chunk(lastChunk))
 	if max > 0 {
 		txn.commitCapacity(max)
 	}
 
 	// Commit chunk by chunk to reduce lock contentions
-	txn.rangeWrite(func(chunk uint32, fill bitmap.Bitmap) {
+	txn.rangeWrite(func(chunk commit.Chunk, fill bitmap.Bitmap) {
 		if changedRows {
 			txn.commitMarkers(chunk, fill, markers)
 		}
@@ -457,7 +457,7 @@ func (txn *Txn) commit() {
 }
 
 // commitUpdates applies the pending updates to the collection.
-func (txn *Txn) commitUpdates(chunk uint32, fill bitmap.Bitmap) (updated bool) {
+func (txn *Txn) commitUpdates(chunk commit.Chunk, fill bitmap.Bitmap) (updated bool) {
 	for _, u := range txn.updates {
 		if u.IsEmpty() || u.Column == rowColumn {
 			continue // No updates for this column
@@ -484,7 +484,7 @@ func (txn *Txn) commitUpdates(chunk uint32, fill bitmap.Bitmap) (updated bool) {
 }
 
 // commitMarkers commits inserts and deletes to the collection.
-func (txn *Txn) commitMarkers(chunk uint32, fill bitmap.Bitmap, buffer *commit.Buffer) {
+func (txn *Txn) commitMarkers(chunk commit.Chunk, fill bitmap.Bitmap, buffer *commit.Buffer) {
 	txn.reader.Range(buffer, chunk, func(r *commit.Reader) {
 		for r.Next() {
 			txn.owner.lock.Lock()

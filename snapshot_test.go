@@ -206,7 +206,7 @@ func TestSnapshotSize(t *testing.T) {
 	output := bytes.NewBuffer(nil)
 	_, err := input.WriteTo(output)
 	assert.NoError(t, err)
-	assert.Equal(t, 110097, output.Len())
+	assert.Equal(t, 107030, output.Len())
 }
 
 func TestWriteToFailures(t *testing.T) {
