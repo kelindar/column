@@ -501,9 +501,8 @@ func (txn *Txn) commitMarkers(chunk commit.Chunk, fill bitmap.Bitmap, buffer *co
 	// We also need to apply the delete operations on the column so it
 	// can remove unnecessary data.
 	txn.reader.Range(buffer, chunk, func(r *commit.Reader) {
-		txn.owner.cols.Range(func(column *column) error {
+		txn.owner.cols.Range(func(column *column) {
 			column.Apply(r)
-			return nil
 		})
 	})
 
@@ -529,8 +528,7 @@ func (txn *Txn) commitCapacity(max uint32) {
 
 	// Grow the fill list and all of the owner's columns
 	txn.owner.fill.Grow(max)
-	txn.owner.cols.Range(func(column *column) error {
+	txn.owner.cols.Range(func(column *column) {
 		column.Grow(max)
-		return nil
 	})
 }

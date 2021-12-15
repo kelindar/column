@@ -379,8 +379,17 @@ func (c *columns) Count() int {
 	return len(cols)
 }
 
-// Range iterates over columns in the registry.
-func (c *columns) Range(fn func(column *column) error) error {
+// Range iterates over columns in the registry. This is faster than RangeUntil
+// method.
+func (c *columns) Range(fn func(column *column)) {
+	cols := c.cols.Load().([]columnEntry)
+	for _, v := range cols {
+		fn(v.cols[0])
+	}
+}
+
+// RangeUntil iterates over columns in the registry until an error occurs.
+func (c *columns) RangeUntil(fn func(column *column) error) error {
 	cols := c.cols.Load().([]columnEntry)
 	for _, v := range cols {
 		if err := fn(v.cols[0]); err != nil {

@@ -18,15 +18,15 @@ import (
 
 /*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkCollection/insert-8         	    2608	    519498 ns/op	   24298 B/op	     500 allocs/op
-BenchmarkCollection/select-at-8      	42467803	        27.63 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/scan-8           	    1976	    574104 ns/op	      88 B/op	       0 allocs/op
-BenchmarkCollection/count-8          	  783828	      1516 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/range-8          	   17836	     67879 ns/op	       6 B/op	       0 allocs/op
-BenchmarkCollection/update-at-8      	 3707148	       322.9 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/update-all-8     	    1183	    976786 ns/op	    4025 B/op	       0 allocs/op
-BenchmarkCollection/delete-at-8      	 9005782	       130.1 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/delete-all-8     	 2359329	       493.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/insert-8                2174            534746 ns/op           25090 B/op        500 allocs/op
+BenchmarkCollection/select-at-8         42206409                28.19 ns/op            0 B/op          0 allocs/op
+BenchmarkCollection/scan-8                  2116            581193 ns/op            1872 B/op          0 allocs/op
+BenchmarkCollection/count-8               748689              1565 ns/op               5 B/op          0 allocs/op
+BenchmarkCollection/range-8                16476             73244 ns/op             216 B/op          0 allocs/op
+BenchmarkCollection/update-at-8          3717255               316.6 ns/op             1 B/op          0 allocs/op
+BenchmarkCollection/update-all-8            1176           1005992 ns/op            7134 B/op          1 allocs/op
+BenchmarkCollection/delete-at-8          8403426               145.0 ns/op             0 B/op          0 allocs/op
+BenchmarkCollection/delete-all-8         2338410               500.0 ns/op             1 B/op          0 allocs/op
 */
 func BenchmarkCollection(b *testing.B) {
 	b.Run("insert", func(b *testing.B) {

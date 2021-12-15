@@ -83,7 +83,7 @@ func (c *Collection) WriteTo(dst io.Writer) (int64, error) {
 			}
 
 			// Snapshot each column and write the buffer
-			return c.cols.Range(func(column *column) error {
+			return c.cols.RangeUntil(func(column *column) error {
 				buffer.Reset(column.name)
 				column.Snapshot(chunk, buffer)
 				return writer.WriteSelf(buffer)
