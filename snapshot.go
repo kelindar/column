@@ -53,35 +53,44 @@ func (c *Collection) WriteTo(dst io.Writer) (int64, error) {
 
 	// Load the number of columns and the max index
 	c.lock.Lock()
-	ccount := uint64(c.cols.Count()) + 1
 	max, _ := c.fill.Max()
+	chunks := commit.ChunkAt(max) + 1
+	columns := uint64(c.cols.Count()) + 1 // extra 'insert' column
 	c.lock.Unlock()
 
 	// Write the number of columns
-	if err := writer.WriteUvarint(ccount); err != nil {
+	if err := writer.WriteUvarint(columns); err != nil {
+		return writer.Offset(), err
+	}
+
+	// Write the number of chunks
+	if err := writer.WriteUvarint(uint64(chunks)); err != nil {
 		return writer.Offset(), err
 	}
 
 	// Write all chunks, one at a time
-	var err error
-	for chunk := commit.Chunk(0); chunk < commit.ChunkAt(max)+1; chunk++ {
-		c.writeAtChunk(chunk, func(chunk commit.Chunk, fill bitmap.Bitmap) {
+	for i := commit.Chunk(0); i < chunks; i++ {
+		offset := i.Min()
+		if err := c.writeAtChunk(i, func(chunk commit.Chunk, fill bitmap.Bitmap) error {
 
 			// Write the inserts column
-			buffer.PutBitmap(commit.Insert, chunk, c.fill)
-			if err = writer.WriteSelf(buffer); err != nil {
-				return
+			buffer.Reset(rowColumn)
+			fill.Range(func(idx uint32) {
+				buffer.PutOperation(commit.Insert, offset+idx)
+			})
+			if err := writer.WriteSelf(buffer); err != nil {
+				return err
 			}
 
 			// Snapshot each column and write the buffer
-			if err = c.cols.Range(func(column *column) error {
+			return c.cols.Range(func(column *column) error {
 				buffer.Reset(column.name)
 				column.Snapshot(chunk, buffer)
 				return writer.WriteSelf(buffer)
-			}); err != nil {
-				return
-			}
-		})
+			})
+		}); err != nil {
+			return writer.Offset(), err
+		}
 	}
 
 	return writer.Offset(), encoder.Close()
@@ -100,31 +109,41 @@ func (c *Collection) ReadFrom(src io.Reader) (int64, error) {
 	}
 
 	// Read the number of columns
-	count, err := r.ReadUvarint()
+	columns, err := r.ReadUvarint()
 	if err != nil {
 		return r.Offset(), err
 	}
 
-	// Read each column
-	err = c.Query(func(txn *Txn) error {
-		for i := uint64(0); i < count; i++ {
-			buffer := txn.owner.txns.acquirePage("")
-			_, err := buffer.ReadFrom(r)
-			switch {
-			case err == io.EOF && i < count:
-				return errUnexpectedEOF
-			case err != nil:
-				return err
-			default:
-				txn.updates = append(txn.updates, buffer)
-				buffer.RangeChunks(func(chunk commit.Chunk) {
-					txn.dirty.Set(uint32(chunk))
-				})
+	// Read the number of chunks
+	chunks, err := r.ReadUvarint()
+	if err != nil {
+		return r.Offset(), err
+	}
+
+	// Read each chunk/column
+	for chunk := 0; chunk < int(chunks); chunk++ {
+		if err := c.Query(func(txn *Txn) error {
+			txn.dirty.Set(uint32(chunk))
+			for i := uint64(0); i < columns; i++ {
+				buffer := txn.owner.txns.acquirePage("")
+				_, err := buffer.ReadFrom(r)
+				switch {
+				case err == io.EOF && i < columns:
+					return errUnexpectedEOF
+				case err != nil:
+					return err
+				default:
+					txn.updates = append(txn.updates, buffer)
+				}
 			}
+
+			return nil
+		}); err != nil {
+			return r.Offset(), err
 		}
-		return nil
-	})
-	return r.Offset(), err
+	}
+
+	return r.Offset(), nil
 }
 
 // --------------------------- Compression Codec ----------------------------

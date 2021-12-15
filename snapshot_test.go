@@ -22,8 +22,8 @@ import (
 
 /*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkSave/write-to-8         	      12	  87761500 ns/op	1193.94 MB/s	41037068 B/op	     679 allocs/op
-BenchmarkSave/read-from-8        	      13	  85118831 ns/op	1231.01 MB/s	105711508 B/op	      91 allocs/op
+BenchmarkSave/write-to-8         	       8	 131800350 ns/op	 981.98 MB/s	 6539521 B/op	    1950 allocs/op
+BenchmarkSave/read-from-8        	      13	  79411685 ns/op	1629.80 MB/s	135661336 B/op	    4610 allocs/op
 */
 func BenchmarkSave(b *testing.B) {
 	b.Run("write-to", func(b *testing.B) {
@@ -175,7 +175,7 @@ func runReplication(t *testing.T, updates, inserts, concurrency int) {
 func TestSnapshot(t *testing.T) {
 	input := NewCollection()
 	input.CreateColumn("name", ForEnum())
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 2e4; i++ {
 		input.Insert("name", func(v Cursor) error {
 			v.Set("Roman")
 			return nil
@@ -188,6 +188,7 @@ func TestSnapshot(t *testing.T) {
 	assert.NotZero(t, n)
 	assert.NoError(t, err)
 
+	println("----")
 	// Restore the collection from the snapshot
 	output := NewCollection()
 	output.CreateColumn("name", ForEnum())
@@ -206,7 +207,7 @@ func TestSnapshotSize(t *testing.T) {
 	output := bytes.NewBuffer(nil)
 	_, err := input.WriteTo(output)
 	assert.NoError(t, err)
-	assert.Equal(t, 107030, output.Len())
+	assert.Equal(t, 107037, output.Len())
 }
 
 func TestWriteToFailures(t *testing.T) {

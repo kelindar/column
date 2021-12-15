@@ -433,13 +433,12 @@ func (txn *Txn) commit() {
 
 	// Grow the size of the fill list
 	markers, changedRows := txn.findMarkers()
-	max := txn.reader.MaxOffset(markers, commit.Chunk(lastChunk))
-	if max > 0 {
+	if max := txn.reader.MaxOffset(markers, commit.Chunk(lastChunk)); max > 0 {
 		txn.commitCapacity(max)
 	}
 
 	// Commit chunk by chunk to reduce lock contentions
-	txn.rangeWrite(func(chunk commit.Chunk, fill bitmap.Bitmap) {
+	txn.rangeWrite(func(chunk commit.Chunk, fill bitmap.Bitmap) error {
 		if changedRows {
 			txn.commitMarkers(chunk, fill, markers)
 		}
@@ -453,6 +452,7 @@ func (txn *Txn) commit() {
 				Updates: txn.updates,
 			})
 		}
+		return nil
 	})
 }
 

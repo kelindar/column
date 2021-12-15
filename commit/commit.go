@@ -19,7 +19,7 @@ type Chunk uint32
 
 // ChunkAt returns the chunk number at a given index
 func ChunkAt(index uint32) Chunk {
-	return Chunk(index) / chunkSize
+	return Chunk(index >> chunkShift)
 }
 
 // OfBitmap computes a chunk for a given bitmap
@@ -30,14 +30,19 @@ func (c Chunk) OfBitmap(v bitmap.Bitmap) bitmap.Bitmap {
 	return v[x0:x1]
 }
 
-// Offset returns the offset at which the chunk should be positioned
-func (c Chunk) Offset() uint32 {
+// Min returns the min offset at which the chunk should be starting
+func (c Chunk) Min() uint32 {
 	return uint32(int32(c) << chunkShift)
+}
+
+// Max returns the max offset at which the chunk should be ending
+func (c Chunk) Max() uint32 {
+	return c.Min() + chunkSize - 1
 }
 
 // Range iterates over a chunk given a bitmap
 func (c Chunk) Range(v bitmap.Bitmap, fn func(idx uint32)) {
-	offset := c.Offset()
+	offset := c.Min()
 	output := c.OfBitmap(v)
 	output.Range(func(idx uint32) {
 		fn(offset + idx)
