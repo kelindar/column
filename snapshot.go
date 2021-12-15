@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
 	"github.com/kelindar/iostream"
 	"github.com/klauspost/compress/s2"
@@ -22,7 +23,7 @@ var (
 // Replay replays a commit on a collection, applying the changes.
 func (c *Collection) Replay(change commit.Commit) error {
 	return c.Query(func(txn *Txn) error {
-		txn.dirty.Set(change.Chunk)
+		txn.dirty.Set(uint32(change.Chunk))
 		for i := range change.Updates {
 			if !change.Updates[i].IsEmpty() {
 				txn.updates = append(txn.updates, change.Updates[i])
@@ -38,8 +39,6 @@ func (c *Collection) Replay(change commit.Commit) error {
 // there's no more data to write or when an error occurs. The return value n is the number
 // of bytes written. Any error encountered during the write is also returned.
 func (c *Collection) WriteTo(dst io.Writer) (int64, error) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
 
 	// Create a writer, encoder and a reusable buffer
 	encoder := c.codec.EncoderFor(dst)
@@ -52,24 +51,46 @@ func (c *Collection) WriteTo(dst io.Writer) (int64, error) {
 		return writer.Offset(), err
 	}
 
+	// Load the number of columns and the max index
+	c.lock.Lock()
+	max, _ := c.fill.Max()
+	chunks := commit.ChunkAt(max) + 1
+	columns := uint64(c.cols.Count()) + 1 // extra 'insert' column
+	c.lock.Unlock()
+
 	// Write the number of columns
-	if err := writer.WriteUvarint(uint64(c.cols.Count()) + 1); err != nil {
+	if err := writer.WriteUvarint(columns); err != nil {
 		return writer.Offset(), err
 	}
 
-	// Write the inserts column
-	buffer.PutBitmap(commit.Insert, c.fill)
-	if err := writer.WriteSelf(buffer); err != nil {
+	// Write the number of chunks
+	if err := writer.WriteUvarint(uint64(chunks)); err != nil {
 		return writer.Offset(), err
 	}
 
-	// Snapshot each column and write the buffer
-	if err := c.cols.Range(func(column *column) error {
-		buffer.Reset(column.name)
-		column.Snapshot(buffer)
-		return writer.WriteSelf(buffer)
-	}); err != nil {
-		return writer.Offset(), err
+	// Write all chunks, one at a time
+	for i := commit.Chunk(0); i < chunks; i++ {
+		offset := i.Min()
+		if err := c.writeAtChunk(i, func(chunk commit.Chunk, fill bitmap.Bitmap) error {
+
+			// Write the inserts column
+			buffer.Reset(rowColumn)
+			fill.Range(func(idx uint32) {
+				buffer.PutOperation(commit.Insert, offset+idx)
+			})
+			if err := writer.WriteSelf(buffer); err != nil {
+				return err
+			}
+
+			// Snapshot each column and write the buffer
+			return c.cols.RangeUntil(func(column *column) error {
+				buffer.Reset(column.name)
+				column.Snapshot(chunk, buffer)
+				return writer.WriteSelf(buffer)
+			})
+		}); err != nil {
+			return writer.Offset(), err
+		}
 	}
 
 	return writer.Offset(), encoder.Close()
@@ -88,31 +109,41 @@ func (c *Collection) ReadFrom(src io.Reader) (int64, error) {
 	}
 
 	// Read the number of columns
-	count, err := r.ReadUvarint()
+	columns, err := r.ReadUvarint()
 	if err != nil {
 		return r.Offset(), err
 	}
 
-	// Read each column
-	err = c.Query(func(txn *Txn) error {
-		for i := uint64(0); i < count; i++ {
-			buffer := txn.owner.txns.acquirePage("")
-			_, err := buffer.ReadFrom(r)
-			switch {
-			case err == io.EOF && i < count:
-				return errUnexpectedEOF
-			case err != nil:
-				return err
-			default:
-				txn.updates = append(txn.updates, buffer)
-				buffer.RangeChunks(func(chunk uint32) {
-					txn.dirty.Set(chunk)
-				})
+	// Read the number of chunks
+	chunks, err := r.ReadUvarint()
+	if err != nil {
+		return r.Offset(), err
+	}
+
+	// Read each chunk/column
+	for chunk := 0; chunk < int(chunks); chunk++ {
+		if err := c.Query(func(txn *Txn) error {
+			txn.dirty.Set(uint32(chunk))
+			for i := uint64(0); i < columns; i++ {
+				buffer := txn.owner.txns.acquirePage("")
+				_, err := buffer.ReadFrom(r)
+				switch {
+				case err == io.EOF && i < columns:
+					return errUnexpectedEOF
+				case err != nil:
+					return err
+				default:
+					txn.updates = append(txn.updates, buffer)
+				}
 			}
+
+			return nil
+		}); err != nil {
+			return r.Offset(), err
 		}
-		return nil
-	})
-	return r.Offset(), err
+	}
+
+	return r.Offset(), nil
 }
 
 // --------------------------- Compression Codec ----------------------------

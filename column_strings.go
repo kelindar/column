@@ -61,11 +61,6 @@ func (c *columnEnum) Apply(r *commit.Reader) {
 			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
 			c.locs[r.Offset] = c.findOrAdd(r.Bytes())
 
-		case commit.Add:
-			// Set the value at the index
-			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
-			c.locs[r.Offset] = r.Uint32()
-
 		case commit.Delete:
 			c.fill.Remove(r.Index())
 			// TODO: remove unused strings, need some reference counting for that
@@ -143,17 +138,9 @@ func (c *columnEnum) Index() *bitmap.Bitmap {
 }
 
 // Snapshot writes the entire column into the specified destination buffer
-func (c *columnEnum) Snapshot(dst *commit.Buffer) {
-
-	// Write all unique strings into the buffer in order to generate locs
-	for _, v := range c.data {
-		dst.PutString(commit.Put, 0, v)
-	}
-
-	// Delete the zero index in case there's no data there
-	dst.PutOperation(commit.Delete, 0)
-	c.fill.Range(func(idx uint32) {
-		dst.PutUint32(commit.Add, idx, c.locs[idx])
+func (c *columnEnum) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
+	chunk.Range(c.fill, func(idx uint32) {
+		dst.PutString(commit.Put, idx, c.readAt(c.locs[idx]))
 	})
 }
 
@@ -244,8 +231,8 @@ func (c *columnString) FilterString(offset uint32, index bitmap.Bitmap, predicat
 }
 
 // Snapshot writes the entire column into the specified destination buffer
-func (c *columnString) Snapshot(dst *commit.Buffer) {
-	c.fill.Range(func(idx uint32) {
+func (c *columnString) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
+	chunk.Range(c.fill, func(idx uint32) {
 		dst.PutString(commit.Put, idx, c.data[idx])
 	})
 }

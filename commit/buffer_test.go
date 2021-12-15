@@ -240,7 +240,7 @@ func TestPutNil(t *testing.T) {
 
 func TestPutBitmap(t *testing.T) {
 	buf := NewBuffer(0)
-	buf.PutBitmap(Insert, bitmap.Bitmap{0xff})
+	buf.PutBitmap(Insert, 0, bitmap.Bitmap{0xff})
 
 	r := NewReader()
 	r.Seek(buf)

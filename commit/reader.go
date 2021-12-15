@@ -198,7 +198,7 @@ func (r *Reader) SwapBool(b bool) {
 // --------------------------- Chunk Iterator ----------------------------
 
 // Range iterates over parts of the buffer which match the specified chunk.
-func (r *Reader) Range(buf *Buffer, chunk uint32, fn func(*Reader)) {
+func (r *Reader) Range(buf *Buffer, chunk Chunk, fn func(*Reader)) {
 	for i, c := range buf.chunks {
 		if c.Chunk != chunk {
 			continue // Not the right chunk, skip it
@@ -221,7 +221,7 @@ func (r *Reader) Range(buf *Buffer, chunk uint32, fn func(*Reader)) {
 }
 
 // MaxOffset returns the maximum offset for a chunk
-func (r *Reader) MaxOffset(buf *Buffer, chunk uint32) (max uint32) {
+func (r *Reader) MaxOffset(buf *Buffer, chunk Chunk) (max uint32) {
 	if buf == nil {
 		return
 	}

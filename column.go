@@ -43,7 +43,7 @@ type Column interface {
 	Value(idx uint32) (interface{}, bool)
 	Contains(idx uint32) bool
 	Index() *bitmap.Bitmap
-	Snapshot(*commit.Buffer)
+	Snapshot(chunk commit.Chunk, dst *commit.Buffer)
 }
 
 // Numeric represents a column that stores numbers.
@@ -249,8 +249,8 @@ func (c *columnBool) Index() *bitmap.Bitmap {
 }
 
 // Snapshot writes the entire column into the specified destination buffer
-func (c *columnBool) Snapshot(dst *commit.Buffer) {
-	dst.PutBitmap(commit.PutTrue, c.data)
+func (c *columnBool) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
+	dst.PutBitmap(commit.PutTrue, chunk, c.data)
 }
 
 // --------------------------- funcs ----------------------------

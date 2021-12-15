@@ -11,13 +11,12 @@ import (
 )
 
 const (
-	chunkShift = 14     // 16K elements
-	size0      = 0      // 0 byte in size
-	size2      = 1 << 4 // 2 bytes in size
-	size4      = 2 << 4 // 4 bytes in size
-	size8      = 3 << 4 // 8 bytes in size
-	isNext     = 1 << 7 // is immediate next
-	isString   = 1 << 6 // is variable-size string
+	size0    = 0      // 0 byte in size
+	size2    = 1 << 4 // 2 bytes in size
+	size4    = 2 << 4 // 4 bytes in size
+	size8    = 3 << 4 // 8 bytes in size
+	isNext   = 1 << 7 // is immediate next
+	isString = 1 << 6 // is variable-size string
 )
 
 // --------------------------- Operation Type ----------------------------
@@ -40,7 +39,7 @@ const (
 // Buffer represents a buffer of delta operations.
 type Buffer struct {
 	last   int32    // The last offset written
-	chunk  uint32   // The current chunk
+	chunk  Chunk    // The current chunk
 	buffer []byte   // The destination buffer
 	chunks []header // The offsets of chunks
 	_      [8]byte  // padding
@@ -49,7 +48,7 @@ type Buffer struct {
 
 // header represents a chunk metadata header.
 type header struct {
-	Chunk uint32 // The chunk number
+	Chunk Chunk  // The chunk number
 	Start uint32 // The offset at which the chunk starts in the buffer
 	Value uint32 // The previous offset value for delta
 }
@@ -93,7 +92,7 @@ func (b *Buffer) IsEmpty() bool {
 }
 
 // Range iterates over the chunks present in the buffer
-func (b *Buffer) RangeChunks(fn func(chunk uint32)) {
+func (b *Buffer) RangeChunks(fn func(chunk Chunk)) {
 	for _, c := range b.chunks {
 		fn(c.Chunk)
 	}
@@ -282,8 +281,8 @@ func (b *Buffer) PutString(op OpType, idx uint32, value string) {
 }
 
 // PutBitmap iterates over the bitmap values and appends an operation for each bit set to one
-func (b *Buffer) PutBitmap(op OpType, value bitmap.Bitmap) {
-	value.Range(func(idx uint32) {
+func (b *Buffer) PutBitmap(op OpType, chunk Chunk, value bitmap.Bitmap) {
+	chunk.Range(value, func(idx uint32) {
 		b.PutOperation(op, idx)
 	})
 }
@@ -300,10 +299,10 @@ func (b *Buffer) writeOffset(delta uint32) {
 
 // writeChunk writes a chunk if changed and returns the delta
 func (b *Buffer) writeChunk(idx uint32) int32 {
-	if chunk := idx >> chunkShift; b.chunk != chunk {
+	if chunk := Chunk(idx >> chunkShift); b.chunk != chunk {
 		b.chunk = chunk
 		b.chunks = append(b.chunks, header{
-			Chunk: chunk,
+			Chunk: Chunk(chunk),
 			Start: uint32(len(b.buffer)),
 			Value: uint32(b.last),
 		})

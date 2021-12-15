@@ -5,9 +5,9 @@ package column
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 
-	"github.com/kelindar/bitmap"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -360,53 +360,6 @@ func TestUpdateWithRollback(t *testing.T) {
 	})
 }
 
-func TestChunkOf(t *testing.T) {
-	tests := []struct {
-		size   uint32
-		chunk  uint32
-		expect int
-	}{
-		{size: 3 * chunkSize, expect: chunkSize, chunk: 0},
-		{size: 3 * chunkSize, expect: chunkSize, chunk: 1},
-		{size: 3 * chunkSize, expect: chunkSize, chunk: 2},
-		{size: 3 * chunkSize, expect: 0, chunk: 3},
-		{size: 2*chunkSize - 70, expect: chunkSize, chunk: 0},
-		{size: 2*chunkSize - 70, expect: 16320, chunk: 1},
-		{size: 2*chunkSize - 70, expect: 0, chunk: 2},
-		{size: 2*chunkSize - 10, expect: chunkSize, chunk: 0},
-		{size: 2*chunkSize - 10, expect: chunkSize, chunk: 1},
-		{size: 2*chunkSize - 10, expect: 0, chunk: 2},
-	}
-
-	for _, tc := range tests {
-		t.Run(fmt.Sprintf("%v-%v", tc.chunk, tc.size), func(t *testing.T) {
-			var tmp bitmap.Bitmap
-			tmp.Grow(tc.size - 1)
-			assert.Equal(t, tc.expect, len(chunkOf(tmp, tc.chunk))*64)
-		})
-	}
-}
-
-func TestMin(t *testing.T) {
-	tests := []struct {
-		v1, v2 int32
-		expect int32
-	}{
-		{v1: 0, v2: 0, expect: 0},
-		{v1: 10, v2: 0, expect: 0},
-		{v1: 0, v2: 10, expect: 0},
-		{v1: 10, v2: 20, expect: 10},
-		{v1: 20, v2: 10, expect: 10},
-		{v1: 20, v2: 20, expect: 20},
-	}
-
-	for _, tc := range tests {
-		t.Run(fmt.Sprintf("%v,%v", tc.v1, tc.v2), func(t *testing.T) {
-			assert.Equal(t, int(tc.expect), int(min(tc.v1, tc.v2)))
-		})
-	}
-}
-
 // Details: https://github.com/kelindar/column/issues/17
 func TestCountTwice(t *testing.T) {
 	model := NewCollection()
@@ -523,4 +476,29 @@ func TestDuplicateKey(t *testing.T) {
 	c := NewCollection()
 	assert.NoError(t, c.CreateColumn("key1", ForKey()))
 	assert.Error(t, c.CreateColumn("key2", ForKey()))
+}
+
+func TestDataRace(t *testing.T) {
+	c := NewCollection()
+	c.CreateColumn("name", ForKey())
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go c.Query(func(txn *Txn) error {
+		txn.Insert("name", func(v Cursor) error {
+			v.Set("Roman")
+			return nil
+		})
+		wg.Done()
+		return nil
+	})
+
+	go c.Query(func(txn *Txn) error {
+		txn.With("human").Count()
+		wg.Done()
+		return nil
+	})
+
+	wg.Wait()
 }

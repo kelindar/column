@@ -109,10 +109,8 @@ func (c *columnIndex) Index() *bitmap.Bitmap {
 }
 
 // Snapshot writes the entire column into the specified destination buffer
-func (c *columnIndex) Snapshot(dst *commit.Buffer) {
-	c.fill.Range(func(idx uint32) {
-		dst.PutOperation(commit.PutTrue, idx)
-	})
+func (c *columnIndex) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
+	dst.PutBitmap(commit.PutTrue, chunk, c.fill)
 }
 
 // --------------------------- Key ----------------------------

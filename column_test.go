@@ -13,25 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-/*
-cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkColumn/chunkOf-8         	 8466814	       136.2 ns/op	       0 B/op	       0 allocs/op
-*/
-func BenchmarkColumn(b *testing.B) {
-	b.Run("chunkOf", func(b *testing.B) {
-		var temp bitmap.Bitmap
-		temp.Grow(2 * chunkSize)
-
-		b.ReportAllocs()
-		b.ResetTimer()
-		for n := 0; n < b.N; n++ {
-			for i := 0; i < 100; i++ {
-				chunkOf(temp, 1)
-			}
-		}
-	})
-}
-
 func TestColumns(t *testing.T) {
 	tests := []struct {
 		column Column
@@ -194,7 +175,7 @@ func testPutDelete(t *testing.T, column Column, value interface{}) {
 // testSnapshot test a snapshot of a column
 func testSnapshot(t *testing.T, column Column, value interface{}) {
 	buf := commit.NewBuffer(8)
-	column.Snapshot(buf)
+	column.Snapshot(0, buf)
 	assert.False(t, buf.IsEmpty())
 }
 
@@ -383,7 +364,7 @@ func TestSnapshotBool(t *testing.T) {
 
 	// Snapshot into a new buffer
 	buf := commit.NewBuffer(8)
-	input.Snapshot(buf)
+	input.Snapshot(0, buf)
 
 	// Create a new reader and read the column
 	rdr := commit.NewReader()
@@ -407,7 +388,7 @@ func TestSnapshotIndex(t *testing.T) {
 
 	// Snapshot into a new buffer
 	buf := commit.NewBuffer(8)
-	input.Snapshot(buf)
+	input.Snapshot(0, buf)
 
 	// Create a new reader and read the column
 	rdr := commit.NewReader()

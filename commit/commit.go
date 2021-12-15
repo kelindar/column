@@ -3,17 +3,68 @@
 
 package commit
 
+import "github.com/kelindar/bitmap"
+
+// --------------------------- Chunk ----------------------------
+
+const (
+	bitmapShift = chunkShift - 6
+	bitmapSize  = 1 << bitmapShift
+	chunkShift  = 14 // 16K
+	chunkSize   = 1 << chunkShift
+)
+
+// Chunk represents a chunk number
+type Chunk uint32
+
+// ChunkAt returns the chunk number at a given index
+func ChunkAt(index uint32) Chunk {
+	return Chunk(index >> chunkShift)
+}
+
+// OfBitmap computes a chunk for a given bitmap
+func (c Chunk) OfBitmap(v bitmap.Bitmap) bitmap.Bitmap {
+	const shift = chunkShift - 6
+	x1 := min(int32(c+1)<<shift, int32(len(v)))
+	x0 := min(int32(c)<<shift, x1)
+	return v[x0:x1]
+}
+
+// Min returns the min offset at which the chunk should be starting
+func (c Chunk) Min() uint32 {
+	return uint32(int32(c) << chunkShift)
+}
+
+// Max returns the max offset at which the chunk should be ending
+func (c Chunk) Max() uint32 {
+	return c.Min() + chunkSize - 1
+}
+
+// Range iterates over a chunk given a bitmap
+func (c Chunk) Range(v bitmap.Bitmap, fn func(idx uint32)) {
+	offset := c.Min()
+	output := c.OfBitmap(v)
+	output.Range(func(idx uint32) {
+		fn(offset + idx)
+	})
+}
+
+// min returns a minimum of two numbers without branches.
+func min(v1, v2 int32) int32 {
+	return v2 + ((v1 - v2) & ((v1 - v2) >> 31))
+}
+
+// --------------------------- Commit ----------------------------
+
 // Writer represents a contract that a commit writer must implement
 type Writer interface {
 	Write(commit Commit) error
 }
 
-// --------------------------- Commit ----------------------------
-
 // Commit represents an individual transaction commit. If multiple chunks are committed
 // in the same transaction, it would result in multiple commits per transaction.
 type Commit struct {
-	Chunk   uint32    // The chunk number
+	Chunk   Chunk     // The chunk number
 	Updates []*Buffer // The update buffers
 }
 

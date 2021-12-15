@@ -42,7 +42,7 @@ func writeChunksTo(w *iostream.Writer, chunks []header) error {
 
 	var temp [12]byte
 	for _, v := range chunks {
-		binary.BigEndian.PutUint32(temp[0:4], v.Chunk)
+		binary.BigEndian.PutUint32(temp[0:4], uint32(v.Chunk))
 		binary.BigEndian.PutUint32(temp[4:8], v.Start)
 		binary.BigEndian.PutUint32(temp[8:12], v.Value)
 		if _, err := w.Write(temp[:]); err != nil {
@@ -97,7 +97,7 @@ func readChunksFrom(r *iostream.Reader) ([]header, error) {
 			return nil, err
 		}
 
-		v[i].Chunk = binary.BigEndian.Uint32(temp[0:4])
+		v[i].Chunk = Chunk(binary.BigEndian.Uint32(temp[0:4]))
 		v[i].Start = binary.BigEndian.Uint32(temp[4:8])
 		v[i].Value = binary.BigEndian.Uint32(temp[8:12])
 	}
