@@ -32,10 +32,17 @@ func (txn *Txn) rangeRead(f func(offset uint32, index bitmap.Bitmap)) {
 
 // rangeReadPair iterates over the index and another bitmap, chunk by chunk and
 // ensures that each chunk is protected by an appropriate read lock.
-func (txn *Txn) rangeReadPair(other bitmap.Bitmap, f func(a, b bitmap.Bitmap)) {
+func (txn *Txn) rangeReadPair(column *column, f func(a, b bitmap.Bitmap)) {
 	limit := commit.Chunk(len(txn.index) >> bitmapShift)
 	lock := txn.owner.slock
 
+	// To avoid a potential data race between the reading of the index bitmap
+	// and growing it (concurrent inserts), we need to acquire a read-lock.
+	txn.owner.lock.RLock()
+	other := *column.Index()
+	txn.owner.lock.RUnlock()
+
+	// Iterate through all of the chunks and acquire appropriate shard locks.
 	for chunk := commit.Chunk(0); chunk <= limit; chunk++ {
 		lock.RLock(uint(chunk))
 		f(chunk.OfBitmap(txn.index), chunk.OfBitmap(other))

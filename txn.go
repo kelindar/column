@@ -132,7 +132,7 @@ func (txn *Txn) columnAt(columnName string) (*column, bool) {
 func (txn *Txn) With(columns ...string) *Txn {
 	for _, columnName := range columns {
 		if idx, ok := txn.columnAt(columnName); ok {
-			txn.rangeReadPair(*idx.Column.Index(), func(dst, src bitmap.Bitmap) {
+			txn.rangeReadPair(idx, func(dst, src bitmap.Bitmap) {
 				dst.And(src)
 			})
 		} else {
@@ -146,7 +146,7 @@ func (txn *Txn) With(columns ...string) *Txn {
 func (txn *Txn) Without(columns ...string) *Txn {
 	for _, columnName := range columns {
 		if idx, ok := txn.columnAt(columnName); ok {
-			txn.rangeReadPair(*idx.Column.Index(), func(dst, src bitmap.Bitmap) {
+			txn.rangeReadPair(idx, func(dst, src bitmap.Bitmap) {
 				dst.AndNot(src)
 			})
 		}
@@ -158,7 +158,7 @@ func (txn *Txn) Without(columns ...string) *Txn {
 func (txn *Txn) Union(columns ...string) *Txn {
 	for _, columnName := range columns {
 		if idx, ok := txn.columnAt(columnName); ok {
-			txn.rangeReadPair(*idx.Column.Index(), func(dst, src bitmap.Bitmap) {
+			txn.rangeReadPair(idx, func(dst, src bitmap.Bitmap) {
 				dst.Or(src)
 			})
 		}

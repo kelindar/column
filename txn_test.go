@@ -5,6 +5,7 @@ package column
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -475,4 +476,29 @@ func TestDuplicateKey(t *testing.T) {
 	c := NewCollection()
 	assert.NoError(t, c.CreateColumn("key1", ForKey()))
 	assert.Error(t, c.CreateColumn("key2", ForKey()))
+}
+
+func TestDataRace(t *testing.T) {
+	c := NewCollection()
+	c.CreateColumn("name", ForKey())
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go c.Query(func(txn *Txn) error {
+		txn.Insert("name", func(v Cursor) error {
+			v.Set("Roman")
+			return nil
+		})
+		wg.Done()
+		return nil
+	})
+
+	go c.Query(func(txn *Txn) error {
+		txn.With("human").Count()
+		wg.Done()
+		return nil
+	})
+
+	wg.Wait()
 }

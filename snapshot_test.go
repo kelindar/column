@@ -188,7 +188,6 @@ func TestSnapshot(t *testing.T) {
 	assert.NotZero(t, n)
 	assert.NoError(t, err)
 
-	println("----")
 	// Restore the collection from the snapshot
 	output := NewCollection()
 	output.CreateColumn("name", ForEnum())
