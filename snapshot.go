@@ -63,15 +63,10 @@ func (c *Collection) WriteTo(dst io.Writer) (int64, error) {
 		return writer.Offset(), err
 	}
 
-	// Write the number of chunks
-	if err := writer.WriteUvarint(uint64(chunks)); err != nil {
-		return writer.Offset(), err
-	}
-
-	// Write all chunks, one at a time
-	for i := commit.Chunk(0); i < chunks; i++ {
-		offset := i.Min()
-		if err := c.writeAtChunk(i, func(chunk commit.Chunk, fill bitmap.Bitmap) error {
+	// Write each chunk
+	if err := writer.WriteRange(int(chunks), func(i int, w *iostream.Writer) error {
+		return c.writeAtChunk(commit.Chunk(i), func(chunk commit.Chunk, fill bitmap.Bitmap) error {
+			offset := chunk.Min()
 
 			// Write the inserts column
 			buffer.Reset(rowColumn)
@@ -88,9 +83,9 @@ func (c *Collection) WriteTo(dst io.Writer) (int64, error) {
 				column.Snapshot(chunk, buffer)
 				return writer.WriteSelf(buffer)
 			})
-		}); err != nil {
-			return writer.Offset(), err
-		}
+		})
+	}); err != nil {
+		return writer.Offset(), err
 	}
 
 	return writer.Offset(), encoder.Close()
@@ -114,15 +109,9 @@ func (c *Collection) ReadFrom(src io.Reader) (int64, error) {
 		return r.Offset(), err
 	}
 
-	// Read the number of chunks
-	chunks, err := r.ReadUvarint()
-	if err != nil {
-		return r.Offset(), err
-	}
-
-	// Read each chunk/column
-	for chunk := 0; chunk < int(chunks); chunk++ {
-		if err := c.Query(func(txn *Txn) error {
+	// Read each chunk
+	if err := r.ReadRange(func(chunk int, r *iostream.Reader) error {
+		return c.Query(func(txn *Txn) error {
 			txn.dirty.Set(uint32(chunk))
 			for i := uint64(0); i < columns; i++ {
 				buffer := txn.owner.txns.acquirePage("")
@@ -138,9 +127,9 @@ func (c *Collection) ReadFrom(src io.Reader) (int64, error) {
 			}
 
 			return nil
-		}); err != nil {
-			return r.Offset(), err
-		}
+		})
+	}); err != nil {
+		return r.Offset(), err
 	}
 
 	return r.Offset(), nil

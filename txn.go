@@ -439,15 +439,17 @@ func (txn *Txn) commit() {
 
 	// Commit chunk by chunk to reduce lock contentions
 	txn.rangeWrite(func(chunk commit.Chunk, fill bitmap.Bitmap) error {
+		id := commit.Next()
 		if changedRows {
 			txn.commitMarkers(chunk, fill, markers)
 		}
 
-		updated := txn.commitUpdates(chunk, fill)
+		updated := txn.commitUpdates(chunk)
 
 		// Write the commited chunk to the writer (if any)
 		if (changedRows || updated) && txn.writer != nil {
 			txn.writer.Write(commit.Commit{
+				ID:      id,
 				Chunk:   chunk,
 				Updates: txn.updates,
 			})
@@ -457,7 +459,7 @@ func (txn *Txn) commit() {
 }
 
 // commitUpdates applies the pending updates to the collection.
-func (txn *Txn) commitUpdates(chunk commit.Chunk, fill bitmap.Bitmap) (updated bool) {
+func (txn *Txn) commitUpdates(chunk commit.Chunk) (updated bool) {
 	for _, u := range txn.updates {
 		if u.IsEmpty() || u.Column == rowColumn {
 			continue // No updates for this column
