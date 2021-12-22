@@ -27,19 +27,19 @@ const (
 
 // Collection represents a collection of objects in a columnar format
 type Collection struct {
-	count   uint64                  // The current count of elements
-	txns    *txnPool                // The transaction pool
-	lock    sync.RWMutex            // The mutex to guard the fill-list
-	slock   *smutex.SMutex128       // The sharded mutex for the collection
-	cols    columns                 // The map of columns
-	fill    bitmap.Bitmap           // The fill-list
-	opts    Options                 // The options configured
-	codec   codec                   // The compression codec
-	logger  commit.Logger           // The commit logger for CDC
-	record  *commit.Log             // The commit logger for snapshot
-	pk      *columnKey              // The primary key column
-	cancel  context.CancelFunc      // The cancellation function for the context
-	commits map[commit.Chunk]uint64 // The array of commit IDs for corresponding chunk
+	count   uint64             // The current count of elements
+	txns    *txnPool           // The transaction pool
+	lock    sync.RWMutex       // The mutex to guard the fill-list
+	slock   *smutex.SMutex128  // The sharded mutex for the collection
+	cols    columns            // The map of columns
+	fill    bitmap.Bitmap      // The fill-list
+	opts    Options            // The options configured
+	codec   codec              // The compression codec
+	logger  commit.Logger      // The commit logger for CDC
+	record  *commit.Log        // The commit logger for snapshot
+	pk      *columnKey         // The primary key column
+	cancel  context.CancelFunc // The cancellation function for the context
+	commits sync.Map           // The array of commit IDs for corresponding chunk
 }
 
 // Options represents the options for a collection.
@@ -73,15 +73,14 @@ func NewCollection(opts ...Options) *Collection {
 	// Create a new collection
 	ctx, cancel := context.WithCancel(context.Background())
 	store := &Collection{
-		cols:    makeColumns(8),
-		txns:    newTxnPool(),
-		opts:    options,
-		slock:   new(smutex.SMutex128),
-		fill:    make(bitmap.Bitmap, 0, options.Capacity>>6),
-		logger:  options.Writer,
-		codec:   newCodec(&options),
-		cancel:  cancel,
-		commits: make(map[commit.Chunk]uint64, 64),
+		cols:   makeColumns(8),
+		txns:   newTxnPool(),
+		opts:   options,
+		slock:  new(smutex.SMutex128),
+		fill:   make(bitmap.Bitmap, 0, options.Capacity>>6),
+		logger: options.Writer,
+		codec:  newCodec(&options),
+		cancel: cancel,
 	}
 
 	// Create an expiration column and start the cleanup goroutine

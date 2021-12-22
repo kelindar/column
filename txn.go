@@ -451,7 +451,7 @@ func (txn *Txn) commit() {
 
 		// Set the last commit ID for the chunk
 		commit := commit.New(chunk, txn.updates)
-		txn.owner.commits[chunk] = commit.ID
+		txn.owner.commits.Store(chunk, commit.ID)
 
 		// If there is a pending snapshot, append commit into a temp log
 		if dst, ok := txn.owner.isSnapshotting(); ok {
