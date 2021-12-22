@@ -5,6 +5,7 @@ package commit
 
 import (
 	"io"
+	"os"
 	"sync"
 
 	"github.com/kelindar/iostream"
@@ -37,16 +38,29 @@ func (w *Channel) Append(commit Commit) error {
 // during a snapshot. It also supports reading a commit log back.
 type Log struct {
 	lock   sync.Mutex
+	source io.ReadWriter
 	writer *iostream.Writer
 	reader *iostream.Reader
 }
 
-// Open opens a commit log file (or stream) for both read and write.
-func Open(file io.ReadWriter) *Log {
+// Open opens a commit log stream for both read and write.
+func Open(source io.ReadWriter) *Log {
 	return &Log{
-		writer: iostream.NewWriter(s2.NewWriter(file)),
-		reader: iostream.NewReader(s2.NewReader(file)),
+		source: source,
+		writer: iostream.NewWriter(s2.NewWriter(source)),
+		reader: iostream.NewReader(s2.NewReader(source)),
 	}
+}
+
+// OpenFile opens a specified commit log file in a read/write mode. If
+// the file does not exist, it will create it.
+func OpenFile(filename string) (*Log, error) {
+	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, os.ModePerm)
+	if err != nil {
+		return nil, err
+	}
+
+	return Open(file), nil
 }
 
 // Append writes the commit into the log destination
@@ -83,4 +97,12 @@ func (l *Log) Range(fn func(Commit) error) error {
 			return err
 		}
 	}
+}
+
+// Close closes the source log file
+func (l *Log) Close() (err error) {
+	if closer, ok := l.source.(io.Closer); ok {
+		err = closer.Close()
+	}
+	return
 }

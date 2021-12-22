@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -94,4 +95,20 @@ func TestLogRangeStopOnError(t *testing.T) {
 	assert.Error(t, logger.Range(func(commit Commit) error {
 		return io.ErrClosedPipe
 	}))
+}
+
+func TestLogOpenFile(t *testing.T) {
+	name := "commit.log"
+	logger, err := OpenFile(name)
+	defer os.Remove(name)
+	defer logger.Close()
+
+	assert.NoError(t, err)
+	assert.NotNil(t, logger)
+}
+
+func TestLogOpenFileInvalid(t *testing.T) {
+	logger, err := OpenFile("")
+	assert.Error(t, err)
+	assert.Nil(t, logger)
 }
