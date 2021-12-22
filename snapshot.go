@@ -160,11 +160,12 @@ func (c *Collection) writeState(dst io.Writer) (int64, error) {
 
 	// Write each chunk
 	if err := writer.WriteRange(int(chunks), func(i int, w *iostream.Writer) error {
-		return c.writeAtChunk(commit.Chunk(i), func(chunk commit.Chunk, fill bitmap.Bitmap) error {
+		chunk := commit.Chunk(i)
+		return c.writeAtChunk(chunk, func(chunk commit.Chunk, fill bitmap.Bitmap) error {
 			offset := chunk.Min()
 
 			// Write the last written commit for this chunk
-			if err := writer.WriteUvarint(c.commits[i]); err != nil {
+			if err := writer.WriteUvarint(c.commits[chunk]); err != nil {
 				return err
 			}
 

@@ -4,6 +4,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -22,6 +23,12 @@ func main() {
 	measure("insert", fmt.Sprintf("%v rows", amount), func() {
 		createCollection(players, amount)
 	}, 1)
+
+	// snapshot the dataset
+	measure("snapshot", fmt.Sprintf("%v rows", amount), func() {
+		buffer := bytes.NewBuffer(nil)
+		players.Snapshot(buffer)
+	}, 10)
 
 	// run a full scan
 	measure("full scan", "age >= 30", func() {
