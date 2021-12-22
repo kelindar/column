@@ -199,8 +199,9 @@ func updatesAt(buffer *Buffer, chunk Chunk) (updates []int64) {
 // --------------------------- Mocks ----------------------------
 
 type limitWriter struct {
-	value uint32
-	Limit int
+	value   uint32
+	Limit   int
+	SeekErr error
 }
 
 func (w *limitWriter) Write(p []byte) (int, error) {
@@ -212,4 +213,8 @@ func (w *limitWriter) Write(p []byte) (int, error) {
 
 func (w *limitWriter) Read(p []byte) (int, error) {
 	return 0, io.EOF
+}
+
+func (w *limitWriter) Seek(offset int64, whence int) (int64, error) {
+	return 0, w.SeekErr
 }

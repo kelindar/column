@@ -64,59 +64,34 @@ func (c *Collection) Snapshot(dst io.Writer) error {
 	}
 
 	// Take a snapshot of the current state
+	defer os.Remove(recorder.Name())
 	if _, err := c.writeState(dst); err != nil {
 		return err
 	}
 
-	// Close the recorder in order to write the footer
-	if err := recorder.Close(); err != nil {
-		return err
-	}
-
-	// Reopen the log file in read-only mode
-	footer, err := os.Open(recorder.Name())
-	if err != nil {
-		return err
-	}
-
-	// Write the commits back into the destination stream
-	if _, err := io.Copy(dst, footer); err != nil {
-		return err
-	}
-
-	// Close the read-only log now
-	if err := footer.Close(); err != nil {
-		return err
-	}
-
-	// Swap the recorder pointer
-	return c.recorderClose()
+	// Close the recorder
+	c.recorderClose()
+	return recorder.Copy(dst)
 }
 
-func (c *Collection) recorderOpen() (*commit.Log, error) {
-	recorder, err := commit.OpenTemp()
-	if err != nil {
-		return nil, err
+// recorderOpen opens a recorder for commits while the snapshot is in progress
+func (c *Collection) recorderOpen() (log *commit.Log, err error) {
+	if log, err = commit.OpenTemp(); err == nil {
+		dst := (*unsafe.Pointer)(unsafe.Pointer(&c.record))
+		ptr := unsafe.Pointer(log)
+		if !atomic.CompareAndSwapPointer(dst, nil, ptr) {
+			return nil, fmt.Errorf("column: unable to snapshot, another one might be in progress")
+		}
 	}
-
-	dst := (*unsafe.Pointer)(unsafe.Pointer(&c.record))
-	ptr := unsafe.Pointer(recorder)
-	if !atomic.CompareAndSwapPointer(dst, nil, ptr) {
-		return nil, fmt.Errorf("column: unable to snapshot, another one might be in progress")
-	}
-	return recorder, nil
+	return
 }
 
-func (c *Collection) recorderClose() error {
-	recorder, ok := c.isSnapshotting()
-	if !ok {
-		return fmt.Errorf("column: unable to close snapshot, no recorder found")
+// recorderClose closes the pending commit recorder and deletes the file
+func (c *Collection) recorderClose() {
+	if _, ok := c.isSnapshotting(); ok {
+		dst := (*unsafe.Pointer)(unsafe.Pointer(&c.record))
+		atomic.StorePointer(dst, nil)
 	}
-
-	dst := (*unsafe.Pointer)(unsafe.Pointer(&c.record))
-	atomic.StorePointer(dst, nil)
-
-	return os.Remove(recorder.Name())
 }
 
 // isSnapshotting loads a currently used commit log for a pending snapshot

@@ -37,6 +37,21 @@ func TestCommitReadFromFailures(t *testing.T) {
 	}
 }
 
+func TestFileCopy(t *testing.T) {
+	dst := bytes.NewBuffer(nil)
+	log := Open(&limitWriter{})
+	assert.NoError(t, log.Copy(dst))
+}
+
+func TestFileCopySeekErr(t *testing.T) {
+	dst := bytes.NewBuffer(nil)
+	log := Open(&limitWriter{
+		SeekErr: io.ErrShortBuffer,
+	})
+
+	assert.Error(t, log.Copy(dst))
+}
+
 func newCommit(id int) Commit {
 	return Commit{
 		ID:    uint64(id),

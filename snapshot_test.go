@@ -200,6 +200,45 @@ func TestSnapshot(t *testing.T) {
 	assert.Equal(t, amount, output.Count())
 }
 
+func TestSnapshotFailures(t *testing.T) {
+	input := NewCollection()
+	input.codec = new(noopCodec)
+	input.CreateColumn("name", ForString())
+	input.Insert("name", func(v Cursor) error {
+		v.Set("Roman")
+		return nil
+	})
+
+	go input.Insert("name", func(v Cursor) error {
+		v.Set("Roman")
+		return nil
+	})
+
+	for size := 0; size < 80; size++ {
+		output := &limitWriter{Limit: size}
+
+		assert.Error(t, input.Snapshot(output),
+			fmt.Sprintf("write failure size=%d", size))
+	}
+}
+
+func TestRestoreIncomplete(t *testing.T) {
+	buffer := bytes.NewBuffer(nil)
+	output := newEmpty(500)
+	assert.Error(t, output.Restore(buffer))
+}
+
+func TestSnapshotFailedAppendCommit(t *testing.T) {
+	input := NewCollection()
+	input.CreateColumn("name", ForString())
+	input.record = commit.Open(&limitWriter{Limit: 0})
+	_, err := input.Insert("name", func(v Cursor) error {
+		v.SetString("Roman")
+		return nil
+	})
+	assert.NoError(t, err)
+}
+
 // --------------------------- State Codec ----------------------------
 
 func TestWriteTo(t *testing.T) {
@@ -339,6 +378,10 @@ func (w *limitWriter) Write(p []byte) (int, error) {
 		return 0, io.ErrShortBuffer
 	}
 	return len(p), nil
+}
+
+func (w *limitWriter) Read(p []byte) (int, error) {
+	return 0, nil
 }
 
 type noopCodec struct {

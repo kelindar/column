@@ -118,11 +118,28 @@ func (l *Log) Name() (name string) {
 	return
 }
 
-// Close closes the source log file
-func (l *Log) Close() (err error) {
+// Copy copies the contents of the log into the destination writer.
+func (l *Log) Copy(dst io.Writer) error {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
+	// Rewind to the beginning of the file, the underlying source must
+	// implement io.Seeker for this to work.
+	if seeker, ok := l.source.(io.Seeker); ok {
+		if _, err := seeker.Seek(0, io.SeekStart); err != nil {
+			return err
+		}
+	}
+
+	// Append the pending commits to the destination
+	_, err := io.Copy(dst, l.source)
+	return err
+}
+
+// Close closes the source log file.
+func (l *Log) Close() (err error) {
+	l.lock.Lock()
+	defer l.lock.Unlock()
 	if closer, ok := l.source.(io.Closer); ok {
 		err = closer.Close()
 	}
