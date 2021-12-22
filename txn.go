@@ -50,7 +50,7 @@ func newTxnPool() *txnPool {
 func (p *txnPool) acquire(owner *Collection) *Txn {
 	txn := p.txns.Get().(*Txn)
 	txn.owner = owner
-	txn.writer = owner.writer
+	txn.logger = owner.logger
 	txn.index.Grow(uint32(owner.opts.Capacity))
 	owner.fill.Clone(&txn.index)
 	return txn
@@ -83,7 +83,7 @@ type Txn struct {
 	dirty   bitmap.Bitmap    // The dirty chunks
 	updates []*commit.Buffer // The update buffers
 	columns []columnCache    // The column mapping
-	writer  commit.Writer    // The optional commit writer
+	logger  commit.Logger    // The optional commit logger
 	reader  *commit.Reader   // The commit reader to re-use
 }
 
@@ -443,21 +443,32 @@ func (txn *Txn) commit() {
 			txn.commitMarkers(chunk, fill, markers)
 		}
 
-		updated := txn.commitUpdates(chunk, fill)
+		// Attemp to update, if nothing was changed we're done
+		updated := txn.commitUpdates(chunk)
+		if !changedRows && !updated {
+			return nil
+		}
 
-		// Write the commited chunk to the writer (if any)
-		if (changedRows || updated) && txn.writer != nil {
-			txn.writer.Write(commit.Commit{
-				Chunk:   chunk,
-				Updates: txn.updates,
-			})
+		// Set the last commit ID for the chunk
+		commit := commit.New(chunk, txn.updates)
+		txn.owner.commits.Store(chunk, commit.ID)
+
+		// If there is a pending snapshot, append commit into a temp log
+		if dst, ok := txn.owner.isSnapshotting(); ok {
+			if err := dst.Append(commit); err != nil {
+				return err
+			}
+		}
+
+		if txn.logger != nil {
+			return txn.logger.Append(commit)
 		}
 		return nil
 	})
 }
 
 // commitUpdates applies the pending updates to the collection.
-func (txn *Txn) commitUpdates(chunk commit.Chunk, fill bitmap.Bitmap) (updated bool) {
+func (txn *Txn) commitUpdates(chunk commit.Chunk) (updated bool) {
 	for _, u := range txn.updates {
 		if u.IsEmpty() || u.Column == rowColumn {
 			continue // No updates for this column

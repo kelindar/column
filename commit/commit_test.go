@@ -4,6 +4,7 @@
 package commit
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"sync/atomic"
@@ -48,7 +49,7 @@ func TestCommitClone(t *testing.T) {
 
 func TestWriterChannel(t *testing.T) {
 	w := make(Channel, 1)
-	w.Write(Commit{
+	w.Append(Commit{
 		Chunk: 123,
 	})
 
@@ -135,9 +136,72 @@ func TestMin(t *testing.T) {
 	}
 }
 
+// --------------------------- Recorder ----------------------------
+
+func TestCommitCodec(t *testing.T) {
+	buffer := bytes.NewBuffer(nil)
+	input := New(0, []*Buffer{
+		newInterleaved("a"),
+		newInterleaved("b"),
+	})
+
+	// Write into the buffer
+	n, err := input.WriteTo(buffer)
+	assert.Equal(t, int64(197), n)
+	assert.NoError(t, err)
+
+	// Read the commit back
+	output := Commit{}
+	m, err := output.ReadFrom(buffer)
+	assert.NoError(t, err)
+	assert.Equal(t, n, m)
+
+	// Make sure commit can be read back
+	assert.Equal(t, input.ID, output.ID)
+	assert.Equal(t, input.Chunk, output.Chunk)
+
+	updates := make([]int64, 0, 64)
+	reader := NewReader()
+	reader.Range(output.Updates[0], 0, func(r *Reader) {
+		for r.Next() {
+			updates = append(updates, int64(r.Offset), r.Int64())
+		}
+	})
+	assert.Equal(t, []int64{20, 1, 21, 2, 40, 4, 41, 5, 60, 7, 61, 8}, updates)
+}
+
+// newInterleaved creates a new interleaved buffer
+func newInterleaved(columnName string) *Buffer {
+	buf := NewBuffer(10)
+	buf.Reset(columnName)
+	buf.PutInt64(Put, 20, 1)
+	buf.PutInt64(Put, 21, 2)
+	buf.PutInt64(Put, 20000, 3)
+	buf.PutInt64(Put, 40, 4)
+	buf.PutInt64(Put, 41, 5)
+	buf.PutInt64(Put, 40000, 6)
+	buf.PutInt64(Put, 60, 7)
+	buf.PutInt64(Put, 61, 8)
+	return buf
+}
+
+// updatesAt reads a set of int64 updates from a buffer at a given chunk
+func updatesAt(buffer *Buffer, chunk Chunk) (updates []int64) {
+	reader := NewReader()
+	reader.Range(buffer, chunk, func(r *Reader) {
+		for r.Next() {
+			updates = append(updates, r.Int64())
+		}
+	})
+	return
+}
+
+// --------------------------- Mocks ----------------------------
+
 type limitWriter struct {
-	value uint32
-	Limit int
+	value   uint32
+	Limit   int
+	SeekErr error
 }
 
 func (w *limitWriter) Write(p []byte) (int, error) {
@@ -145,4 +209,12 @@ func (w *limitWriter) Write(p []byte) (int, error) {
 		return 0, io.ErrShortBuffer
 	}
 	return len(p), nil
+}
+
+func (w *limitWriter) Read(p []byte) (int, error) {
+	return 0, io.EOF
+}
+
+func (w *limitWriter) Seek(offset int64, whence int) (int64, error) {
+	return 0, w.SeekErr
 }

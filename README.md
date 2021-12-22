@@ -14,21 +14,22 @@ This package contains a **high-performance, columnar, in-memory storage engine**
 
 ## Features
 
- * Optimized, cache-friendly **columnar data layout** that minimizes cache-misses.
- * Optimized for **zero heap allocation** during querying (see benchmarks below).
- * Optimized **batch updates/deletes**, an update during a transaction takes around `12ns`.
- * Support for **SIMD-enabled filtering** (i.e. "where" clause) by leveraging [bitmap indexing](https://github.com/kelindar/bitmap).
- * Support for **columnar projection**  (i.e. "select" clause) for fast retrieval.
- * Support for **computed indexes** that are dynamically calculated based on provided predicate.
- * Support for **concurrent updates** using sharded latches to keep things fast.
- * Support for **transaction isolation**, allowing you to create transactions and commit/rollback.
- * Support for **expiration** of rows based on time-to-live or expiration column.
- * Support for **atomic increment/decrement** of numerical values, transactionally.
- * Support for **change data stream** that streams all commits consistently.
+- Optimized, cache-friendly **columnar data layout** that minimizes cache-misses.
+- Optimized for **zero heap allocation** during querying (see benchmarks below).
+- Optimized **batch updates/deletes**, an update during a transaction takes around `12ns`.
+- Support for **SIMD-enabled filtering** (i.e. "where" clause) by leveraging [bitmap indexing](https://github.com/kelindar/bitmap).
+- Support for **columnar projection** (i.e. "select" clause) for fast retrieval.
+- Support for **computed indexes** that are dynamically calculated based on provided predicate.
+- Support for **concurrent updates** using sharded latches to keep things fast.
+- Support for **transaction isolation**, allowing you to create transactions and commit/rollback.
+- Support for **expiration** of rows based on time-to-live or expiration column.
+- Support for **atomic increment/decrement** of numerical values, transactionally.
+- Support for **change data stream** that streams all commits consistently.
+- Support for **concurrent snapshotting** allowing to store the entire collection into a file.
 
 ## Documentation
 
-The general idea is to leverage cache-friendly ways of organizing data in [structures of arrays (SoA)](https://en.wikipedia.org/wiki/AoS_and_SoA) otherwise known "columnar" storage in database design. This, in turn allows us to iterate and filter over columns very efficiently. On top of that, this package also adds [bitmap indexing](https://en.wikipedia.org/wiki/Bitmap_index) to the columnar storage, allowing to build filter queries using binary `and`, `and not`, `or` and `xor` (see [kelindar/bitmap](https://github.com/kelindar/bitmap) with SIMD support). 
+The general idea is to leverage cache-friendly ways of organizing data in [structures of arrays (SoA)](https://en.wikipedia.org/wiki/AoS_and_SoA) otherwise known "columnar" storage in database design. This, in turn allows us to iterate and filter over columns very efficiently. On top of that, this package also adds [bitmap indexing](https://en.wikipedia.org/wiki/Bitmap_index) to the columnar storage, allowing to build filter queries using binary `and`, `and not`, `or` and `xor` (see [kelindar/bitmap](https://github.com/kelindar/bitmap) with SIMD support).
 
 - [Collection and Columns](#collection-and-columns)
 - [Querying and Indexing](#querying-and-indexing)
@@ -43,7 +44,7 @@ The general idea is to leverage cache-friendly ways of organizing data in [struc
 
 ## Collection and Columns
 
-In order to get data into the store, you'll need to first create a `Collection` by calling `NewCollection()` method. Each collection requires a schema, which can be either specified manually by calling `CreateColumn()` multiple times or automatically inferred from an object by calling `CreateColumnsOf()` function. 
+In order to get data into the store, you'll need to first create a `Collection` by calling `NewCollection()` method. Each collection requires a schema, which can be either specified manually by calling `CreateColumn()` multiple times or automatically inferred from an object by calling `CreateColumnsOf()` function.
 
 In the example below we're loading some `JSON` data by using `json.Unmarshal()` and auto-creating colums based on the first element on the loaded slice. After this is done, we can then load our data by inserting the objects one by one into the collection. This is accomplished by calling `Insert()` method on the collection itself repeatedly.
 
@@ -89,7 +90,7 @@ players.Query(func(txn *Txn) error {
 
 ## Querying and Indexing
 
-The store allows you to query the data based on a presence of certain attributes or their values. In the example below we are querying our collection and applying a *filtering* operation bu using `WithValue()` method on the transaction. This method scans the values and checks whether a certain predicate evaluates to `true`. In this case, we're scanning through all of the players and looking up their `class`, if their class is equal to "rogue", we'll take it. At the end, we're calling `Count()` method that simply counts the result set.
+The store allows you to query the data based on a presence of certain attributes or their values. In the example below we are querying our collection and applying a _filtering_ operation bu using `WithValue()` method on the transaction. This method scans the values and checks whether a certain predicate evaluates to `true`. In this case, we're scanning through all of the players and looking up their `class`, if their class is equal to "rogue", we'll take it. At the end, we're calling `Count()` method that simply counts the result set.
 
 ```go
 // This query performs a full scan of "class" column
@@ -101,7 +102,7 @@ players.Query(func(txn *column.Txn) error {
 })
 ```
 
-Now, what if we'll need to do this query very often? It is possible to simply *create an index* with the same predicate and have this computation being applied every time (a) an object is inserted into the collection and (b) an value of the dependent column is updated. Let's look at the example below, we're fist creating a `rogue` index which depends on "class" column. This index applies the same predicate which only returns `true` if a class is "rogue". We then can query this by simply calling `With()` method and providing the index name. 
+Now, what if we'll need to do this query very often? It is possible to simply _create an index_ with the same predicate and have this computation being applied every time (a) an object is inserted into the collection and (b) an value of the dependent column is updated. Let's look at the example below, we're fist creating a `rogue` index which depends on "class" column. This index applies the same predicate which only returns `true` if a class is "rogue". We then can query this by simply calling `With()` method and providing the index name.
 
 An index is essentially akin to a boolean column, so you could technically also select it's value when querying it. Now, in this example the query would be around `10-100x` faster to execute as behind the scenes it uses [bitmap indexing](https://github.com/kelindar/bitmap) for the "rogue" index and performs a simple logical `AND` operation on two bitmaps when querying. This avoid the entire scanning and applying of a predicate during the `Query`.
 
@@ -140,7 +141,7 @@ players.Query(func(txn *Txn) error {
 })
 ```
 
-Now, you can combine all of the methods and keep building more complex queries. When querying indexed and non-indexed fields together it is important to know that as every scan will apply to only the selection, speeding up the query. So if you have a filter on a specific index that selects 50% of players and then you perform a scan on that (e.g. `WithValue()`), it will only scan 50% of users and hence will be 2x faster. 
+Now, you can combine all of the methods and keep building more complex queries. When querying indexed and non-indexed fields together it is important to know that as every scan will apply to only the selection, speeding up the query. So if you have a filter on a specific index that selects 50% of players and then you perform a scan on that (e.g. `WithValue()`), it will only scan 50% of users and hence will be 2x faster.
 
 ```go
 // How many rogues that are over 30 years old?
@@ -156,8 +157,8 @@ players.Query(func(txn *Txn) error {
 
 In all of the previous examples, we've only been doing `Count()` operation which counts the number of elements in the result set. In this section we'll look how we can iterate over the result set. In short, there's 2 main methods that allow us to do it:
 
- 1. `Range()` method which takes in a column name as an argument and allows faster get/set of the values for that column.
- 2. `Select()` method which doesn't pre-select any specific column, so it's usually a bit slower and it also does not allow any updates. 
+1.  `Range()` method which takes in a column name as an argument and allows faster get/set of the values for that column.
+2.  `Select()` method which doesn't pre-select any specific column, so it's usually a bit slower and it also does not allow any updates.
 
 Let's first examine the `Range()` method. In the example below we select all of the rogues from our collection and print out their name by using the `Range()` method and providing "name" column to it. The callback containing the `Cursor` allows us to quickly get the value of the column by calling `String()` method to retrieve a string value. It also contains methods such as `Int()`, `Uint()`, `Float()` or more generic `Value()` to pull data of different types.
 
@@ -194,7 +195,6 @@ players.Query(func(txn *Txn) error {
 })
 ```
 
-
 Now, what if you need to quickly delete all some of the data in the collection? In this case `DeleteAll()` or `DeleteIf()` methods come in handy. These methods are very fast (especially `DeleteAll()`) and allow you to quickly delete the appropriate results, transactionally. In the example below we delete all of the rogues from the collection by simply selecting them in the transaction and calling the `DeleteAll()` method.
 
 ```go
@@ -220,7 +220,7 @@ players.Query(func(txn *Txn) error {
 })
 ```
 
-In certain cases, you might want to atomically increment or decrement numerical values. In order to accomplish this you can use the provided `Add..()` or `Add..At()` operations of the `Cursor` or `Selector`. Note that the indexes will also be updated accordingly and the predicates re-evaluated with the most up-to-date values. In the below example we're incrementing the balance of all our rogues by *500* atomically.
+In certain cases, you might want to atomically increment or decrement numerical values. In order to accomplish this you can use the provided `Add..()` or `Add..At()` operations of the `Cursor` or `Selector`. Note that the indexes will also be updated accordingly and the predicates re-evaluated with the most up-to-date values. In the below example we're incrementing the balance of all our rogues by _500_ atomically.
 
 ```go
 players.Query(func(txn *Txn) error {
@@ -235,7 +235,7 @@ players.Query(func(txn *Txn) error {
 
 Sometimes, it is useful to automatically delete certain rows when you do not need them anymore. In order to do this, the library automatically adds an `expire` column to each new collection and starts a cleanup goroutine aynchronously that runs periodically and cleans up the expired objects. In order to set this, you can simply use `InsertWithTTL()` method on the collection that allows to insert an object with a time-to-live duration defined.
 
-In the example below we are inserting an object to the collection and setting the time-to-live to *5 seconds* from the current time. After this time, the object will be automatically evicted from the collection and its space can be reclaimed.
+In the example below we are inserting an object to the collection and setting the time-to-live to _5 seconds_ from the current time. After this time, the object will be automatically evicted from the collection and its space can be reclaimed.
 
 ```go
 players.InsertWithTTL(map[string]interface{}{
@@ -284,10 +284,9 @@ players.Query(func(txn *column.Txn) error {
 	})
 
 	// Returns an error, transaction will be rolled back
-	return fmt.Errorf("bug") 
+	return fmt.Errorf("bug")
 })
 ```
-
 
 ## Streaming Changes
 
@@ -334,7 +333,6 @@ go func() {
 }()
 ```
 
-
 ## Complete Example
 
 ```go
@@ -365,7 +363,7 @@ func main(){
 		players.Insert(v)
 	}
 
-	// This performs a full scan on 3 different columns and compares them given the 
+	// This performs a full scan on 3 different columns and compares them given the
 	// specified predicates. This is not indexed, but does a columnar scan which is
 	// cache-friendly.
 	players.Query(func(txn *column.Txn) error {
@@ -388,7 +386,7 @@ func main(){
 		return nil
 	})
 
-	// Same condition as above, but we also select the actual names of those 
+	// Same condition as above, but we also select the actual names of those
 	// players and iterate through them.
 	players.Query(func(txn *column.Txn) error {
 		txn.With("human", "mage", "old").Range("name", func(v column.Cursor) {
@@ -444,7 +442,7 @@ running update of balance of everyone...
 
 running update of age of mages...
 -> updated 6040000 rows
--> update took 85.669422ms   
+-> update took 85.669422ms
 ```
 
 ## Contributing

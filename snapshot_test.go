@@ -26,7 +26,7 @@ BenchmarkSave/write-to-8         	       8	 131800350 ns/op	 981.98 MB/s	 653952
 BenchmarkSave/read-from-8        	      13	  79411685 ns/op	1629.80 MB/s	135661336 B/op	    4610 allocs/op
 */
 func BenchmarkSave(b *testing.B) {
-	b.Run("write-to", func(b *testing.B) {
+	b.Run("write-state", func(b *testing.B) {
 		output := bytes.NewBuffer(nil)
 		input := loadPlayers(1e6)
 
@@ -35,23 +35,23 @@ func BenchmarkSave(b *testing.B) {
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
 			output.Reset()
-			n, _ := input.WriteTo(output)
+			n, _ := input.writeState(output)
 			b.SetBytes(n)
 		}
 	})
 
-	b.Run("read-from", func(b *testing.B) {
+	b.Run("read-state", func(b *testing.B) {
 		buffer := bytes.NewBuffer(nil)
 		output := NewCollection()
 		input := loadPlayers(1e6)
-		input.WriteTo(buffer)
+		input.writeState(buffer)
 
 		runtime.GC()
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			n, _ := output.ReadFrom(bytes.NewBuffer(buffer.Bytes()))
-			b.SetBytes(n)
+			output.readState(bytes.NewBuffer(buffer.Bytes()))
+			b.SetBytes(int64(buffer.Len()))
 		}
 	})
 }
@@ -173,6 +173,75 @@ func runReplication(t *testing.T, updates, inserts, concurrency int) {
 // --------------------------- Snapshotting ----------------------------
 
 func TestSnapshot(t *testing.T) {
+	amount := 50000
+	buffer := bytes.NewBuffer(nil)
+	input := loadPlayers(amount)
+
+	var wg sync.WaitGroup
+	wg.Add(amount)
+	go func() {
+		for i := 0; i < amount; i++ {
+			assert.NoError(t, input.UpdateAt(uint32(i), "name", func(v Cursor) error {
+				v.SetString("Roman")
+				return nil
+			}))
+			wg.Done()
+		}
+	}()
+
+	// Start snapshotting
+	assert.NoError(t, input.Snapshot(buffer))
+	assert.NotZero(t, buffer.Len())
+
+	// Restore the snapshot
+	wg.Wait()
+	output := newEmpty(amount)
+	assert.NoError(t, output.Restore(buffer))
+	assert.Equal(t, amount, output.Count())
+}
+
+func TestSnapshotFailures(t *testing.T) {
+	input := NewCollection()
+	input.codec = new(noopCodec)
+	input.CreateColumn("name", ForString())
+	input.Insert("name", func(v Cursor) error {
+		v.Set("Roman")
+		return nil
+	})
+
+	go input.Insert("name", func(v Cursor) error {
+		v.Set("Roman")
+		return nil
+	})
+
+	for size := 0; size < 80; size++ {
+		output := &limitWriter{Limit: size}
+
+		assert.Error(t, input.Snapshot(output),
+			fmt.Sprintf("write failure size=%d", size))
+	}
+}
+
+func TestRestoreIncomplete(t *testing.T) {
+	buffer := bytes.NewBuffer(nil)
+	output := newEmpty(500)
+	assert.Error(t, output.Restore(buffer))
+}
+
+func TestSnapshotFailedAppendCommit(t *testing.T) {
+	input := NewCollection()
+	input.CreateColumn("name", ForString())
+	input.record = commit.Open(&limitWriter{Limit: 0})
+	_, err := input.Insert("name", func(v Cursor) error {
+		v.SetString("Roman")
+		return nil
+	})
+	assert.NoError(t, err)
+}
+
+// --------------------------- State Codec ----------------------------
+
+func TestWriteTo(t *testing.T) {
 	input := NewCollection()
 	input.CreateColumn("name", ForEnum())
 	for i := 0; i < 2e4; i++ {
@@ -184,15 +253,15 @@ func TestSnapshot(t *testing.T) {
 
 	// Write a snapshot into a buffer
 	buffer := bytes.NewBuffer(nil)
-	n, err := input.WriteTo(buffer)
+	n, err := input.writeState(buffer)
 	assert.NotZero(t, n)
 	assert.NoError(t, err)
 
 	// Restore the collection from the snapshot
 	output := NewCollection()
 	output.CreateColumn("name", ForEnum())
-	m, err := output.ReadFrom(buffer)
-	assert.NotZero(t, m)
+	m, err := output.readState(buffer)
+	assert.NotEmpty(t, m)
 	assert.NoError(t, err)
 	assert.Equal(t, input.Count(), output.Count())
 
@@ -201,12 +270,29 @@ func TestSnapshot(t *testing.T) {
 	})
 }
 
-func TestSnapshotSize(t *testing.T) {
+func TestCollectionCodec(t *testing.T) {
+	input := loadPlayers(5e4)
+
+	// Write a snapshot into a buffer
+	buffer := bytes.NewBuffer(nil)
+	n, err := input.writeState(buffer)
+	assert.NotZero(t, n)
+	assert.NoError(t, err)
+
+	// Restore the collection from the snapshot
+	output := newEmpty(5e4)
+	m, err := output.readState(buffer)
+	assert.NotEmpty(t, m)
+	assert.NoError(t, err)
+	assert.Equal(t, input.Count(), output.Count())
+}
+
+func TestWriteToSize(t *testing.T) {
 	input := loadPlayers(1e4) // 10K
 	output := bytes.NewBuffer(nil)
-	_, err := input.WriteTo(output)
+	_, err := input.writeState(output)
 	assert.NoError(t, err)
-	assert.Equal(t, 107037, output.Len())
+	assert.Equal(t, 105771, output.Len())
 }
 
 func TestWriteToFailures(t *testing.T) {
@@ -220,7 +306,7 @@ func TestWriteToFailures(t *testing.T) {
 
 	for size := 0; size < 69; size++ {
 		output := &limitWriter{Limit: size}
-		_, err := input.WriteTo(output)
+		_, err := input.writeState(output)
 		assert.Error(t, err, fmt.Sprintf("write failure size=%d", size))
 	}
 }
@@ -231,14 +317,14 @@ func TestWriteEmpty(t *testing.T) {
 	{ // Write the collection
 		input := NewCollection()
 		input.CreateColumn("name", ForString())
-		_, err := input.WriteTo(buffer)
+		_, err := input.writeState(buffer)
 		assert.NoError(t, err)
 	}
 
 	{ // Read the collection back
 		output := NewCollection()
 		output.CreateColumn("name", ForString())
-		_, err := output.ReadFrom(buffer)
+		_, err := output.readState(buffer)
 		assert.NoError(t, err)
 		assert.Equal(t, 0, output.Count())
 	}
@@ -254,7 +340,7 @@ func TestReadFromFailures(t *testing.T) {
 	})
 
 	buffer := bytes.NewBuffer(nil)
-	_, err := input.WriteTo(buffer)
+	_, err := input.writeState(buffer)
 	assert.NoError(t, err)
 
 	for size := 0; size < buffer.Len()-1; size++ {
@@ -262,7 +348,7 @@ func TestReadFromFailures(t *testing.T) {
 		output.codec = new(noopCodec)
 
 		output.CreateColumn("name", ForString())
-		_, err := output.ReadFrom(bytes.NewReader(buffer.Bytes()[:size]))
+		_, err := output.readState(bytes.NewReader(buffer.Bytes()[:size]))
 		assert.Error(t, err, fmt.Sprintf("read size %v", size))
 	}
 }
@@ -275,7 +361,7 @@ type noopWriter struct {
 }
 
 // Write clones the commit and writes it into the writer
-func (w *noopWriter) Write(commit commit.Commit) error {
+func (w *noopWriter) Append(commit commit.Commit) error {
 	atomic.AddUint64(&w.commits, 1)
 	return nil
 }
@@ -292,6 +378,10 @@ func (w *limitWriter) Write(p []byte) (int, error) {
 		return 0, io.ErrShortBuffer
 	}
 	return len(p), nil
+}
+
+func (w *limitWriter) Read(p []byte) (int, error) {
+	return 0, nil
 }
 
 type noopCodec struct {

@@ -27,23 +27,25 @@ const (
 
 // Collection represents a collection of objects in a columnar format
 type Collection struct {
-	count  uint64             // The current count of elements
-	txns   *txnPool           // The transaction pool
-	lock   sync.RWMutex       // The mutex to guard the fill-list
-	slock  *smutex.SMutex128  // The sharded mutex for the collection
-	cols   columns            // The map of columns
-	fill   bitmap.Bitmap      // The fill-list
-	opts   Options            // The options configured
-	codec  codec              // The compression codec
-	writer commit.Writer      // The commit writer
-	pk     *columnKey         // The primary key column
-	cancel context.CancelFunc // The cancellation function for the context
+	count   uint64             // The current count of elements
+	txns    *txnPool           // The transaction pool
+	lock    sync.RWMutex       // The mutex to guard the fill-list
+	slock   *smutex.SMutex128  // The sharded mutex for the collection
+	cols    columns            // The map of columns
+	fill    bitmap.Bitmap      // The fill-list
+	opts    Options            // The options configured
+	codec   codec              // The compression codec
+	logger  commit.Logger      // The commit logger for CDC
+	record  *commit.Log        // The commit logger for snapshot
+	pk      *columnKey         // The primary key column
+	cancel  context.CancelFunc // The cancellation function for the context
+	commits sync.Map           // The array of commit IDs for corresponding chunk
 }
 
 // Options represents the options for a collection.
 type Options struct {
 	Capacity int           // The initial capacity when creating columns
-	Writer   commit.Writer // The writer for the commit log (optional)
+	Writer   commit.Logger // The writer for the commit log (optional)
 	Vacuum   time.Duration // The interval at which the vacuum of expired entries will be done
 }
 
@@ -76,7 +78,7 @@ func NewCollection(opts ...Options) *Collection {
 		opts:   options,
 		slock:  new(smutex.SMutex128),
 		fill:   make(bitmap.Bitmap, 0, options.Capacity>>6),
-		writer: options.Writer,
+		logger: options.Writer,
 		codec:  newCodec(&options),
 		cancel: cancel,
 	}
@@ -227,13 +229,24 @@ func (c *Collection) createColumnKey(columnName string, column *columnKey) error
 // CreateColumnsOf registers a set of columns that are present in the target object.
 func (c *Collection) CreateColumnsOf(object Object) error {
 	for k, v := range object {
-		c.CreateColumn(k, ForKind(reflect.TypeOf(v).Kind()))
+		column, err := ForKind(reflect.TypeOf(v).Kind())
+		if err != nil {
+			return err
+		}
+
+		if err := c.CreateColumn(k, column); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
 // CreateColumn creates a column of a specified type and adds it to the collection.
 func (c *Collection) CreateColumn(columnName string, column Column) error {
+	if _, ok := c.cols.Load(columnName); ok {
+		return fmt.Errorf("column: unable to create column '%s', already exists", columnName)
+	}
+
 	column.Grow(uint32(c.opts.Capacity))
 	c.cols.Store(columnName, columnFor(columnName, column))
 
@@ -327,6 +340,7 @@ func (c *Collection) Query(fn func(txn *Txn) error) error {
 // Close closes the collection and clears up all of the resources.
 func (c *Collection) Close() error {
 	c.cancel()
+
 	return nil
 }
 
@@ -373,10 +387,15 @@ type columnEntry struct {
 	cols []*column // The columns and its computed
 }
 
-// Count returns the number of columns
-func (c *columns) Count() int {
+// Count returns the number of columns, excluding indexes.
+func (c *columns) Count() (count int) {
 	cols := c.cols.Load().([]columnEntry)
-	return len(cols)
+	for _, v := range cols {
+		if !v.cols[0].IsIndex() {
+			count++
+		}
+	}
+	return
 }
 
 // Range iterates over columns in the registry. This is faster than RangeUntil

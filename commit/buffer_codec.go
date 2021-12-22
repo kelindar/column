@@ -26,30 +26,20 @@ func (b *Buffer) WriteTo(dst io.Writer) (int64, error) {
 		return w.Offset(), err
 	}
 
-	if err := writeChunksTo(w, b.chunks); err != nil {
+	var temp [12]byte
+	if err := w.WriteRange(len(b.chunks), func(i int, w *iostream.Writer) error {
+		v := b.chunks[i]
+		binary.BigEndian.PutUint32(temp[0:4], uint32(v.Chunk))
+		binary.BigEndian.PutUint32(temp[4:8], v.Start)
+		binary.BigEndian.PutUint32(temp[8:12], v.Value)
+		_, err := w.Write(temp[:])
+		return err
+	}); err != nil {
 		return w.Offset(), err
 	}
 
 	err := w.WriteBytes(b.buffer)
 	return w.Offset(), err
-}
-
-// writeChunksTo writes a header with chunk offsets
-func writeChunksTo(w *iostream.Writer, chunks []header) error {
-	if err := w.WriteUvarint(uint64(len(chunks))); err != nil {
-		return err
-	}
-
-	var temp [12]byte
-	for _, v := range chunks {
-		binary.BigEndian.PutUint32(temp[0:4], uint32(v.Chunk))
-		binary.BigEndian.PutUint32(temp[4:8], v.Start)
-		binary.BigEndian.PutUint32(temp[8:12], v.Value)
-		if _, err := w.Write(temp[:]); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // --------------------------- ReadFrom ----------------------------
