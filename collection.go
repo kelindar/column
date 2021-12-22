@@ -35,7 +35,7 @@ type Collection struct {
 	fill   bitmap.Bitmap      // The fill-list
 	opts   Options            // The options configured
 	codec  codec              // The compression codec
-	writer commit.Writer      // The commit writer
+	logger commit.Logger      // The commit writer
 	pk     *columnKey         // The primary key column
 	cancel context.CancelFunc // The cancellation function for the context
 }
@@ -43,7 +43,7 @@ type Collection struct {
 // Options represents the options for a collection.
 type Options struct {
 	Capacity int           // The initial capacity when creating columns
-	Writer   commit.Writer // The writer for the commit log (optional)
+	Writer   commit.Logger // The writer for the commit log (optional)
 	Vacuum   time.Duration // The interval at which the vacuum of expired entries will be done
 }
 
@@ -76,7 +76,7 @@ func NewCollection(opts ...Options) *Collection {
 		opts:   options,
 		slock:  new(smutex.SMutex128),
 		fill:   make(bitmap.Bitmap, 0, options.Capacity>>6),
-		writer: options.Writer,
+		logger: options.Writer,
 		codec:  newCodec(&options),
 		cancel: cancel,
 	}

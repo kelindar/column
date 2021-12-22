@@ -50,7 +50,7 @@ func newTxnPool() *txnPool {
 func (p *txnPool) acquire(owner *Collection) *Txn {
 	txn := p.txns.Get().(*Txn)
 	txn.owner = owner
-	txn.writer = owner.writer
+	txn.logger = owner.logger
 	txn.index.Grow(uint32(owner.opts.Capacity))
 	owner.fill.Clone(&txn.index)
 	return txn
@@ -83,7 +83,7 @@ type Txn struct {
 	dirty   bitmap.Bitmap    // The dirty chunks
 	updates []*commit.Buffer // The update buffers
 	columns []columnCache    // The column mapping
-	writer  commit.Writer    // The optional commit writer
+	logger  commit.Logger    // The optional commit logger
 	reader  *commit.Reader   // The commit reader to re-use
 }
 
@@ -447,8 +447,8 @@ func (txn *Txn) commit() {
 		updated := txn.commitUpdates(chunk)
 
 		// Write the commited chunk to the writer (if any)
-		if (changedRows || updated) && txn.writer != nil {
-			txn.writer.Write(commit.Commit{
+		if (changedRows || updated) && txn.logger != nil {
+			txn.logger.Append(commit.Commit{
 				ID:      id,
 				Chunk:   chunk,
 				Updates: txn.updates,

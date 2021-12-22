@@ -248,7 +248,7 @@ func TestPutBitmap(t *testing.T) {
 	assert.Equal(t, Insert, r.Type)
 }
 
-func TestWriteTo(t *testing.T) {
+func TestBufferWriteTo(t *testing.T) {
 	input := NewBuffer(0)
 	input.Column = "test"
 	input.PutInt16(Put, 10, 100)
@@ -266,7 +266,7 @@ func TestWriteTo(t *testing.T) {
 	assert.Equal(t, input, output)
 }
 
-func TestWriteToFailures(t *testing.T) {
+func TestBufferWriteToFailures(t *testing.T) {
 	buf := NewBuffer(0)
 	buf.Column = "test"
 	buf.PutInt16(Put, 10, 100)
@@ -279,7 +279,7 @@ func TestWriteToFailures(t *testing.T) {
 	}
 }
 
-func TestReadFromFailures(t *testing.T) {
+func TestBufferReadFromFailures(t *testing.T) {
 	input := NewBuffer(0)
 	input.Column = "test"
 	input.PutInt16(Put, 10, 100)

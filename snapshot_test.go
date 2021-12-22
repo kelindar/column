@@ -275,7 +275,7 @@ type noopWriter struct {
 }
 
 // Write clones the commit and writes it into the writer
-func (w *noopWriter) Write(commit commit.Commit) error {
+func (w *noopWriter) Append(commit commit.Commit) error {
 	atomic.AddUint64(&w.commits, 1)
 	return nil
 }

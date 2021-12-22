@@ -9,8 +9,8 @@ github.com/kelindar/bitmap v1.1.4 h1:rNwZ6RMRhrE3Um0QqBwFoJAcAzYi/4M7XGDCZYS6TOU
 github.com/kelindar/bitmap v1.1.4/go.mod h1:shAFyS8BOif+pvJ05GqxnCM0SdohHQjKvDetqI/9z6M=
 github.com/kelindar/intmap v1.1.0 h1:S+YEDvw5FQus5UJDEG+xsLp8il3BTYqBMkkuVVZPMH8=
 github.com/kelindar/intmap v1.1.0/go.mod h1:tDanawPWq1B0HC+X3W8Z6IKNrJqxjruy6CdyTlf6Nic=
-github.com/kelindar/iostream v1.2.1 h1:4hfRJHFiRIzkh00EKNgPWj11nS62v9ZA8Intx5htij8=
-github.com/kelindar/iostream v1.2.1/go.mod h1:MkjMuVb6zGdPQVdwLnFRO0xOTOdDvBWTztFmjRDQkXk=
+github.com/kelindar/iostream v1.3.0 h1:Bz2qQabipZlF1XCk64bnxsGLete+iHtayGPeWVpbwbo=
+github.com/kelindar/iostream v1.3.0/go.mod h1:MkjMuVb6zGdPQVdwLnFRO0xOTOdDvBWTztFmjRDQkXk=
 github.com/kelindar/smutex v1.0.0 h1:+LIZYwPz+v3IWPOse764fNaVQGMVxKV6mbD6OWjQV3o=
 github.com/kelindar/smutex v1.0.0/go.mod h1:nMbCZeAHWCsY9Kt4JqX7ETd+NJeR6Swy9im+Th+qUZQ=
 github.com/kelindar/xxrand v1.0.1 h1:TG9Ix5h3ulBXVWwRUF8ePXl65FjIj48CzsgZw0nHvfY=

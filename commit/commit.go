@@ -5,13 +5,11 @@ package commit
 
 import (
 	"io"
-	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/kelindar/bitmap"
 	"github.com/kelindar/iostream"
-	"github.com/klauspost/compress/s2"
 )
 
 // --------------------------- ID ----------------------------
@@ -73,11 +71,6 @@ func min(v1, v2 int32) int32 {
 }
 
 // --------------------------- Commit ----------------------------
-
-// Writer represents a contract that a commit writer must implement
-type Writer interface {
-	Write(commit Commit) error
-}
 
 // Commit represents an individual transaction commit. If multiple chunks are committed
 // in the same transaction, it would result in multiple commits per transaction.
@@ -212,44 +205,4 @@ func (c *Commit) ReadFrom(src io.Reader) (int64, error) {
 	}
 
 	return r.Offset(), nil
-}
-
-// --------------------------- Channel ----------------------------
-
-var _ Writer = new(Channel)
-
-// Channel represents an impementation of a commit writer that simply sends each commit
-// into the channel.
-type Channel chan Commit
-
-// Write clones the commit and writes it into the writer
-func (w *Channel) Write(commit Commit) error {
-	*w <- commit.Clone()
-	return nil
-}
-
-// --------------------------- File ----------------------------
-
-// Recorder represents a commit recorder that can be used to write
-// the changes to the collection during a snapshot.
-type Recorder struct {
-	lock   sync.Mutex
-	writer *iostream.Writer
-}
-
-func NewRecorder(dst io.Writer) *Recorder {
-	return &Recorder{
-		writer: iostream.NewWriter(s2.NewWriter(dst)),
-	}
-}
-
-func (w *Recorder) Write(commit Commit) error {
-	w.lock.Lock()
-	defer w.lock.Unlock()
-
-	if _, err := commit.WriteTo(w.writer); err != nil {
-		return err
-	}
-
-	return w.writer.Close()
 }

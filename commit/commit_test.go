@@ -49,7 +49,7 @@ func TestCommitClone(t *testing.T) {
 
 func TestWriterChannel(t *testing.T) {
 	w := make(Channel, 1)
-	w.Write(Commit{
+	w.Append(Commit{
 		Chunk: 123,
 	})
 
@@ -212,4 +212,8 @@ func (w *limitWriter) Write(p []byte) (int, error) {
 		return 0, io.ErrShortBuffer
 	}
 	return len(p), nil
+}
+
+func (w *limitWriter) Read(p []byte) (int, error) {
+	return 0, io.EOF
 }
