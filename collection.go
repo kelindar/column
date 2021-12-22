@@ -230,7 +230,14 @@ func (c *Collection) createColumnKey(columnName string, column *columnKey) error
 // CreateColumnsOf registers a set of columns that are present in the target object.
 func (c *Collection) CreateColumnsOf(object Object) error {
 	for k, v := range object {
-		c.CreateColumn(k, ForKind(reflect.TypeOf(v).Kind()))
+		column, err := ForKind(reflect.TypeOf(v).Kind())
+		if err != nil {
+			return err
+		}
+
+		if err := c.CreateColumn(k, column); err != nil {
+			return err
+		}
 	}
 	return nil
 }

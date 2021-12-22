@@ -85,34 +85,34 @@ var (
 )
 
 // ForKind creates a new column instance for a specified reflect.Kind
-func ForKind(kind reflect.Kind) Column {
+func ForKind(kind reflect.Kind) (Column, error) {
 	switch kind {
 	case reflect.Float32:
-		return makeFloat32s()
+		return makeFloat32s(), nil
 	case reflect.Float64:
-		return makeFloat64s()
+		return makeFloat64s(), nil
 	case reflect.Int:
-		return makeInts()
+		return makeInts(), nil
 	case reflect.Int16:
-		return makeInt16s()
+		return makeInt16s(), nil
 	case reflect.Int32:
-		return makeInt32s()
+		return makeInt32s(), nil
 	case reflect.Int64:
-		return makeInt64s()
+		return makeInt64s(), nil
 	case reflect.Uint:
-		return makeUints()
+		return makeUints(), nil
 	case reflect.Uint16:
-		return makeUint16s()
+		return makeUint16s(), nil
 	case reflect.Uint32:
-		return makeUint32s()
+		return makeUint32s(), nil
 	case reflect.Uint64:
-		return makeUint64s()
+		return makeUint64s(), nil
 	case reflect.Bool:
-		return makeBools()
+		return makeBools(), nil
 	case reflect.String:
-		return makeStrings()
+		return makeStrings(), nil
 	default:
-		panic(fmt.Errorf("column: unsupported column kind (%v)", kind))
+		return nil, fmt.Errorf("column: unsupported column kind (%v)", kind)
 	}
 }
 

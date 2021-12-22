@@ -29,7 +29,17 @@ func main() {
 
 	// Load the items into the collection
 	loaded := loadFixture("players.json")
-	players.CreateColumnsOf(loaded[0])
+	players.CreateColumn("serial", column.ForKey())
+	players.CreateColumn("name", column.ForEnum())
+	players.CreateColumn("active", column.ForBool())
+	players.CreateColumn("class", column.ForEnum())
+	players.CreateColumn("race", column.ForEnum())
+	players.CreateColumn("age", column.ForFloat64())
+	players.CreateColumn("hp", column.ForFloat64())
+	players.CreateColumn("mp", column.ForFloat64())
+	players.CreateColumn("balance", column.ForFloat64())
+	players.CreateColumn("gender", column.ForEnum())
+	players.CreateColumn("guild", column.ForEnum())
 
 	// Perform a bulk insert
 	players.Query(func(txn *column.Txn) error {

@@ -1,0 +1,13 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+snapshot.bin
+
+# Vendor and workspace
+vendor/
+go.work

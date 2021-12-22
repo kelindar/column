@@ -186,7 +186,8 @@ func TestFromKind(t *testing.T) {
 		reflect.Bool, reflect.String,
 		reflect.Float32, reflect.Float64,
 	} {
-		column := ForKind(v)
+		column, err := ForKind(v)
+		assert.NoError(t, err)
 		_, ok := column.Value(100)
 		assert.False(t, ok)
 	}
@@ -312,11 +313,10 @@ func TestForString(t *testing.T) {
 	})
 }
 
-func TestForKind(t *testing.T) {
-	assert.NotNil(t, ForKind(reflect.String))
-	assert.Panics(t, func() {
-		ForKind(reflect.Invalid)
-	})
+func TestForKindInvalid(t *testing.T) {
+	c, err := ForKind(reflect.Invalid)
+	assert.Nil(t, c)
+	assert.Error(t, err)
 }
 
 func TestAtKey(t *testing.T) {
