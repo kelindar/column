@@ -450,6 +450,25 @@ func TestInsertWithTTL(t *testing.T) {
 	})
 }
 
+func TestCreateColumnsOfInvalidKind(t *testing.T) {
+	obj := map[string]interface{}{
+		"name": complex64(1),
+	}
+
+	col := NewCollection()
+	assert.Error(t, col.CreateColumnsOf(obj))
+}
+
+func TestCreateColumnsOfDuplicate(t *testing.T) {
+	obj := map[string]interface{}{
+		"name": "Roman",
+	}
+
+	col := NewCollection()
+	assert.NoError(t, col.CreateColumnsOf(obj))
+	assert.Error(t, col.CreateColumnsOf(obj))
+}
+
 // --------------------------- Mocks & Fixtures ----------------------------
 
 // loadPlayers loads a list of players from the fixture

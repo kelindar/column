@@ -244,6 +244,10 @@ func (c *Collection) CreateColumnsOf(object Object) error {
 
 // CreateColumn creates a column of a specified type and adds it to the collection.
 func (c *Collection) CreateColumn(columnName string, column Column) error {
+	if _, ok := c.cols.Load(columnName); ok {
+		return fmt.Errorf("column: unable to create column '%s', already exists", columnName)
+	}
+
 	column.Grow(uint32(c.opts.Capacity))
 	c.cols.Store(columnName, columnFor(columnName, column))
 
