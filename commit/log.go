@@ -55,7 +55,16 @@ func Open(source io.ReadWriter) *Log {
 // OpenFile opens a specified commit log file in a read/write mode. If
 // the file does not exist, it will create it.
 func OpenFile(filename string) (*Log, error) {
-	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, os.ModePerm)
+	return openFile(os.OpenFile(filename, os.O_RDWR|os.O_CREATE, os.ModePerm))
+}
+
+// OpenTemp opens a temporary commit log file with read/write permissions
+func OpenTemp() (*Log, error) {
+	return openFile(os.CreateTemp("", "*.log"))
+}
+
+// openFile opens a file or returns the error provided
+func openFile(file *os.File, err error) (*Log, error) {
 	if err != nil {
 		return nil, err
 	}
@@ -97,6 +106,16 @@ func (l *Log) Range(fn func(Commit) error) error {
 			return err
 		}
 	}
+}
+
+// Name calls the corresponding Name() method on the underlying source
+func (l *Log) Name() (name string) {
+	if file, ok := l.source.(interface {
+		Name() string
+	}); ok {
+		name = file.Name()
+	}
+	return
 }
 
 // Close closes the source log file

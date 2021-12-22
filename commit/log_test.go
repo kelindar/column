@@ -105,6 +105,17 @@ func TestLogOpenFile(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, logger)
+	assert.Equal(t, "commit.log", logger.Name())
+}
+
+func TestLogOpenTemp(t *testing.T) {
+	logger, err := OpenTemp()
+	defer os.Remove(logger.Name())
+	defer logger.Close()
+
+	assert.NoError(t, err)
+	assert.NotNil(t, logger)
+	assert.NotEmpty(t, logger.Name())
 }
 
 func TestLogOpenFileInvalid(t *testing.T) {
