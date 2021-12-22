@@ -7,6 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"sync/atomic"
+	"unsafe"
 
 	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
@@ -35,10 +38,102 @@ func (c *Collection) Replay(change commit.Commit) error {
 
 // --------------------------- Snapshotting ---------------------------
 
-// WriteTo writes collection encoded into binary format into the destination writer until
-// there's no more data to write or when an error occurs. The return value n is the number
-// of bytes written. Any error encountered during the write is also returned.
-func (c *Collection) WriteTo(dst io.Writer) (int64, error) {
+// Restore restores the collection from the underlying snapshot reader. This operation
+// should be called before any of transactions, right after initialization.
+func (c *Collection) Restore(snapshot io.ReadWriter) error {
+	commits, err := c.readState(snapshot)
+	if err != nil {
+		return err
+	}
+
+	// Reconcile the pending commit log
+	return commit.Open(snapshot).Range(func(commit commit.Commit) error {
+		lastCommit := commits[commit.Chunk]
+		if commit.ID > lastCommit {
+			return c.Replay(commit)
+		}
+		return nil
+	})
+}
+
+// Snapshot writes a collection snapshot into the underlying writer.
+func (c *Collection) Snapshot(dst io.Writer) error {
+	recorder, err := c.recorderOpen()
+	if err != nil {
+		return err
+	}
+
+	// Take a snapshot of the current state
+	if _, err := c.writeState(dst); err != nil {
+		return err
+	}
+
+	// Close the recorder in order to write the footer
+	if err := recorder.Close(); err != nil {
+		return err
+	}
+
+	// Reopen the log file in read-only mode
+	footer, err := os.Open(recorder.Name())
+	if err != nil {
+		return err
+	}
+
+	// Write the commits back into the destination stream
+	if _, err := io.Copy(dst, footer); err != nil {
+		return err
+	}
+
+	// Close the read-only log now
+	if err := footer.Close(); err != nil {
+		return err
+	}
+
+	// Swap the recorder pointer
+	return c.recorderClose()
+}
+
+func (c *Collection) recorderOpen() (*commit.Log, error) {
+	recorder, err := commit.OpenTemp()
+	if err != nil {
+		return nil, err
+	}
+
+	dst := (*unsafe.Pointer)(unsafe.Pointer(&c.record))
+	ptr := unsafe.Pointer(recorder)
+	if !atomic.CompareAndSwapPointer(dst, nil, ptr) {
+		return nil, fmt.Errorf("column: unable to snapshot, another one might be in progress")
+	}
+	return recorder, nil
+}
+
+func (c *Collection) recorderClose() error {
+	recorder, ok := c.isSnapshotting()
+	if !ok {
+		return fmt.Errorf("column: unable to close snapshot, no recorder found")
+	}
+
+	dst := (*unsafe.Pointer)(unsafe.Pointer(&c.record))
+	atomic.StorePointer(dst, nil)
+
+	return os.Remove(recorder.Name())
+}
+
+// isSnapshotting loads a currently used commit log for a pending snapshot
+func (c *Collection) isSnapshotting() (*commit.Log, bool) {
+	dst := (*unsafe.Pointer)(unsafe.Pointer(&c.record))
+	ptr := atomic.LoadPointer(dst)
+	if ptr == nil {
+		return nil, false
+	}
+
+	return (*commit.Log)(ptr), true
+}
+
+// --------------------------- Collection Encoding ---------------------------
+
+// writeState writes collection state into the specified writer.
+func (c *Collection) writeState(dst io.Writer) (int64, error) {
 
 	// Create a writer, encoder and a reusable buffer
 	encoder := c.codec.EncoderFor(dst)
@@ -68,6 +163,11 @@ func (c *Collection) WriteTo(dst io.Writer) (int64, error) {
 		return c.writeAtChunk(commit.Chunk(i), func(chunk commit.Chunk, fill bitmap.Bitmap) error {
 			offset := chunk.Min()
 
+			// Write the last written commit for this chunk
+			if err := writer.WriteUvarint(c.commits[i]); err != nil {
+				return err
+			}
+
 			// Write the inserts column
 			buffer.Reset(rowColumn)
 			fill.Range(func(idx uint32) {
@@ -79,6 +179,10 @@ func (c *Collection) WriteTo(dst io.Writer) (int64, error) {
 
 			// Snapshot each column and write the buffer
 			return c.cols.RangeUntil(func(column *column) error {
+				if column.IsIndex() {
+					return nil // Skip indexes
+				}
+
 				buffer.Reset(column.name)
 				column.Snapshot(chunk, buffer)
 				return writer.WriteSelf(buffer)
@@ -91,28 +195,34 @@ func (c *Collection) WriteTo(dst io.Writer) (int64, error) {
 	return writer.Offset(), encoder.Close()
 }
 
-// ReadFrom reads a collection from the provided reader source until EOF or error. The
-// return value n is the number of bytes read. Any error except EOF encountered during
-// the read is also returned.
-func (c *Collection) ReadFrom(src io.Reader) (int64, error) {
+// readState reads a collection snapshotted state from the underlying reader. It
+// returns the last commit IDs for each chunk.
+func (c *Collection) readState(src io.Reader) ([]uint64, error) {
 	r := iostream.NewReader(c.codec.DecoderFor(src))
+	commits := make([]uint64, 128)
 
 	// Read the version and make sure it matches
 	version, err := r.ReadUvarint()
 	if err != nil || version != 0x1 {
-		return r.Offset(), fmt.Errorf("column: unable to restore (version %d) %v", version, err)
+		return nil, fmt.Errorf("column: unable to restore (version %d) %v", version, err)
 	}
 
 	// Read the number of columns
 	columns, err := r.ReadUvarint()
 	if err != nil {
-		return r.Offset(), err
+		return nil, err
 	}
 
 	// Read each chunk
-	if err := r.ReadRange(func(chunk int, r *iostream.Reader) error {
+	return commits, r.ReadRange(func(chunk int, r *iostream.Reader) error {
 		return c.Query(func(txn *Txn) error {
 			txn.dirty.Set(uint32(chunk))
+
+			// Read the last written commit ID for the chunk
+			if commits[chunk], err = r.ReadUvarint(); err != nil {
+				return err
+			}
+
 			for i := uint64(0); i < columns; i++ {
 				buffer := txn.owner.txns.acquirePage("")
 				_, err := buffer.ReadFrom(r)
@@ -128,11 +238,7 @@ func (c *Collection) ReadFrom(src io.Reader) (int64, error) {
 
 			return nil
 		})
-	}); err != nil {
-		return r.Offset(), err
-	}
-
-	return r.Offset(), nil
+	})
 }
 
 // --------------------------- Compression Codec ----------------------------

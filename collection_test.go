@@ -454,8 +454,25 @@ func TestInsertWithTTL(t *testing.T) {
 
 // loadPlayers loads a list of players from the fixture
 func loadPlayers(amount int) *Collection {
+	out := newEmpty(amount)
+
+	// Load and copy until we reach the amount required
+	data := loadFixture("players.json")
+	for i := 0; i < amount/len(data); i++ {
+		out.Query(func(txn *Txn) error {
+			for _, p := range data {
+				txn.InsertObject(p)
+			}
+			return nil
+		})
+	}
+	return out
+}
+
+// newEmpty creates a new empty collection for a the fixture
+func newEmpty(capacity int) *Collection {
 	out := NewCollection(Options{
-		Capacity: amount,
+		Capacity: capacity,
 		Vacuum:   500 * time.Millisecond,
 		Writer:   new(noopWriter),
 	})
@@ -504,16 +521,6 @@ func loadPlayers(amount int) *Collection {
 		return r.Float() >= 30
 	})
 
-	// Load and copy until we reach the amount required
-	data := loadFixture("players.json")
-	for i := 0; i < amount/len(data); i++ {
-		out.Query(func(txn *Txn) error {
-			for _, p := range data {
-				txn.InsertObject(p)
-			}
-			return nil
-		})
-	}
 	return out
 }
 

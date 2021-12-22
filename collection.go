@@ -27,17 +27,19 @@ const (
 
 // Collection represents a collection of objects in a columnar format
 type Collection struct {
-	count  uint64             // The current count of elements
-	txns   *txnPool           // The transaction pool
-	lock   sync.RWMutex       // The mutex to guard the fill-list
-	slock  *smutex.SMutex128  // The sharded mutex for the collection
-	cols   columns            // The map of columns
-	fill   bitmap.Bitmap      // The fill-list
-	opts   Options            // The options configured
-	codec  codec              // The compression codec
-	logger commit.Logger      // The commit writer
-	pk     *columnKey         // The primary key column
-	cancel context.CancelFunc // The cancellation function for the context
+	count   uint64             // The current count of elements
+	txns    *txnPool           // The transaction pool
+	lock    sync.RWMutex       // The mutex to guard the fill-list
+	slock   *smutex.SMutex128  // The sharded mutex for the collection
+	cols    columns            // The map of columns
+	fill    bitmap.Bitmap      // The fill-list
+	opts    Options            // The options configured
+	codec   codec              // The compression codec
+	logger  commit.Logger      // The commit logger for CDC
+	record  *commit.Log        // The commit logger for snapshot
+	pk      *columnKey         // The primary key column
+	cancel  context.CancelFunc // The cancellation function for the context
+	commits []uint64           // The array of commit IDs for corresponding chunk
 }
 
 // Options represents the options for a collection.
@@ -71,14 +73,15 @@ func NewCollection(opts ...Options) *Collection {
 	// Create a new collection
 	ctx, cancel := context.WithCancel(context.Background())
 	store := &Collection{
-		cols:   makeColumns(8),
-		txns:   newTxnPool(),
-		opts:   options,
-		slock:  new(smutex.SMutex128),
-		fill:   make(bitmap.Bitmap, 0, options.Capacity>>6),
-		logger: options.Writer,
-		codec:  newCodec(&options),
-		cancel: cancel,
+		cols:    makeColumns(8),
+		txns:    newTxnPool(),
+		opts:    options,
+		slock:   new(smutex.SMutex128),
+		fill:    make(bitmap.Bitmap, 0, options.Capacity>>6),
+		logger:  options.Writer,
+		codec:   newCodec(&options),
+		cancel:  cancel,
+		commits: make([]uint64, 128),
 	}
 
 	// Create an expiration column and start the cleanup goroutine
@@ -327,6 +330,7 @@ func (c *Collection) Query(fn func(txn *Txn) error) error {
 // Close closes the collection and clears up all of the resources.
 func (c *Collection) Close() error {
 	c.cancel()
+
 	return nil
 }
 
@@ -373,10 +377,15 @@ type columnEntry struct {
 	cols []*column // The columns and its computed
 }
 
-// Count returns the number of columns
-func (c *columns) Count() int {
+// Count returns the number of columns, excluding indexes.
+func (c *columns) Count() (count int) {
 	cols := c.cols.Load().([]columnEntry)
-	return len(cols)
+	for _, v := range cols {
+		if !v.cols[0].IsIndex() {
+			count++
+		}
+	}
+	return
 }
 
 // Range iterates over columns in the registry. This is faster than RangeUntil

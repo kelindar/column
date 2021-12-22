@@ -135,6 +135,12 @@ func columnFor(name string, v Column) *column {
 	}
 }
 
+// IsIndex returns whether the column is an index
+func (c *column) IsIndex() bool {
+	_, ok := c.Column.(*columnIndex)
+	return ok
+}
+
 // Is checks whether a column type supports certain numerical operations.
 func (c *column) IsNumeric() bool {
 	return (c.kind & typeNumeric) == typeNumeric

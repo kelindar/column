@@ -140,14 +140,10 @@ func TestMin(t *testing.T) {
 
 func TestCommitCodec(t *testing.T) {
 	buffer := bytes.NewBuffer(nil)
-	input := Commit{
-		ID:    Next(),
-		Chunk: 0,
-		Updates: []*Buffer{
-			newInterleaved("a"),
-			newInterleaved("b"),
-		},
-	}
+	input := New(0, []*Buffer{
+		newInterleaved("a"),
+		newInterleaved("b"),
+	})
 
 	// Write into the buffer
 	n, err := input.WriteTo(buffer)

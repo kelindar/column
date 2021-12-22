@@ -439,20 +439,29 @@ func (txn *Txn) commit() {
 
 	// Commit chunk by chunk to reduce lock contentions
 	txn.rangeWrite(func(chunk commit.Chunk, fill bitmap.Bitmap) error {
-		id := commit.Next()
 		if changedRows {
 			txn.commitMarkers(chunk, fill, markers)
 		}
 
+		// Attemp to update, if nothing was changed we're done
 		updated := txn.commitUpdates(chunk)
+		if !changedRows && !updated {
+			return nil
+		}
 
-		// Write the commited chunk to the writer (if any)
-		if (changedRows || updated) && txn.logger != nil {
-			txn.logger.Append(commit.Commit{
-				ID:      id,
-				Chunk:   chunk,
-				Updates: txn.updates,
-			})
+		// Set the last commit ID for the chunk
+		commit := commit.New(chunk, txn.updates)
+		txn.owner.commits[chunk] = commit.ID
+
+		// If there is a pending snapshot, append commit into a temp log
+		if dst, ok := txn.owner.isSnapshotting(); ok {
+			if err := dst.Append(commit); err != nil {
+				return err
+			}
+		}
+
+		if txn.logger != nil {
+			return txn.logger.Append(commit)
 		}
 		return nil
 	})

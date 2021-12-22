@@ -60,7 +60,7 @@ func OpenFile(filename string) (*Log, error) {
 
 // OpenTemp opens a temporary commit log file with read/write permissions
 func OpenTemp() (*Log, error) {
-	return openFile(os.CreateTemp("", "*.log"))
+	return openFile(os.CreateTemp("", "column_*.log"))
 }
 
 // openFile opens a file or returns the error provided
@@ -120,6 +120,9 @@ func (l *Log) Name() (name string) {
 
 // Close closes the source log file
 func (l *Log) Close() (err error) {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+
 	if closer, ok := l.source.(io.Closer); ok {
 		err = closer.Close()
 	}
