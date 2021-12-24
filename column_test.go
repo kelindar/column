@@ -398,3 +398,17 @@ func TestSnapshotIndex(t *testing.T) {
 	output.Apply(rdr)
 	assert.Equal(t, input.Column.(*columnIndex).fill, output.Column.(*columnIndex).fill)
 }
+
+func TestResize(t *testing.T) {
+	assert.Equal(t, 1, resize(100, 0))
+	assert.Equal(t, 2, resize(100, 1))
+	assert.Equal(t, 4, resize(100, 2))
+	assert.Equal(t, 16, resize(100, 11))
+	assert.Equal(t, 256, resize(100, 255))
+	assert.Equal(t, 1232, resize(100, 1000))
+	assert.Equal(t, 1232, resize(200, 1000))
+	assert.Equal(t, 1232, resize(512, 1000))
+	assert.Equal(t, 1213, resize(500, 1000)) // Inconsistent
+	assert.Equal(t, 22504, resize(512, 20000))
+	assert.Equal(t, 28322, resize(22504, 22600))
+}

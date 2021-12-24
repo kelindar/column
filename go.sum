@@ -5,8 +5,8 @@ github.com/dustin/go-humanize v1.0.0 h1:VSnTsYCnlFHaM2/igO1h6X3HA71jcobQuxemgkq4
 github.com/dustin/go-humanize v1.0.0/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
 github.com/kelindar/async v1.0.0 h1:oJiFAt3fVB/b5zVZKPBU+pP9lR3JVyeox9pYlpdnIK8=
 github.com/kelindar/async v1.0.0/go.mod h1:bJRlwaRiqdHi+4dpVDNHdwgyRyk6TxpA21fByLf7hIY=
-github.com/kelindar/bitmap v1.1.4 h1:rNwZ6RMRhrE3Um0QqBwFoJAcAzYi/4M7XGDCZYS6TOU=
-github.com/kelindar/bitmap v1.1.4/go.mod h1:shAFyS8BOif+pvJ05GqxnCM0SdohHQjKvDetqI/9z6M=
+github.com/kelindar/bitmap v1.1.5 h1:cqXplFOOwJX/HRu+GZBcz03wo2LZftVUMsuAjW/3/rQ=
+github.com/kelindar/bitmap v1.1.5/go.mod h1:URwjvM6WXldcKN7/D3FLHy0LSkEdg3rE7VjdN1DcI9E=
 github.com/kelindar/intmap v1.1.0 h1:S+YEDvw5FQus5UJDEG+xsLp8il3BTYqBMkkuVVZPMH8=
 github.com/kelindar/intmap v1.1.0/go.mod h1:tDanawPWq1B0HC+X3W8Z6IKNrJqxjruy6CdyTlf6Nic=
 github.com/kelindar/iostream v1.3.0 h1:Bz2qQabipZlF1XCk64bnxsGLete+iHtayGPeWVpbwbo=
