@@ -34,7 +34,6 @@ type Collection struct {
 	cols    columns            // The map of columns
 	fill    bitmap.Bitmap      // The fill-list
 	opts    Options            // The options configured
-	codec   codec              // The compression codec
 	logger  commit.Logger      // The commit logger for CDC
 	record  *commit.Log        // The commit logger for snapshot
 	pk      *columnKey         // The primary key column
@@ -79,7 +78,6 @@ func NewCollection(opts ...Options) *Collection {
 		slock:  new(smutex.SMutex128),
 		fill:   make(bitmap.Bitmap, 0, options.Capacity>>6),
 		logger: options.Writer,
-		codec:  newCodec(&options),
 		cancel: cancel,
 	}
 
