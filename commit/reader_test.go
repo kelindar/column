@@ -195,6 +195,45 @@ func TestReaderIface(t *testing.T) {
 	assert.Equal(t, uint32(777), r.Index())
 }
 
+func TestReadIntMixedSize(t *testing.T) {
+	buf := NewBuffer(0)
+	buf.PutInt16(Put, 0, 10)
+	buf.PutInt32(Put, 1, 20)
+	buf.PutInt64(Put, 2, 30)
+	buf.PutString(Put, 3, "hello")
+
+	r := NewReader()
+	r.Seek(buf)
+	assert.True(t, r.Next())
+	assert.Equal(t, 10, r.Int())
+	assert.True(t, r.Next())
+	assert.Equal(t, 20, r.Int())
+	assert.True(t, r.Next())
+	assert.Equal(t, 30, r.Int())
+	assert.True(t, r.Next())
+	assert.Panics(t, func() {
+		r.Int()
+	})
+}
+
+func TestReadFloatMixedSize(t *testing.T) {
+	buf := NewBuffer(0)
+	buf.PutFloat32(Put, 0, 10)
+	buf.PutFloat64(Put, 1, 20)
+	buf.PutString(Put, 3, "hello")
+
+	r := NewReader()
+	r.Seek(buf)
+	assert.True(t, r.Next())
+	assert.Equal(t, 10.0, r.Float())
+	assert.True(t, r.Next())
+	assert.Equal(t, 20.0, r.Float())
+	assert.True(t, r.Next())
+	assert.Panics(t, func() {
+		r.Float()
+	})
+}
+
 func TestReaderMax(t *testing.T) {
 	buf := NewBuffer(0)
 	buf.Reset("test")
