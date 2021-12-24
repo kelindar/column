@@ -104,19 +104,35 @@ func (r *Reader) Index() uint32 {
 	return uint32(r.Offset)
 }
 
-// Int reads a int64 value.
+// Int reads a int value of any size.
 func (r *Reader) Int() int {
-	return int(binary.BigEndian.Uint64(r.buffer[r.i0:r.i1]))
+	return int(r.Uint())
 }
 
-// Uint reads a uint64 value.
+// Uint reads a uint value of any size.
 func (r *Reader) Uint() uint {
-	return uint(binary.BigEndian.Uint64(r.buffer[r.i0:r.i1]))
+	switch r.i1 - r.i0 {
+	case 2:
+		return uint(binary.BigEndian.Uint16(r.buffer[r.i0:r.i1]))
+	case 4:
+		return uint(binary.BigEndian.Uint32(r.buffer[r.i0:r.i1]))
+	case 8:
+		return uint(binary.BigEndian.Uint64(r.buffer[r.i0:r.i1]))
+	default:
+		panic("column: unable to read, unsupported integer size")
+	}
 }
 
-// Float reads a float64 value.
+// Float reads a floating-point value of any size.
 func (r *Reader) Float() float64 {
-	return r.Float64()
+	switch r.i1 - r.i0 {
+	case 4:
+		return float64(r.Float32())
+	case 8:
+		return r.Float64()
+	default:
+		panic("column: unable to read, unsupported float size")
+	}
 }
 
 // String reads a string value.
