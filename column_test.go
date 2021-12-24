@@ -379,16 +379,17 @@ func TestSnapshotIndex(t *testing.T) {
 	predicateFn := func(Reader) bool {
 		return true
 	}
+
 	input := newIndex("test", "a", predicateFn)
 	input.Grow(8)
-	applyChanges(input,
+	applyChanges(input.Column,
 		Update{commit.Put, 2, true},
 		Update{commit.Put, 5, true},
 	)
 
 	// Snapshot into a new buffer
 	buf := commit.NewBuffer(8)
-	input.Snapshot(0, buf)
+	input.Column.Snapshot(0, buf)
 
 	// Create a new reader and read the column
 	rdr := commit.NewReader()

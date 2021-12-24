@@ -119,11 +119,8 @@ func (c *Collection) writeState(dst io.Writer) (int64, error) {
 	}
 
 	// Load the number of columns and the max index
-	c.lock.Lock()
-	max, _ := c.fill.Max()
-	chunks := commit.ChunkAt(max) + 1
+	chunks := c.chunks()
 	columns := uint64(c.cols.Count()) + 1 // extra 'insert' column
-	c.lock.Unlock()
 
 	// Write the number of columns
 	if err := writer.WriteUvarint(columns); err != nil {
@@ -131,7 +128,7 @@ func (c *Collection) writeState(dst io.Writer) (int64, error) {
 	}
 
 	// Write each chunk
-	if err := writer.WriteRange(int(chunks), func(i int, w *iostream.Writer) error {
+	if err := writer.WriteRange(chunks, func(i int, w *iostream.Writer) error {
 		chunk := commit.Chunk(i)
 		return c.writeAtChunk(chunk, func(chunk commit.Chunk, fill bitmap.Bitmap) error {
 			offset := chunk.Min()
@@ -157,12 +154,9 @@ func (c *Collection) writeState(dst io.Writer) (int64, error) {
 
 			// Snapshot each column and write the buffer
 			return c.cols.RangeUntil(func(column *column) error {
-				if column.IsIndex() {
+				if !column.Snapshot(chunk, buffer) {
 					return nil // Skip indexes
 				}
-
-				buffer.Reset(column.name)
-				column.Snapshot(chunk, buffer)
 				return writer.WriteSelf(buffer)
 			})
 		})
@@ -217,4 +211,13 @@ func (c *Collection) readState(src io.Reader) ([]uint64, error) {
 			return nil
 		})
 	})
+}
+
+// chunks returns the number of chunks and columns
+func (c *Collection) chunks() int {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	max, _ := c.fill.Max()
+	return int(commit.ChunkAt(max) + 1)
 }

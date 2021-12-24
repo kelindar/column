@@ -80,16 +80,6 @@ func (c *columnIndex) Apply(r *commit.Reader) {
 	}
 }
 
-// Update updates a single value in the index.
-func (c *columnIndex) Update(r Reader) {
-	if c.rule(r) {
-		c.fill.Set(r.Index())
-		return
-	}
-
-	c.fill.Remove(r.Index())
-}
-
 // Value retrieves a value at a specified index.
 func (c *columnIndex) Value(idx uint32) (v interface{}, ok bool) {
 	if idx < uint32(len(c.fill))<<6 {
