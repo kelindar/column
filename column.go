@@ -261,14 +261,25 @@ func (c *columnBool) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 
 // --------------------------- funcs ----------------------------
 
-// capacityFor computes the next power of 2 for a given index
-func capacityFor(v uint32) int {
-	v--
-	v |= v >> 1
-	v |= v >> 2
-	v |= v >> 4
-	v |= v >> 8
-	v |= v >> 16
-	v++
-	return int(v)
+// resize calculates the new required capacity and a new index
+func resize(capacity int, v uint32) int {
+	const threshold = 256
+	if v < threshold {
+		v |= v >> 1
+		v |= v >> 2
+		v |= v >> 4
+		v |= v >> 8
+		v |= v >> 16
+		v++
+		return int(v)
+	}
+
+	if capacity < threshold {
+		capacity = threshold
+	}
+
+	for 0 < capacity && capacity < int(v+1) {
+		capacity += (capacity + 3*threshold) / 4
+	}
+	return capacity
 }

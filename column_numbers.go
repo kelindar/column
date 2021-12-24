@@ -37,7 +37,7 @@ func (c *columnfloat32) Grow(idx uint32) {
 	}
 
 	c.fill.Grow(idx)
-	clone := make([]float32, idx+1, capacityFor(idx+1))
+	clone := make([]float32, idx+1, resize(cap(c.data), idx+1))
 	copy(clone, c.data)
 	c.data = clone
 }
@@ -196,7 +196,7 @@ func (c *columnfloat64) Grow(idx uint32) {
 	}
 
 	c.fill.Grow(idx)
-	clone := make([]float64, idx+1, capacityFor(idx+1))
+	clone := make([]float64, idx+1, resize(cap(c.data), idx+1))
 	copy(clone, c.data)
 	c.data = clone
 }
@@ -355,7 +355,7 @@ func (c *columnint) Grow(idx uint32) {
 	}
 
 	c.fill.Grow(idx)
-	clone := make([]int, idx+1, capacityFor(idx+1))
+	clone := make([]int, idx+1, resize(cap(c.data), idx+1))
 	copy(clone, c.data)
 	c.data = clone
 }
@@ -514,7 +514,7 @@ func (c *columnint16) Grow(idx uint32) {
 	}
 
 	c.fill.Grow(idx)
-	clone := make([]int16, idx+1, capacityFor(idx+1))
+	clone := make([]int16, idx+1, resize(cap(c.data), idx+1))
 	copy(clone, c.data)
 	c.data = clone
 }
@@ -673,7 +673,7 @@ func (c *columnint32) Grow(idx uint32) {
 	}
 
 	c.fill.Grow(idx)
-	clone := make([]int32, idx+1, capacityFor(idx+1))
+	clone := make([]int32, idx+1, resize(cap(c.data), idx+1))
 	copy(clone, c.data)
 	c.data = clone
 }
@@ -832,7 +832,7 @@ func (c *columnint64) Grow(idx uint32) {
 	}
 
 	c.fill.Grow(idx)
-	clone := make([]int64, idx+1, capacityFor(idx+1))
+	clone := make([]int64, idx+1, resize(cap(c.data), idx+1))
 	copy(clone, c.data)
 	c.data = clone
 }
@@ -991,7 +991,7 @@ func (c *columnuint) Grow(idx uint32) {
 	}
 
 	c.fill.Grow(idx)
-	clone := make([]uint, idx+1, capacityFor(idx+1))
+	clone := make([]uint, idx+1, resize(cap(c.data), idx+1))
 	copy(clone, c.data)
 	c.data = clone
 }
@@ -1150,7 +1150,7 @@ func (c *columnuint16) Grow(idx uint32) {
 	}
 
 	c.fill.Grow(idx)
-	clone := make([]uint16, idx+1, capacityFor(idx+1))
+	clone := make([]uint16, idx+1, resize(cap(c.data), idx+1))
 	copy(clone, c.data)
 	c.data = clone
 }
@@ -1309,7 +1309,7 @@ func (c *columnuint32) Grow(idx uint32) {
 	}
 
 	c.fill.Grow(idx)
-	clone := make([]uint32, idx+1, capacityFor(idx+1))
+	clone := make([]uint32, idx+1, resize(cap(c.data), idx+1))
 	copy(clone, c.data)
 	c.data = clone
 }
@@ -1468,7 +1468,7 @@ func (c *columnuint64) Grow(idx uint32) {
 	}
 
 	c.fill.Grow(idx)
-	clone := make([]uint64, idx+1, capacityFor(idx+1))
+	clone := make([]uint64, idx+1, resize(cap(c.data), idx+1))
 	copy(clone, c.data)
 	c.data = clone
 }

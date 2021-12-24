@@ -47,7 +47,7 @@ func (c *columnEnum) Grow(idx uint32) {
 	}
 
 	c.fill.Grow(idx)
-	clone := make([]uint32, idx+1, capacityFor(idx+1))
+	clone := make([]uint32, idx+1, resize(cap(c.locs), idx+1))
 	copy(clone, c.locs)
 	c.locs = clone
 }
@@ -175,7 +175,7 @@ func (c *columnString) Grow(idx uint32) {
 	}
 
 	c.fill.Grow(idx)
-	clone := make([]string, idx+1, capacityFor(idx+1))
+	clone := make([]string, idx+1, resize(cap(c.data), idx+1))
 	copy(clone, c.data)
 	c.data = clone
 }
