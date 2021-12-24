@@ -41,7 +41,7 @@ func (c *Collection) Replay(change commit.Commit) error {
 // Restore restores the collection from the underlying snapshot reader. This operation
 // should be called before any of transactions, right after initialization.
 func (c *Collection) Restore(snapshot io.ReadWriter) error {
-	commits, err := c.readState(snapshot)
+	commits, err := c.readState(s2.NewReader(snapshot))
 	if err != nil {
 		return err
 	}
@@ -65,7 +65,7 @@ func (c *Collection) Snapshot(dst io.Writer) error {
 
 	// Take a snapshot of the current state
 	defer os.Remove(recorder.Name())
-	if _, err := c.writeState(dst); err != nil {
+	if _, err := c.writeState(s2.NewWriter(dst)); err != nil {
 		return err
 	}
 
@@ -109,10 +109,7 @@ func (c *Collection) isSnapshotting() (*commit.Log, bool) {
 
 // writeState writes collection state into the specified writer.
 func (c *Collection) writeState(dst io.Writer) (int64, error) {
-
-	// Create a writer, encoder and a reusable buffer
-	encoder := c.codec.EncoderFor(dst)
-	writer := iostream.NewWriter(c.codec.EncoderFor(dst))
+	writer := iostream.NewWriter(dst)
 	buffer := c.txns.acquirePage(rowColumn)
 	defer c.txns.releasePage(buffer)
 
@@ -122,11 +119,8 @@ func (c *Collection) writeState(dst io.Writer) (int64, error) {
 	}
 
 	// Load the number of columns and the max index
-	c.lock.Lock()
-	max, _ := c.fill.Max()
-	chunks := commit.ChunkAt(max) + 1
+	chunks := c.chunks()
 	columns := uint64(c.cols.Count()) + 1 // extra 'insert' column
-	c.lock.Unlock()
 
 	// Write the number of columns
 	if err := writer.WriteUvarint(columns); err != nil {
@@ -134,7 +128,7 @@ func (c *Collection) writeState(dst io.Writer) (int64, error) {
 	}
 
 	// Write each chunk
-	if err := writer.WriteRange(int(chunks), func(i int, w *iostream.Writer) error {
+	if err := writer.WriteRange(chunks, func(i int, w *iostream.Writer) error {
 		chunk := commit.Chunk(i)
 		return c.writeAtChunk(chunk, func(chunk commit.Chunk, fill bitmap.Bitmap) error {
 			offset := chunk.Min()
@@ -160,12 +154,9 @@ func (c *Collection) writeState(dst io.Writer) (int64, error) {
 
 			// Snapshot each column and write the buffer
 			return c.cols.RangeUntil(func(column *column) error {
-				if column.IsIndex() {
+				if !column.Snapshot(chunk, buffer) {
 					return nil // Skip indexes
 				}
-
-				buffer.Reset(column.name)
-				column.Snapshot(chunk, buffer)
 				return writer.WriteSelf(buffer)
 			})
 		})
@@ -173,13 +164,13 @@ func (c *Collection) writeState(dst io.Writer) (int64, error) {
 		return writer.Offset(), err
 	}
 
-	return writer.Offset(), encoder.Close()
+	return writer.Offset(), writer.Flush()
 }
 
 // readState reads a collection snapshotted state from the underlying reader. It
 // returns the last commit IDs for each chunk.
 func (c *Collection) readState(src io.Reader) ([]uint64, error) {
-	r := iostream.NewReader(c.codec.DecoderFor(src))
+	r := iostream.NewReader(src)
 	commits := make([]uint64, 128)
 
 	// Read the version and make sure it matches
@@ -222,44 +213,11 @@ func (c *Collection) readState(src io.Reader) ([]uint64, error) {
 	})
 }
 
-// --------------------------- Compression Codec ----------------------------
+// chunks returns the number of chunks and columns
+func (c *Collection) chunks() int {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
-// newCodec creates a new compressor for the destination writer
-func newCodec(options *Options) codec {
-	return &s2codec{
-		w: s2.NewWriter(nil),
-		r: s2.NewReader(nil),
-	}
-}
-
-type codec interface {
-	DecoderFor(reader io.Reader) io.Reader
-	EncoderFor(writer io.Writer) io.WriteCloser
-}
-
-type s2codec struct {
-	w *s2.Writer
-	r *s2.Reader
-}
-
-func (c *s2codec) Read(p []byte) (int, error) {
-	return c.r.Read(p)
-}
-
-func (c *s2codec) Write(p []byte) (int, error) {
-	return c.w.Write(p)
-}
-
-func (c *s2codec) DecoderFor(reader io.Reader) io.Reader {
-	c.r.Reset(reader)
-	return c
-}
-
-func (c *s2codec) EncoderFor(writer io.Writer) io.WriteCloser {
-	c.w.Reset(writer)
-	return c
-}
-
-func (c *s2codec) Close() error {
-	return c.w.Close()
+	max, _ := c.fill.Max()
+	return int(commit.ChunkAt(max) + 1)
 }

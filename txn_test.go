@@ -428,6 +428,7 @@ func TestUpdateAt(t *testing.T) {
 	})
 
 	assert.NoError(t, c.UpdateAt(index, "col1", func(v Cursor) error {
+		assert.Equal(t, index, v.Index())
 		v.Set("hi")
 		return nil
 	}))

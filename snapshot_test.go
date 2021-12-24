@@ -202,7 +202,6 @@ func TestSnapshot(t *testing.T) {
 
 func TestSnapshotFailures(t *testing.T) {
 	input := NewCollection()
-	input.codec = new(noopCodec)
 	input.CreateColumn("name", ForString())
 	input.Insert("name", func(v Cursor) error {
 		v.Set("Roman")
@@ -287,17 +286,16 @@ func TestCollectionCodec(t *testing.T) {
 	assert.Equal(t, input.Count(), output.Count())
 }
 
-func TestWriteToSize(t *testing.T) {
+func TestWriteToSizeUncompresed(t *testing.T) {
 	input := loadPlayers(1e4) // 10K
 	output := bytes.NewBuffer(nil)
 	_, err := input.writeState(output)
 	assert.NoError(t, err)
-	assert.Equal(t, 105771, output.Len())
+	assert.Equal(t, 1264179, output.Len())
 }
 
 func TestWriteToFailures(t *testing.T) {
 	input := NewCollection()
-	input.codec = new(noopCodec)
 	input.CreateColumn("name", ForString())
 	input.Insert("name", func(v Cursor) error {
 		v.Set("Roman")
@@ -332,7 +330,6 @@ func TestWriteEmpty(t *testing.T) {
 
 func TestReadFromFailures(t *testing.T) {
 	input := NewCollection()
-	input.codec = new(noopCodec)
 	input.CreateColumn("name", ForString())
 	input.Insert("name", func(v Cursor) error {
 		v.Set("Roman")
@@ -345,7 +342,6 @@ func TestReadFromFailures(t *testing.T) {
 
 	for size := 0; size < buffer.Len()-1; size++ {
 		output := NewCollection()
-		output.codec = new(noopCodec)
 
 		output.CreateColumn("name", ForString())
 		_, err := output.readState(bytes.NewReader(buffer.Bytes()[:size]))
@@ -382,31 +378,4 @@ func (w *limitWriter) Write(p []byte) (int, error) {
 
 func (w *limitWriter) Read(p []byte) (int, error) {
 	return 0, nil
-}
-
-type noopCodec struct {
-	w io.Writer
-	r io.Reader
-}
-
-func (c *noopCodec) Read(p []byte) (int, error) {
-	return c.r.Read(p)
-}
-
-func (c *noopCodec) Write(p []byte) (int, error) {
-	return c.w.Write(p)
-}
-
-func (c *noopCodec) DecoderFor(reader io.Reader) io.Reader {
-	c.r = reader
-	return c
-}
-
-func (c *noopCodec) EncoderFor(writer io.Writer) io.WriteCloser {
-	c.w = writer
-	return c
-}
-
-func (c *noopCodec) Close() error {
-	return nil
 }

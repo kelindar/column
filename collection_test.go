@@ -170,7 +170,7 @@ func TestCollection(t *testing.T) {
 	// Should not drop, since it's not an index
 	col.DropIndex("name")
 
-	// Create a coupe of indices
+	// Create a couple of indexes
 	assert.Error(t, col.CreateIndex("", "", nil))
 	assert.NoError(t, col.CreateIndex("rich", "wallet", func(r Reader) bool {
 		return r.Float() > 100

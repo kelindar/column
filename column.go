@@ -168,6 +168,17 @@ func (c *column) Apply(r *commit.Reader) {
 	c.Column.Apply(r)
 }
 
+// Snapshot takes a snapshot of a column, skipping indexes
+func (c *column) Snapshot(chunk commit.Chunk, buffer *commit.Buffer) bool {
+	if c.IsIndex() {
+		return false
+	}
+
+	buffer.Reset(c.name)
+	c.Column.Snapshot(chunk, buffer)
+	return true
+}
+
 // Value retrieves a value at a specified index
 func (c *column) Value(idx uint32) (v interface{}, ok bool) {
 	v, ok = c.Column.Value(idx)

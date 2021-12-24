@@ -34,7 +34,6 @@ type Collection struct {
 	cols    columns            // The map of columns
 	fill    bitmap.Bitmap      // The fill-list
 	opts    Options            // The options configured
-	codec   codec              // The compression codec
 	logger  commit.Logger      // The commit logger for CDC
 	record  *commit.Log        // The commit logger for snapshot
 	pk      *columnKey         // The primary key column
@@ -79,7 +78,6 @@ func NewCollection(opts ...Options) *Collection {
 		slock:  new(smutex.SMutex128),
 		fill:   make(bitmap.Bitmap, 0, options.Capacity>>6),
 		logger: options.Writer,
-		codec:  newCodec(&options),
 		cancel: cancel,
 	}
 
@@ -285,14 +283,19 @@ func (c *Collection) CreateIndex(indexName, columnName string, fn func(r Reader)
 	c.cols.Store(columnName, column, index)
 	c.lock.Unlock()
 
-	// If a column with this name already exists, iterate through all of the values
-	// that we have in the collection and apply the filter.
-	return c.Query(func(txn *Txn) error {
-		impl := index.Column.(*columnIndex)
-		return txn.With(columnName).Range(columnName, func(v Cursor) {
-			impl.Update(&v)
-		})
-	})
+	// Iterate over all of the values of the target column, chunk by chunk and fill
+	// the index accordingly.
+	chunks := c.chunks()
+	buffer := commit.NewBuffer(c.Count())
+	reader := commit.NewReader()
+	for chunk := commit.Chunk(0); int(chunk) < chunks; chunk++ {
+		if column.Snapshot(chunk, buffer) {
+			reader.Seek(buffer)
+			index.Apply(reader)
+		}
+	}
+
+	return nil
 }
 
 // DropIndex removes the index column with the specified name. If the index with this
