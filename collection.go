@@ -38,7 +38,7 @@ type Collection struct {
 	record  *commit.Log        // The commit logger for snapshot
 	pk      *columnKey         // The primary key column
 	cancel  context.CancelFunc // The cancellation function for the context
-	commits sync.Map           // The array of commit IDs for corresponding chunk
+	commits []uint64           // The array of commit IDs for corresponding chunk
 }
 
 // Options represents the options for a collection.
@@ -91,6 +91,7 @@ func NewCollection(opts ...Options) *Collection {
 func (c *Collection) next() uint32 {
 	c.lock.Lock()
 	idx := c.findFreeIndex(atomic.AddUint64(&c.count, 1))
+
 	c.fill.Set(idx)
 	c.lock.Unlock()
 	return idx
@@ -107,9 +108,9 @@ func (c *Collection) findFreeIndex(count uint64) uint32 {
 
 	// Check if we have space at the end, since if we're inserting a lot of data it's more
 	// likely that we're full in the beginning.
-	if fillSize > 0 {
-		if tail := c.fill[fillSize-1]; tail != 0xffffffffffffffff {
-			return uint32((fillSize-1)<<6 + bits.TrailingZeros64(^tail))
+	if tailAt := int((count - 1) >> 6); fillSize > tailAt {
+		if tail := c.fill[tailAt]; tail != 0xffffffffffffffff {
+			return uint32((tailAt)<<6 + bits.TrailingZeros64(^tail))
 		}
 	}
 

@@ -134,12 +134,8 @@ func (c *Collection) writeState(dst io.Writer) (int64, error) {
 			offset := chunk.Min()
 
 			// Write the last written commit for this chunk
-			// TODO: instead of a sync.Map we can use a simple slice, protected by SMutex
-			var commitID uint64
-			if id, ok := c.commits.Load(chunk); ok {
-				commitID = id.(uint64)
-			}
-			if err := writer.WriteUvarint(commitID); err != nil {
+			commitID := c.commits[chunk]
+			if err := writer.WriteUvarint(uint64(commitID)); err != nil {
 				return err
 			}
 
@@ -217,6 +213,9 @@ func (c *Collection) readState(src io.Reader) ([]uint64, error) {
 func (c *Collection) chunks() int {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+	if len(c.fill) == 0 {
+		return 0
+	}
 
 	max, _ := c.fill.Max()
 	return int(commit.ChunkAt(max) + 1)
