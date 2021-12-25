@@ -17,7 +17,7 @@ import (
 var id uint64 = uint64(time.Now().UnixNano())
 
 // Next returns the next commit ID
-func next() uint64 {
+func Next() uint64 {
 	return atomic.AddUint64(&id, 1)
 }
 
@@ -78,15 +78,6 @@ type Commit struct {
 	ID      uint64    // The commit ID
 	Chunk   Chunk     // The chunk number
 	Updates []*Buffer // The update buffers
-}
-
-// New creates a new commit for a chunk and an array of buffers
-func New(chunk Chunk, buffers []*Buffer) Commit {
-	return Commit{
-		ID:      next(),
-		Chunk:   chunk,
-		Updates: buffers,
-	}
 }
 
 // Clone clones a commit into a new one

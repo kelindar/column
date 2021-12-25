@@ -430,12 +430,10 @@ func (txn *Txn) commit() {
 
 	// Grow the size of the fill list
 	markers, changedRows := txn.findMarkers()
-	if last, _ := txn.dirty.Max(); len(txn.owner.commits) < int(last+1) {
-		txn.commitCapacity(commit.Chunk(last))
-	}
+	txn.commitCapacity()
 
 	// Commit chunk by chunk to reduce lock contentions
-	txn.rangeWrite(func(chunk commit.Chunk, fill bitmap.Bitmap) error {
+	txn.rangeWrite(func(commitID uint64, chunk commit.Chunk, fill bitmap.Bitmap) error {
 		if changedRows {
 			txn.commitMarkers(chunk, fill, markers)
 		}
@@ -446,19 +444,23 @@ func (txn *Txn) commit() {
 			return nil
 		}
 
-		// Set the last commit ID for the chunk
-		commit := commit.New(chunk, txn.updates)
-
 		// If there is a pending snapshot, append commit into a temp log
-		txn.owner.commits[chunk] = commit.ID
 		if dst, ok := txn.owner.isSnapshotting(); ok {
-			if err := dst.Append(commit); err != nil {
+			if err := dst.Append(commit.Commit{
+				ID:      commitID,
+				Chunk:   chunk,
+				Updates: txn.updates,
+			}); err != nil {
 				return err
 			}
 		}
 
 		if txn.logger != nil {
-			return txn.logger.Append(commit)
+			return txn.logger.Append(commit.Commit{
+				ID:      commitID,
+				Chunk:   chunk,
+				Updates: txn.updates,
+			})
 		}
 		return nil
 	})
@@ -530,11 +532,17 @@ func (txn *Txn) findMarkers() (*commit.Buffer, bool) {
 }
 
 // commitCapacity grows all columns until they reach the max index
-func (txn *Txn) commitCapacity(last commit.Chunk) {
-	max := last.Max()
+func (txn *Txn) commitCapacity() {
+	last, ok := txn.dirty.Max()
+	if !ok { // Empty
+		return
+	}
 
 	txn.owner.lock.Lock()
 	defer txn.owner.lock.Unlock()
+	if len(txn.owner.commits) >= int(last+1) {
+		return
+	}
 
 	// Grow the commits array
 	for len(txn.owner.commits) < int(last+1) {
@@ -542,6 +550,7 @@ func (txn *Txn) commitCapacity(last commit.Chunk) {
 	}
 
 	// Grow the fill list and all of the owner's columns
+	max := commit.Chunk(last).Max()
 	txn.owner.fill.Grow(max)
 	txn.owner.cols.Range(func(column *column) {
 		column.Grow(max)

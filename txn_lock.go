@@ -52,19 +52,21 @@ func (txn *Txn) rangeReadPair(column *column, f func(a, b bitmap.Bitmap)) {
 
 // rangeWrite ranges over the dirty chunks and acquires exclusive latches along
 // the way. This is used to commit a transaction.
-func (txn *Txn) rangeWrite(fn func(chunk commit.Chunk, fill bitmap.Bitmap) error) {
+func (txn *Txn) rangeWrite(fn func(commitID uint64, chunk commit.Chunk, fill bitmap.Bitmap) error) {
 	lock := txn.owner.slock
 	txn.dirty.Range(func(x uint32) {
 		chunk := commit.Chunk(x)
+		commitID := commit.Next()
 		lock.Lock(uint(chunk))
 
-		// Compute the fill
+		// Compute the fill and set the last commit ID
 		txn.owner.lock.Lock()
 		fill := chunk.OfBitmap(txn.owner.fill)
+		txn.owner.commits[chunk] = commitID
 		txn.owner.lock.Unlock()
 
 		// Call the delegate
-		fn(chunk, fill)
+		fn(commitID, chunk, fill)
 		lock.Unlock(uint(chunk))
 	})
 }
