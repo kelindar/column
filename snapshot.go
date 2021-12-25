@@ -129,13 +129,11 @@ func (c *Collection) writeState(dst io.Writer) (int64, error) {
 
 	// Write each chunk
 	if err := writer.WriteRange(chunks, func(i int, w *iostream.Writer) error {
-		chunk := commit.Chunk(i)
-		return c.writeAtChunk(chunk, func(chunk commit.Chunk, fill bitmap.Bitmap) error {
+		return c.readChunk(commit.Chunk(i), func(lastCommit uint64, chunk commit.Chunk, fill bitmap.Bitmap) error {
 			offset := chunk.Min()
 
 			// Write the last written commit for this chunk
-			commitID := c.commits[chunk]
-			if err := writer.WriteUvarint(uint64(commitID)); err != nil {
+			if err := writer.WriteUvarint(lastCommit); err != nil {
 				return err
 			}
 

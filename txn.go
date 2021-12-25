@@ -430,10 +430,12 @@ func (txn *Txn) commit() {
 
 	// Grow the size of the fill list
 	markers, changedRows := txn.findMarkers()
-	txn.commitCapacity()
+	if last, ok := txn.dirty.Max(); ok {
+		txn.commitCapacity(commit.Chunk(last))
+	}
 
 	// Commit chunk by chunk to reduce lock contentions
-	txn.rangeWrite(func(commitID uint64, chunk commit.Chunk, fill bitmap.Bitmap) error {
+	txn.rangeWrite(func(commitID uint64, chunk commit.Chunk, fill bitmap.Bitmap) {
 		if changedRows {
 			txn.commitMarkers(chunk, fill, markers)
 		}
@@ -441,28 +443,25 @@ func (txn *Txn) commit() {
 		// Attemp to update, if nothing was changed we're done
 		updated := txn.commitUpdates(chunk)
 		if !changedRows && !updated {
-			return nil
+			return
 		}
 
 		// If there is a pending snapshot, append commit into a temp log
 		if dst, ok := txn.owner.isSnapshotting(); ok {
-			if err := dst.Append(commit.Commit{
-				ID:      commitID,
-				Chunk:   chunk,
-				Updates: txn.updates,
-			}); err != nil {
-				return err
-			}
-		}
-
-		if txn.logger != nil {
-			return txn.logger.Append(commit.Commit{
+			dst.Append(commit.Commit{
 				ID:      commitID,
 				Chunk:   chunk,
 				Updates: txn.updates,
 			})
 		}
-		return nil
+
+		if txn.logger != nil {
+			txn.logger.Append(commit.Commit{
+				ID:      commitID,
+				Chunk:   chunk,
+				Updates: txn.updates,
+			})
+		}
 	})
 }
 
@@ -532,12 +531,7 @@ func (txn *Txn) findMarkers() (*commit.Buffer, bool) {
 }
 
 // commitCapacity grows all columns until they reach the max index
-func (txn *Txn) commitCapacity() {
-	last, ok := txn.dirty.Max()
-	if !ok { // Empty
-		return
-	}
-
+func (txn *Txn) commitCapacity(last commit.Chunk) {
 	txn.owner.lock.Lock()
 	defer txn.owner.lock.Unlock()
 	if len(txn.owner.commits) >= int(last+1) {
@@ -550,7 +544,7 @@ func (txn *Txn) commitCapacity() {
 	}
 
 	// Grow the fill list and all of the owner's columns
-	max := commit.Chunk(last).Max()
+	max := last.Max()
 	txn.owner.fill.Grow(max)
 	txn.owner.cols.Range(func(column *column) {
 		column.Grow(max)

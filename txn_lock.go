@@ -52,7 +52,7 @@ func (txn *Txn) rangeReadPair(column *column, f func(a, b bitmap.Bitmap)) {
 
 // rangeWrite ranges over the dirty chunks and acquires exclusive latches along
 // the way. This is used to commit a transaction.
-func (txn *Txn) rangeWrite(fn func(commitID uint64, chunk commit.Chunk, fill bitmap.Bitmap) error) {
+func (txn *Txn) rangeWrite(fn func(commitID uint64, chunk commit.Chunk, fill bitmap.Bitmap)) {
 	lock := txn.owner.slock
 	txn.dirty.Range(func(x uint32) {
 		chunk := commit.Chunk(x)
@@ -60,10 +60,10 @@ func (txn *Txn) rangeWrite(fn func(commitID uint64, chunk commit.Chunk, fill bit
 		lock.Lock(uint(chunk))
 
 		// Compute the fill and set the last commit ID
-		txn.owner.lock.Lock()
+		txn.owner.lock.RLock()
 		fill := chunk.OfBitmap(txn.owner.fill)
-		txn.owner.commits[chunk] = commitID
-		txn.owner.lock.Unlock()
+		txn.owner.commits[chunk] = commitID // OK, since we have a shard lock
+		txn.owner.lock.RUnlock()
 
 		// Call the delegate
 		fn(commitID, chunk, fill)
@@ -71,19 +71,19 @@ func (txn *Txn) rangeWrite(fn func(commitID uint64, chunk commit.Chunk, fill bit
 	})
 }
 
-// writeAtChunk acquires appropriate locks for a chunk and executes a
-// write callback
-func (c *Collection) writeAtChunk(chunk commit.Chunk, fn func(chunk commit.Chunk, fill bitmap.Bitmap) error) (err error) {
+// readChunk acquires appropriate locks for a chunk and executes a read callback
+func (c *Collection) readChunk(chunk commit.Chunk, fn func(uint64, commit.Chunk, bitmap.Bitmap) error) (err error) {
 	lock := c.slock
-	lock.Lock(uint(chunk))
+	lock.RLock(uint(chunk))
 
 	// Compute the fill
-	c.lock.Lock()
+	c.lock.RLock()
 	fill := chunk.OfBitmap(c.fill)
-	c.lock.Unlock()
+	commitID := c.commits[chunk]
+	c.lock.RUnlock()
 
 	// Call the delegate
-	err = fn(chunk, fill)
-	lock.Unlock(uint(chunk))
+	err = fn(commitID, chunk, fill)
+	lock.RUnlock(uint(chunk))
 	return
 }
