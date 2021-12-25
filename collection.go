@@ -108,9 +108,9 @@ func (c *Collection) findFreeIndex(count uint64) uint32 {
 
 	// Check if we have space at the end, since if we're inserting a lot of data it's more
 	// likely that we're full in the beginning.
-	if fillSize > 0 && (uint64(fillSize-1)>>6) < count {
-		if tail := c.fill[fillSize-1]; tail != 0xffffffffffffffff {
-			return uint32((fillSize-1)<<6 + bits.TrailingZeros64(^tail))
+	if tailAt := int((count - 1) >> 6); fillSize > tailAt {
+		if tail := c.fill[tailAt]; tail != 0xffffffffffffffff {
+			return uint32((tailAt)<<6 + bits.TrailingZeros64(^tail))
 		}
 	}
 

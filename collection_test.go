@@ -473,6 +473,19 @@ func TestCreateColumnsOfDuplicate(t *testing.T) {
 	assert.Error(t, col.CreateColumnsOf(obj))
 }
 
+func TestFindFreeIndex(t *testing.T) {
+	col := NewCollection()
+	assert.NoError(t, col.CreateColumn("name", ForString()))
+	for i := 0; i < 100; i++ {
+		idx, err := col.Insert("name", func(v Cursor) error {
+			v.SetString("Roman")
+			return nil
+		})
+		assert.NoError(t, err)
+		assert.Equal(t, i, int(idx))
+	}
+}
+
 // --------------------------- Mocks & Fixtures ----------------------------
 
 // loadPlayers loads a list of players from the fixture
