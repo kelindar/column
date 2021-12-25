@@ -304,7 +304,7 @@ players := NewCollection(column.Options{
 // Read the changes from the channel
 go func(){
 	for commit := writer{
-		println("commit", commit.Type.String())
+		println("commit", commit.ID)
 	}
 }()
 
