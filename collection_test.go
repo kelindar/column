@@ -166,9 +166,11 @@ func TestCollection(t *testing.T) {
 	col := NewCollection()
 	col.CreateColumnsOf(obj)
 	idx := col.InsertObject(obj)
+	assert.Equal(t, uint32(0), idx)
+	assert.Equal(t, uint32(1), col.InsertObject(obj))
 
 	// Should not drop, since it's not an index
-	col.DropIndex("name")
+	assert.Error(t, col.DropIndex("name"))
 
 	// Create a couple of indexes
 	assert.Error(t, col.CreateIndex("", "", nil))
@@ -183,24 +185,26 @@ func TestCollection(t *testing.T) {
 	}
 
 	{ // Remove the object
-		col.DeleteAt(idx)
+		assert.True(t, col.DeleteAt(idx))
 		assert.False(t, col.SelectAt(idx, func(v Selector) {
 			assert.Fail(t, "unreachable")
 		}))
 	}
 
 	{ // Add a new one, should replace
-		idx := col.InsertObject(obj)
-		assert.True(t, col.SelectAt(idx, func(v Selector) {
+		newIdx := col.InsertObject(obj)
+		assert.Equal(t, idx, newIdx)
+		assert.True(t, col.SelectAt(newIdx, func(v Selector) {
 			assert.Equal(t, "Roman", v.StringAt("name"))
 		}))
 	}
 
 	{ // Update the wallet
-		col.UpdateAt(idx, "wallet", func(v Cursor) error {
+		assert.NoError(t, col.UpdateAt(idx, "wallet", func(v Cursor) error {
 			v.SetFloat64(1000)
 			return nil
-		})
+		}))
+
 		assert.True(t, col.SelectAt(idx, func(v Selector) {
 			assert.Equal(t, int64(1000), v.IntAt("wallet"))
 			assert.Equal(t, true, v.BoolAt("rich"))

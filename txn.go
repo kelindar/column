@@ -428,13 +428,10 @@ func (txn *Txn) commit() {
 		})
 	}
 
-	// Get the upper bound chunk
-	lastChunk, _ := txn.dirty.Max()
-
 	// Grow the size of the fill list
 	markers, changedRows := txn.findMarkers()
-	if max := txn.reader.MaxOffset(markers, commit.Chunk(lastChunk)); max > 0 {
-		txn.commitCapacity(max)
+	if last, _ := txn.dirty.Max(); len(txn.owner.commits) < int(last+1) {
+		txn.commitCapacity(commit.Chunk(last))
 	}
 
 	// Commit chunk by chunk to reduce lock contentions
@@ -451,9 +448,9 @@ func (txn *Txn) commit() {
 
 		// Set the last commit ID for the chunk
 		commit := commit.New(chunk, txn.updates)
-		txn.owner.commits.Store(chunk, commit.ID)
 
 		// If there is a pending snapshot, append commit into a temp log
+		txn.owner.commits[chunk] = commit.ID
 		if dst, ok := txn.owner.isSnapshotting(); ok {
 			if err := dst.Append(commit); err != nil {
 				return err
@@ -533,9 +530,16 @@ func (txn *Txn) findMarkers() (*commit.Buffer, bool) {
 }
 
 // commitCapacity grows all columns until they reach the max index
-func (txn *Txn) commitCapacity(max uint32) {
+func (txn *Txn) commitCapacity(last commit.Chunk) {
+	max := last.Max()
+
 	txn.owner.lock.Lock()
 	defer txn.owner.lock.Unlock()
+
+	// Grow the commits array
+	for len(txn.owner.commits) < int(last+1) {
+		txn.owner.commits = append(txn.owner.commits, 0)
+	}
 
 	// Grow the fill list and all of the owner's columns
 	txn.owner.fill.Grow(max)
