@@ -40,7 +40,7 @@ func (c *Collection) Replay(change commit.Commit) error {
 
 // Restore restores the collection from the underlying snapshot reader. This operation
 // should be called before any of transactions, right after initialization.
-func (c *Collection) Restore(snapshot io.ReadWriter) error {
+func (c *Collection) Restore(snapshot io.Reader) error {
 	commits, err := c.readState(s2.NewReader(snapshot))
 	if err != nil {
 		return err

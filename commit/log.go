@@ -38,18 +38,22 @@ func (w *Channel) Append(commit Commit) error {
 // during a snapshot. It also supports reading a commit log back.
 type Log struct {
 	lock   sync.Mutex
-	source io.ReadWriter
+	source io.Reader
 	writer *iostream.Writer
 	reader *iostream.Reader
 }
 
 // Open opens a commit log stream for both read and write.
-func Open(source io.ReadWriter) *Log {
-	return &Log{
+func Open(source io.Reader) *Log {
+	log := &Log{
 		source: source,
-		writer: iostream.NewWriter(s2.NewWriter(source)),
 		reader: iostream.NewReader(s2.NewReader(source)),
 	}
+
+	if rw, ok := source.(io.Writer); ok {
+		log.writer = iostream.NewWriter(s2.NewWriter(rw))
+	}
+	return log
 }
 
 // OpenFile opens a specified commit log file in a read/write mode. If
