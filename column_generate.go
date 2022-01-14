@@ -88,10 +88,34 @@ func (c *columnNumber) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
-// LoadNumber retrieves a number value at a specified index
-func (c *columnNumber) LoadNumber(idx uint32) (v number, ok bool) {
+// load retrieves a number value at a specified index
+func (c *columnNumber) load(idx uint32) (v number, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = number(c.data[idx]), true
+	}
+	return
+}
+
+// LoadFloat64 retrieves a float64 value at a specified index
+func (c *columnNumber) LoadFloat64(idx uint32) (v float64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = float64(c.data[idx]), true
+	}
+	return
+}
+
+// LoadInt64 retrieves an int64 value at a specified index
+func (c *columnNumber) LoadInt64(idx uint32) (v int64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = int64(c.data[idx]), true
+	}
+	return
+}
+
+// LoadUint64 retrieves an uint64 value at a specified index
+func (c *columnNumber) LoadUint64(idx uint32) (v uint64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = uint64(c.data[idx]), true
 	}
 	return
 }
@@ -148,7 +172,7 @@ func (s *numberSlice) Add(index uint32, delta number) {
 
 // Get loads the value at a particular index
 func (s *numberSlice) Get(index uint32) (number, bool) {
-	return s.reader.LoadNumber(index)
+	return s.reader.load(index)
 }
 
 // Number returns a number column accessor

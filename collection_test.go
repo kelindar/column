@@ -209,6 +209,17 @@ func TestCollection(t *testing.T) {
 			return nil
 		})
 
+		col.Query(func(txn *Txn) error {
+			wallet := txn.Float64("wallet")
+			isRich := txn.Bool("rich")
+
+			balance, ok := wallet.Get(idx)
+			assert.True(t, ok)
+			assert.Equal(t, 1000.0, balance)
+			assert.True(t, isRich.Get(idx))
+			return nil
+		})
+
 		assert.True(t, col.SelectAt(idx, func(v Selector) {
 			assert.Equal(t, int64(1000), v.IntAt("wallet"))
 			assert.Equal(t, true, v.BoolAt("rich"))

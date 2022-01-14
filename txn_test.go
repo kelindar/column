@@ -16,6 +16,7 @@ func TestFind(t *testing.T) {
 	count := 0
 	players.Query(func(txn *Txn) error {
 		names := txn.Enum("name")
+
 		txn.WithString("race", func(v string) bool {
 			return v == "human"
 		}).WithString("class", func(v string) bool {

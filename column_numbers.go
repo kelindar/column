@@ -85,10 +85,34 @@ func (c *columnfloat32) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
-// LoadFloat32 retrieves a float32 value at a specified index
-func (c *columnfloat32) LoadFloat32(idx uint32) (v float32, ok bool) {
+// load retrieves a float32 value at a specified index
+func (c *columnfloat32) load(idx uint32) (v float32, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = float32(c.data[idx]), true
+	}
+	return
+}
+
+// LoadFloat64 retrieves a float64 value at a specified index
+func (c *columnfloat32) LoadFloat64(idx uint32) (v float64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = float64(c.data[idx]), true
+	}
+	return
+}
+
+// LoadInt64 retrieves an int64 value at a specified index
+func (c *columnfloat32) LoadInt64(idx uint32) (v int64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = int64(c.data[idx]), true
+	}
+	return
+}
+
+// LoadUint64 retrieves an uint64 value at a specified index
+func (c *columnfloat32) LoadUint64(idx uint32) (v uint64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = uint64(c.data[idx]), true
 	}
 	return
 }
@@ -145,7 +169,7 @@ func (s *float32Slice) Add(index uint32, delta float32) {
 
 // Get loads the value at a particular index
 func (s *float32Slice) Get(index uint32) (float32, bool) {
-	return s.reader.LoadFloat32(index)
+	return s.reader.load(index)
 }
 
 // Float32 returns a float32 column accessor
@@ -238,10 +262,34 @@ func (c *columnfloat64) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
+// load retrieves a float64 value at a specified index
+func (c *columnfloat64) load(idx uint32) (v float64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = float64(c.data[idx]), true
+	}
+	return
+}
+
 // LoadFloat64 retrieves a float64 value at a specified index
 func (c *columnfloat64) LoadFloat64(idx uint32) (v float64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = float64(c.data[idx]), true
+	}
+	return
+}
+
+// LoadInt64 retrieves an int64 value at a specified index
+func (c *columnfloat64) LoadInt64(idx uint32) (v int64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = int64(c.data[idx]), true
+	}
+	return
+}
+
+// LoadUint64 retrieves an uint64 value at a specified index
+func (c *columnfloat64) LoadUint64(idx uint32) (v uint64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = uint64(c.data[idx]), true
 	}
 	return
 }
@@ -298,7 +346,7 @@ func (s *float64Slice) Add(index uint32, delta float64) {
 
 // Get loads the value at a particular index
 func (s *float64Slice) Get(index uint32) (float64, bool) {
-	return s.reader.LoadFloat64(index)
+	return s.reader.load(index)
 }
 
 // Float64 returns a float64 column accessor
@@ -391,10 +439,34 @@ func (c *columnint) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
-// LoadInt retrieves a int value at a specified index
-func (c *columnint) LoadInt(idx uint32) (v int, ok bool) {
+// load retrieves a int value at a specified index
+func (c *columnint) load(idx uint32) (v int, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = int(c.data[idx]), true
+	}
+	return
+}
+
+// LoadFloat64 retrieves a float64 value at a specified index
+func (c *columnint) LoadFloat64(idx uint32) (v float64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = float64(c.data[idx]), true
+	}
+	return
+}
+
+// LoadInt64 retrieves an int64 value at a specified index
+func (c *columnint) LoadInt64(idx uint32) (v int64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = int64(c.data[idx]), true
+	}
+	return
+}
+
+// LoadUint64 retrieves an uint64 value at a specified index
+func (c *columnint) LoadUint64(idx uint32) (v uint64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = uint64(c.data[idx]), true
 	}
 	return
 }
@@ -451,7 +523,7 @@ func (s *intSlice) Add(index uint32, delta int) {
 
 // Get loads the value at a particular index
 func (s *intSlice) Get(index uint32) (int, bool) {
-	return s.reader.LoadInt(index)
+	return s.reader.load(index)
 }
 
 // Int returns a int column accessor
@@ -544,10 +616,34 @@ func (c *columnint16) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
-// LoadInt16 retrieves a int16 value at a specified index
-func (c *columnint16) LoadInt16(idx uint32) (v int16, ok bool) {
+// load retrieves a int16 value at a specified index
+func (c *columnint16) load(idx uint32) (v int16, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = int16(c.data[idx]), true
+	}
+	return
+}
+
+// LoadFloat64 retrieves a float64 value at a specified index
+func (c *columnint16) LoadFloat64(idx uint32) (v float64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = float64(c.data[idx]), true
+	}
+	return
+}
+
+// LoadInt64 retrieves an int64 value at a specified index
+func (c *columnint16) LoadInt64(idx uint32) (v int64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = int64(c.data[idx]), true
+	}
+	return
+}
+
+// LoadUint64 retrieves an uint64 value at a specified index
+func (c *columnint16) LoadUint64(idx uint32) (v uint64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = uint64(c.data[idx]), true
 	}
 	return
 }
@@ -604,7 +700,7 @@ func (s *int16Slice) Add(index uint32, delta int16) {
 
 // Get loads the value at a particular index
 func (s *int16Slice) Get(index uint32) (int16, bool) {
-	return s.reader.LoadInt16(index)
+	return s.reader.load(index)
 }
 
 // Int16 returns a int16 column accessor
@@ -697,10 +793,34 @@ func (c *columnint32) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
-// LoadInt32 retrieves a int32 value at a specified index
-func (c *columnint32) LoadInt32(idx uint32) (v int32, ok bool) {
+// load retrieves a int32 value at a specified index
+func (c *columnint32) load(idx uint32) (v int32, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = int32(c.data[idx]), true
+	}
+	return
+}
+
+// LoadFloat64 retrieves a float64 value at a specified index
+func (c *columnint32) LoadFloat64(idx uint32) (v float64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = float64(c.data[idx]), true
+	}
+	return
+}
+
+// LoadInt64 retrieves an int64 value at a specified index
+func (c *columnint32) LoadInt64(idx uint32) (v int64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = int64(c.data[idx]), true
+	}
+	return
+}
+
+// LoadUint64 retrieves an uint64 value at a specified index
+func (c *columnint32) LoadUint64(idx uint32) (v uint64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = uint64(c.data[idx]), true
 	}
 	return
 }
@@ -757,7 +877,7 @@ func (s *int32Slice) Add(index uint32, delta int32) {
 
 // Get loads the value at a particular index
 func (s *int32Slice) Get(index uint32) (int32, bool) {
-	return s.reader.LoadInt32(index)
+	return s.reader.load(index)
 }
 
 // Int32 returns a int32 column accessor
@@ -850,10 +970,34 @@ func (c *columnint64) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
-// LoadInt64 retrieves a int64 value at a specified index
+// load retrieves a int64 value at a specified index
+func (c *columnint64) load(idx uint32) (v int64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = int64(c.data[idx]), true
+	}
+	return
+}
+
+// LoadFloat64 retrieves a float64 value at a specified index
+func (c *columnint64) LoadFloat64(idx uint32) (v float64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = float64(c.data[idx]), true
+	}
+	return
+}
+
+// LoadInt64 retrieves an int64 value at a specified index
 func (c *columnint64) LoadInt64(idx uint32) (v int64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = int64(c.data[idx]), true
+	}
+	return
+}
+
+// LoadUint64 retrieves an uint64 value at a specified index
+func (c *columnint64) LoadUint64(idx uint32) (v uint64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = uint64(c.data[idx]), true
 	}
 	return
 }
@@ -910,7 +1054,7 @@ func (s *int64Slice) Add(index uint32, delta int64) {
 
 // Get loads the value at a particular index
 func (s *int64Slice) Get(index uint32) (int64, bool) {
-	return s.reader.LoadInt64(index)
+	return s.reader.load(index)
 }
 
 // Int64 returns a int64 column accessor
@@ -1003,10 +1147,34 @@ func (c *columnuint) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
-// LoadUint retrieves a uint value at a specified index
-func (c *columnuint) LoadUint(idx uint32) (v uint, ok bool) {
+// load retrieves a uint value at a specified index
+func (c *columnuint) load(idx uint32) (v uint, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = uint(c.data[idx]), true
+	}
+	return
+}
+
+// LoadFloat64 retrieves a float64 value at a specified index
+func (c *columnuint) LoadFloat64(idx uint32) (v float64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = float64(c.data[idx]), true
+	}
+	return
+}
+
+// LoadInt64 retrieves an int64 value at a specified index
+func (c *columnuint) LoadInt64(idx uint32) (v int64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = int64(c.data[idx]), true
+	}
+	return
+}
+
+// LoadUint64 retrieves an uint64 value at a specified index
+func (c *columnuint) LoadUint64(idx uint32) (v uint64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = uint64(c.data[idx]), true
 	}
 	return
 }
@@ -1063,7 +1231,7 @@ func (s *uintSlice) Add(index uint32, delta uint) {
 
 // Get loads the value at a particular index
 func (s *uintSlice) Get(index uint32) (uint, bool) {
-	return s.reader.LoadUint(index)
+	return s.reader.load(index)
 }
 
 // Uint returns a uint column accessor
@@ -1156,10 +1324,34 @@ func (c *columnuint16) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
-// LoadUint16 retrieves a uint16 value at a specified index
-func (c *columnuint16) LoadUint16(idx uint32) (v uint16, ok bool) {
+// load retrieves a uint16 value at a specified index
+func (c *columnuint16) load(idx uint32) (v uint16, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = uint16(c.data[idx]), true
+	}
+	return
+}
+
+// LoadFloat64 retrieves a float64 value at a specified index
+func (c *columnuint16) LoadFloat64(idx uint32) (v float64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = float64(c.data[idx]), true
+	}
+	return
+}
+
+// LoadInt64 retrieves an int64 value at a specified index
+func (c *columnuint16) LoadInt64(idx uint32) (v int64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = int64(c.data[idx]), true
+	}
+	return
+}
+
+// LoadUint64 retrieves an uint64 value at a specified index
+func (c *columnuint16) LoadUint64(idx uint32) (v uint64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = uint64(c.data[idx]), true
 	}
 	return
 }
@@ -1216,7 +1408,7 @@ func (s *uint16Slice) Add(index uint32, delta uint16) {
 
 // Get loads the value at a particular index
 func (s *uint16Slice) Get(index uint32) (uint16, bool) {
-	return s.reader.LoadUint16(index)
+	return s.reader.load(index)
 }
 
 // Uint16 returns a uint16 column accessor
@@ -1309,10 +1501,34 @@ func (c *columnuint32) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
-// LoadUint32 retrieves a uint32 value at a specified index
-func (c *columnuint32) LoadUint32(idx uint32) (v uint32, ok bool) {
+// load retrieves a uint32 value at a specified index
+func (c *columnuint32) load(idx uint32) (v uint32, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = uint32(c.data[idx]), true
+	}
+	return
+}
+
+// LoadFloat64 retrieves a float64 value at a specified index
+func (c *columnuint32) LoadFloat64(idx uint32) (v float64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = float64(c.data[idx]), true
+	}
+	return
+}
+
+// LoadInt64 retrieves an int64 value at a specified index
+func (c *columnuint32) LoadInt64(idx uint32) (v int64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = int64(c.data[idx]), true
+	}
+	return
+}
+
+// LoadUint64 retrieves an uint64 value at a specified index
+func (c *columnuint32) LoadUint64(idx uint32) (v uint64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = uint64(c.data[idx]), true
 	}
 	return
 }
@@ -1369,7 +1585,7 @@ func (s *uint32Slice) Add(index uint32, delta uint32) {
 
 // Get loads the value at a particular index
 func (s *uint32Slice) Get(index uint32) (uint32, bool) {
-	return s.reader.LoadUint32(index)
+	return s.reader.load(index)
 }
 
 // Uint32 returns a uint32 column accessor
@@ -1462,7 +1678,31 @@ func (c *columnuint64) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
-// LoadUint64 retrieves a uint64 value at a specified index
+// load retrieves a uint64 value at a specified index
+func (c *columnuint64) load(idx uint32) (v uint64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = uint64(c.data[idx]), true
+	}
+	return
+}
+
+// LoadFloat64 retrieves a float64 value at a specified index
+func (c *columnuint64) LoadFloat64(idx uint32) (v float64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = float64(c.data[idx]), true
+	}
+	return
+}
+
+// LoadInt64 retrieves an int64 value at a specified index
+func (c *columnuint64) LoadInt64(idx uint32) (v int64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = int64(c.data[idx]), true
+	}
+	return
+}
+
+// LoadUint64 retrieves an uint64 value at a specified index
 func (c *columnuint64) LoadUint64(idx uint32) (v uint64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = uint64(c.data[idx]), true
@@ -1522,7 +1762,7 @@ func (s *uint64Slice) Add(index uint32, delta uint64) {
 
 // Get loads the value at a particular index
 func (s *uint64Slice) Get(index uint32) (uint64, bool) {
-	return s.reader.LoadUint64(index)
+	return s.reader.load(index)
 }
 
 // Uint64 returns a uint64 column accessor

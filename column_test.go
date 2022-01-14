@@ -70,11 +70,6 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 	// Assert Numeric
 	if column, ok := column.(Numeric); ok {
 
-		// LoadFloat64
-		f64, ok := column.LoadFloat64(9)
-		assert.EqualValues(t, value, f64)
-		assert.True(t, ok)
-
 		// FilterFloat64
 		index := bitmap.Bitmap{0xffff}
 		column.FilterFloat64(0, index, func(v float64) bool {
@@ -82,22 +77,12 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 		})
 		assert.Equal(t, 0, index.Count())
 
-		// LoadInt64
-		i64, ok := column.LoadInt64(9)
-		assert.EqualValues(t, value, i64)
-		assert.True(t, ok)
-
 		// FilterInt64
 		index = bitmap.Bitmap{0xffff}
 		column.FilterInt64(0, index, func(v int64) bool {
 			return false
 		})
 		assert.Equal(t, 0, index.Count())
-
-		// LoadUint64
-		u64, ok := column.LoadUint64(9)
-		assert.EqualValues(t, value, u64)
-		assert.True(t, ok)
 
 		// FilterUint64
 		index = bitmap.Bitmap{0xffff}
