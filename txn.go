@@ -392,16 +392,10 @@ func (txn *Txn) DeleteAll() {
 
 // Range selects and iterates over a results for a specific column. The cursor provided
 // also allows to select other columns, but at a slight performance cost.
-func (txn *Txn) Range(column string, fn func(v Cursor)) error {
-	cur, err := txn.cursorFor(column)
-	if err != nil {
-		return err
-	}
-
+func (txn *Txn) Range(fn func(idx uint32)) error {
 	txn.rangeRead(func(offset uint32, index bitmap.Bitmap) {
 		index.Range(func(x uint32) {
-			cur.idx = offset + x
-			fn(cur)
+			fn(offset + x)
 		})
 	})
 	return nil

@@ -16,6 +16,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.0
 	github.com/kelindar/async v1.0.0
+	github.com/kelindar/genny v1.0.0
 	github.com/kelindar/xxrand v1.0.1
 	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect

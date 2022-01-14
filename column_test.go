@@ -38,10 +38,6 @@ func TestColumns(t *testing.T) {
 			testColumn(t, tc.column, tc.value)
 		})
 
-		t.Run(fmt.Sprintf("%T-cursor", tc.column), func(t *testing.T) {
-			testColumnCursor(t, tc.column, tc.value)
-		})
-
 		t.Run(fmt.Sprintf("%T-put-delete", tc.column), func(t *testing.T) {
 			testPutDelete(t, tc.column, tc.value)
 		})
@@ -140,26 +136,6 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 
 }
 
-// Tests an individual column cursor
-func testColumnCursor(t *testing.T, column Column, value interface{}) {
-	col := NewCollection()
-	col.CreateColumn("test", column)
-	col.InsertObject(map[string]interface{}{
-		"test": value,
-	})
-
-	assert.NotPanics(t, func() {
-		col.Query(func(txn *Txn) error {
-			return txn.Range("test", func(cur Cursor) {
-				setAny(&cur, "test", value)
-				if _, ok := column.(Numeric); ok {
-					addAny(&cur, "test", value)
-				}
-			})
-		})
-	})
-}
-
 // testPutDelete test a put and a delete
 func testPutDelete(t *testing.T, column Column, value interface{}) {
 	applyChanges(column,
@@ -208,88 +184,6 @@ type Update struct {
 	Type  commit.OpType
 	Index uint32
 	Value interface{}
-}
-
-// setAny used for testing
-func setAny(cur *Cursor, column string, value interface{}) {
-	switch v := value.(type) {
-	case uint:
-		cur.SetUint(v)
-		cur.SetUintAt(column, v)
-	case uint64:
-		cur.SetUint64(v)
-		cur.SetUint64At(column, v)
-	case uint32:
-		cur.SetUint32(v)
-		cur.SetUint32At(column, v)
-	case uint16:
-		cur.SetUint16(v)
-		cur.SetUint16At(column, v)
-	case int:
-		cur.SetInt(v)
-		cur.SetIntAt(column, v)
-	case int64:
-		cur.SetInt64(v)
-		cur.SetInt64At(column, v)
-	case int32:
-		cur.SetInt32(v)
-		cur.SetInt32At(column, v)
-	case int16:
-		cur.SetInt16(v)
-		cur.SetInt16At(column, v)
-	case float64:
-		cur.SetFloat64(v)
-		cur.SetFloat64At(column, v)
-	case float32:
-		cur.SetFloat32(v)
-		cur.SetFloat32At(column, v)
-	case bool:
-		cur.SetBool(v)
-		cur.SetBoolAt(column, v)
-	case string:
-		cur.SetString(v)
-		cur.SetStringAt(column, v)
-	default:
-		panic(fmt.Errorf("column: unsupported type (%T)", value))
-	}
-}
-
-// addAny used for testing
-func addAny(cur *Cursor, column string, value interface{}) {
-	switch v := value.(type) {
-	case uint:
-		cur.AddUint(v)
-		cur.AddUintAt(column, v)
-	case uint64:
-		cur.AddUint64(v)
-		cur.AddUint64At(column, v)
-	case uint32:
-		cur.AddUint32(v)
-		cur.AddUint32At(column, v)
-	case uint16:
-		cur.AddUint16(v)
-		cur.AddUint16At(column, v)
-	case int:
-		cur.AddInt(v)
-		cur.AddIntAt(column, v)
-	case int64:
-		cur.AddInt64(v)
-		cur.AddInt64At(column, v)
-	case int32:
-		cur.AddInt32(v)
-		cur.AddInt32At(column, v)
-	case int16:
-		cur.AddInt16(v)
-		cur.AddInt16At(column, v)
-	case float64:
-		cur.AddFloat64(v)
-		cur.AddFloat64At(column, v)
-	case float32:
-		cur.AddFloat32(v)
-		cur.AddFloat32At(column, v)
-	default:
-		panic(fmt.Errorf("column: unsupported type (%T)", value))
-	}
 }
 
 func TestForString(t *testing.T) {

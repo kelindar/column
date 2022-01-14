@@ -15,15 +15,17 @@ func TestFind(t *testing.T) {
 	players := loadPlayers(500)
 	count := 0
 	players.Query(func(txn *Txn) error {
+		names := txn.Enum("name")
 		txn.WithString("race", func(v string) bool {
 			return v == "human"
 		}).WithString("class", func(v string) bool {
 			return v == "mage"
 		}).WithUint("age", func(v uint64) bool {
 			return v >= 30
-		}).Range("name", func(v Cursor) {
+		}).Range(func(index uint32) {
 			count++
-			assert.NotEmpty(t, v.String())
+			name, _ := names.Get(index)
+			assert.NotEmpty(t, name)
 		})
 		return nil
 	})
@@ -35,7 +37,7 @@ func TestMany(t *testing.T) {
 	players := loadPlayers(20000)
 	count := 0
 	players.Query(func(txn *Txn) error {
-		txn.Range("name", func(v Cursor) {
+		txn.Range(func(index uint32) {
 			count++
 		})
 		return nil
@@ -124,7 +126,7 @@ func TestIndexInvalid(t *testing.T) {
 	})
 
 	assert.Error(t, players.Query(func(txn *Txn) error {
-		return txn.Range("invalid-column", func(v Cursor) {
+		return txn.Range(func(index uint32) {
 			// do nothing
 		})
 	}))
@@ -136,8 +138,9 @@ func TestIndexInvalid(t *testing.T) {
 	})
 
 	assert.NoError(t, players.Query(func(txn *Txn) error {
-		return txn.Range("balance", func(v Cursor) {
-			v.AddFloat64At("invalid-column", 1)
+		invalid := txn.Float64("invalid-column")
+		return txn.Range(func(index uint32) {
+			invalid.Add(index, 1)
 		})
 	}))
 
@@ -207,31 +210,6 @@ func TestIndexed(t *testing.T) {
 			})
 		return nil
 	})
-
-	// Check with multiple Selectors
-	players.Query(func(txn *Txn) error {
-		result := txn.With("human", "mage", "old")
-
-		result.Range("age", func(v Cursor) {
-			assert.True(t, v.Float() >= 30)
-			assert.True(t, v.Int() >= 30)
-			assert.True(t, v.Uint() >= 30)
-		})
-
-		result.Range("old", func(v Cursor) {
-			assert.True(t, v.Value().(bool))
-			assert.True(t, v.Bool())
-		})
-
-		result.Range("class", func(v Cursor) {
-			//assert.Equal(t, "mage", v.String())
-			assert.Equal(t, float64(0), v.Float())
-			assert.Equal(t, int(0), v.Int())
-			assert.Equal(t, uint(0), v.Uint())
-		})
-		return nil
-	})
-
 }
 
 func TestDeleteAll(t *testing.T) {
@@ -276,8 +254,9 @@ func TestUpdateBulkWithIndex(t *testing.T) {
 
 	// Make everyone poor
 	players.Query(func(txn *Txn) error {
-		txn.Range("balance", func(v Cursor) {
-			v.SetFloat64(1.0)
+		balance := txn.Float64("balance")
+		txn.Range(func(index uint32) {
+			balance.Set(index, 1.0)
 		})
 		return nil
 	})
@@ -305,10 +284,10 @@ func TestIndexWithAtomicAdd(t *testing.T) {
 
 	// Increment balance 30 times by 50+50 = 3000
 	players.Query(func(txn *Txn) error {
+		balance := txn.Float64("balance")
 		for i := 0; i < 30; i++ {
-			txn.Range("balance", func(v Cursor) {
-				v.AddFloat64(50.0)
-				v.AddFloat64At("balance", 50.0)
+			txn.Range(func(index uint32) {
+				balance.Set(index, 50.0)
 			})
 		}
 		return nil
@@ -316,8 +295,11 @@ func TestIndexWithAtomicAdd(t *testing.T) {
 
 	// Everyone should now be rich and the indexes updated
 	players.Query(func(txn *Txn) error {
-		txn.Range("balance", func(v Cursor) {
-			assert.GreaterOrEqual(t, v.Float(), 3000.0)
+		balance := txn.Float64("balance")
+		txn.Range(func(index uint32) {
+			value, ok := balance.Get(index)
+			assert.True(t, ok)
+			assert.GreaterOrEqual(t, value, 3000.0)
 		})
 
 		assert.Equal(t, 500, txn.With("rich").Count())
@@ -333,8 +315,9 @@ func TestUpdateWithRollback(t *testing.T) {
 
 	// Make everyone rich
 	players.Query(func(txn *Txn) error {
-		txn.Range("balance", func(v Cursor) {
-			v.SetFloat64(5000.0)
+		balance := txn.Float64("balance")
+		txn.Range(func(index uint32) {
+			balance.Set(index, 5000.0)
 		})
 		return nil
 	})
@@ -347,8 +330,9 @@ func TestUpdateWithRollback(t *testing.T) {
 
 	// Try out the rollback
 	players.Query(func(txn *Txn) error {
-		txn.Range("balance", func(v Cursor) {
-			v.SetFloat64(1.0)
+		balance := txn.Float64("balance")
+		txn.Range(func(index uint32) {
+			balance.Set(index, 1.0)
 		})
 		return fmt.Errorf("trigger rollback")
 	})
@@ -408,13 +392,18 @@ func TestUninitializedSet(t *testing.T) {
 	}))
 
 	assert.NoError(t, c.Query(func(txn *Txn) error {
-		assert.NoError(t, txn.Range("col2", func(v Cursor) {
-			v.SetFloat64(0)
+		col1 := txn.String("col1")
+		col2 := txn.Float64("col2")
+		col3 := txn.String("col3")
+
+		assert.NoError(t, txn.Range(func(index uint32) {
+			col2.Set(index, 0)
 		}))
-		return txn.Range("col1", func(v Cursor) {
-			if a, h := someMap[v.String()]; h {
-				v.SetFloat64At("col2", a[1].(float64))
-				v.SetStringAt("col3", a[0].(string))
+		return txn.Range(func(index uint32) {
+			value, _ := col1.Get(index)
+			if a, h := someMap[value]; h {
+				col2.Set(index, a[1].(float64))
+				col3.Set(index, a[0].(string))
 			}
 		})
 	}))

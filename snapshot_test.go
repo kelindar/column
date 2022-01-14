@@ -116,14 +116,17 @@ func runReplication(t *testing.T, updates, inserts, concurrency int) {
 
 				// Randomly update a column
 				offset := uint32(rand.Int31n(int32(inserts - 1)))
-				primary.UpdateAt(offset, "float64", func(v Cursor) error {
+				primary.Query(func(txn *Txn) error {
 					switch rand.Int31n(3) {
 					case 0:
-						v.SetFloat64(math.Round(rand.Float64()*1000) / 100)
+						col := txn.Float64("float64")
+						col.Set(offset, math.Round(rand.Float64()*1000)/100)
 					case 1:
-						v.SetInt32At("int32", rand.Int31n(100000))
+						col := txn.Int32("int32")
+						col.Set(offset, rand.Int31n(100000))
 					case 2:
-						v.SetStringAt("string", fmt.Sprintf("hi %v", rand.Int31n(10)))
+						col := txn.String("string")
+						col.Set(offset, fmt.Sprintf("hi %v", rand.Int31n(10)))
 					}
 					return nil
 				})
@@ -152,18 +155,13 @@ func runReplication(t *testing.T, updates, inserts, concurrency int) {
 		}
 
 		primary.Query(func(txn *Txn) error {
-			return txn.Range("float64", func(v Cursor) {
-				v1, v2 := v.FloatAt("float64"), v.IntAt("int32")
-				if v1 != 0 {
-					assert.True(t, txn.SelectAt(v.idx, func(s Selector) {
-						assert.Equal(t, v.FloatAt("float64"), s.FloatAt("float64"))
-					}))
-				}
+			col1 := txn.Float64("float64")
 
-				if v2 != 0 {
-					assert.True(t, txn.SelectAt(v.idx, func(s Selector) {
-						assert.Equal(t, v.IntAt("int32"), s.IntAt("int32"))
-					}))
+			return txn.Range(func(idx uint32) {
+				if v1, ok := col1.Get(idx); ok && v1 != 0 {
+					replica.SelectAt(idx, func(v Selector) {
+						assert.Equal(t, v1, v.txn.Float64("float64"))
+					})
 				}
 			})
 		})

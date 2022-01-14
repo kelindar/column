@@ -270,6 +270,37 @@ func (c *columnBool) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	dst.PutBitmap(commit.PutTrue, chunk, c.data)
 }
 
+// slice accessor for boolean values
+type boolSlice struct {
+	writer *commit.Buffer
+	reader *columnBool
+}
+
+// Set sets the value at the specified index
+func (s *boolSlice) Set(index uint32, value string) {
+	s.writer.PutString(commit.Put, index, value)
+}
+
+// Get loads the value at a particular index
+func (s *boolSlice) Get(index uint32) bool {
+	return s.reader.Contains(index)
+}
+
+// String returns a string column accessor
+func (txn *Txn) Bool(columnName string) boolSlice {
+	writer := txn.bufferFor(columnName)
+	column, _ := txn.columnAt(columnName)
+	reader, ok := column.Column.(*columnBool)
+	if !ok {
+		panic(fmt.Errorf("column: column %s is not of type boolean", columnName))
+	}
+
+	return boolSlice{
+		writer: writer,
+		reader: reader,
+	}
+}
+
 // --------------------------- funcs ----------------------------
 
 // resize calculates the new required capacity and a new index

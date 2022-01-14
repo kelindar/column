@@ -130,37 +130,25 @@ func (c *columnNumber) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	})
 }
 
-// --------------------------- Cursor Update ----------------------------
-
-// SetNumber updates a column value for the current item. The actual operation
-// will be queued and executed once the current the transaction completes.
-func (cur *Cursor) SetNumber(value number) {
-	cur.update.PutNumber(cur.idx, value)
+// slice accessor for numbers
+type numberSlice struct {
+	writer *commit.Buffer
+	reader *columnNumber
 }
 
-// AddNumber atomically increments/decrements the current value by the specified amount. Note
-// that this only works for numerical values and the type of the value must match.
-func (cur *Cursor) AddNumber(amount number) {
-	cur.update.AddNumber(cur.idx, amount)
+// Set sets the value at the specified index
+func (s *numberSlice) Set(index uint32, value number) {
+	s.writer.PutNumber(index, value)
 }
 
-// SetNumberAt updates a specified column value for the current item. The actual operation
-// will be queued and executed once the current the transaction completes.
-func (cur *Cursor) SetNumberAt(column string, value number) {
-	cur.txn.bufferFor(column).PutNumber(cur.idx, value)
+// Add atomically adds a value at a particular index
+func (s *numberSlice) Add(index uint32, delta number) {
+	s.writer.AddNumber(index, delta)
 }
 
-// AddNumberAt atomically increments/decrements the column value by the specified amount. Note
-// that this only works for numerical values and the type of the value must match.
-func (cur *Cursor) AddNumberAt(column string, amount number) {
-	cur.txn.bufferFor(column).AddNumber(cur.idx, amount)
-}
-
-// --------------------------- Column Slicer ----------------------------
-
-type NumberSlice struct {
-	Set func(uint32, number)
-	Get func(uint32) (number, bool)
+// Get loads the value at a particular index
+func (s *numberSlice) Get(index uint32) (number, bool) {
+	return s.reader.LoadNumber(index)
 }
 
 // Number returns a number column accessor
@@ -173,7 +161,7 @@ func (txn *Txn) Number(columnName string) numberSlice {
 	}
 
 	return NumberSlice{
-		Set: writer.PutNumber,
-		Get: reader.LoadNumber,
+		writer: writer,
+		reader: reader,
 	}
 }

@@ -4,6 +4,7 @@
 package column
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/kelindar/bitmap"
@@ -144,6 +145,37 @@ func (c *columnEnum) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	})
 }
 
+// slice accessor for enums
+type enumSlice struct {
+	writer *commit.Buffer
+	reader *columnEnum
+}
+
+// Set sets the value at the specified index
+func (s *enumSlice) Set(index uint32, value string) {
+	s.writer.PutString(commit.Put, index, value)
+}
+
+// Get loads the value at a particular index
+func (s *enumSlice) Get(index uint32) (string, bool) {
+	return s.reader.LoadString(index)
+}
+
+// Enum returns a enumerable column accessor
+func (txn *Txn) Enum(columnName string) enumSlice {
+	writer := txn.bufferFor(columnName)
+	column, _ := txn.columnAt(columnName)
+	reader, ok := column.Column.(*columnEnum)
+	if !ok {
+		panic(fmt.Errorf("column: column %s is not of type enum", columnName))
+	}
+
+	return enumSlice{
+		writer: writer,
+		reader: reader,
+	}
+}
+
 // --------------------------- String ----------------------------
 
 var _ Textual = new(columnString)
@@ -235,4 +267,35 @@ func (c *columnString) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	chunk.Range(c.fill, func(idx uint32) {
 		dst.PutString(commit.Put, idx, c.data[idx])
 	})
+}
+
+// slice accessor for strings
+type stringSlice struct {
+	writer *commit.Buffer
+	reader *columnString
+}
+
+// Set sets the value at the specified index
+func (s *stringSlice) Set(index uint32, value string) {
+	s.writer.PutString(commit.Put, index, value)
+}
+
+// Get loads the value at a particular index
+func (s *stringSlice) Get(index uint32) (string, bool) {
+	return s.reader.LoadString(index)
+}
+
+// String returns a string column accessor
+func (txn *Txn) String(columnName string) stringSlice {
+	writer := txn.bufferFor(columnName)
+	column, _ := txn.columnAt(columnName)
+	reader, ok := column.Column.(*columnString)
+	if !ok {
+		panic(fmt.Errorf("column: column %s is not of type string", columnName))
+	}
+
+	return stringSlice{
+		writer: writer,
+		reader: reader,
+	}
 }
