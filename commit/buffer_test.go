@@ -30,7 +30,7 @@ func BenchmarkQueue(b *testing.B) {
 
 	run("u16-rw", b, count, func(buf *Buffer, r *Reader) {
 		for i := uint32(0); i < count*2; i += 2 {
-			buf.PutUint16(Put, i, uint16(i))
+			buf.PutUint16(i, uint16(i))
 		}
 		for r.Seek(buf); r.Next(); {
 			_ = r.Uint16()
@@ -39,7 +39,7 @@ func BenchmarkQueue(b *testing.B) {
 
 	run("u16-next", b, count, func(buf *Buffer, r *Reader) {
 		for i := uint32(0); i < count; i++ {
-			buf.PutUint16(Put, i, uint16(i))
+			buf.PutUint16(i, uint16(i))
 		}
 		for r.Seek(buf); r.Next(); {
 			_ = r.Uint16()
@@ -48,7 +48,7 @@ func BenchmarkQueue(b *testing.B) {
 
 	run("u32-rw", b, count, func(buf *Buffer, r *Reader) {
 		for i := uint32(0); i < count*2; i += 2 {
-			buf.PutUint32(Put, i, i)
+			buf.PutUint32(i, i)
 		}
 		for r.Seek(buf); r.Next(); {
 			_ = r.Uint32()
@@ -57,7 +57,7 @@ func BenchmarkQueue(b *testing.B) {
 
 	run("u32-next", b, count, func(buf *Buffer, r *Reader) {
 		for i := uint32(0); i < count; i++ {
-			buf.PutUint32(Put, i, i)
+			buf.PutUint32(i, i)
 		}
 		for r.Seek(buf); r.Next(); {
 			_ = r.Uint32()
@@ -66,7 +66,7 @@ func BenchmarkQueue(b *testing.B) {
 
 	run("u64-rw", b, count, func(buf *Buffer, r *Reader) {
 		for i := uint32(0); i < count*2; i += 2 {
-			buf.PutUint64(Put, i, uint64(i))
+			buf.PutUint64(i, uint64(i))
 		}
 		for r.Seek(buf); r.Next(); {
 			_ = r.Uint64()
@@ -75,7 +75,7 @@ func BenchmarkQueue(b *testing.B) {
 
 	run("u64-next", b, count, func(buf *Buffer, r *Reader) {
 		for i := uint32(0); i < count; i++ {
-			buf.PutUint64(Put, i, uint64(i))
+			buf.PutUint64(i, uint64(i))
 		}
 		for r.Seek(buf); r.Next(); {
 			_ = r.Uint64()
@@ -140,30 +140,30 @@ func TestSizeof(t *testing.T) {
 
 func TestReadWrite(t *testing.T) {
 	buf := NewBuffer(0)
-	buf.PutInt16(Put, 10, 100)
-	buf.PutInt16(Put, 11, 100)
-	buf.PutInt32(Put, 20, 200)
-	buf.PutInt32(Put, 21, 200)
-	buf.PutInt64(Put, 30, 300)
-	buf.PutInt64(Put, 31, 300)
-	buf.PutUint16(Put, 40, 400)
-	buf.PutUint16(Put, 41, 400)
-	buf.PutUint32(Put, 50, 500)
-	buf.PutUint32(Put, 51, 500)
-	buf.PutUint64(Put, 60, 600)
-	buf.PutUint64(Put, 61, 600)
-	buf.PutFloat32(Put, 70, 700)
-	buf.PutFloat32(Put, 71, 700)
-	buf.PutFloat64(Put, 80, 800)
-	buf.PutFloat64(Put, 81, 800)
+	buf.PutInt16(10, 100)
+	buf.PutInt16(11, 100)
+	buf.PutInt32(20, 200)
+	buf.PutInt32(21, 200)
+	buf.PutInt64(30, 300)
+	buf.PutInt64(31, 300)
+	buf.PutUint16(40, 400)
+	buf.PutUint16(41, 400)
+	buf.PutUint32(50, 500)
+	buf.PutUint32(51, 500)
+	buf.PutUint64(60, 600)
+	buf.PutUint64(61, 600)
+	buf.PutFloat32(70, 700)
+	buf.PutFloat32(71, 700)
+	buf.PutFloat64(80, 800)
+	buf.PutFloat64(81, 800)
 	buf.PutString(Put, 90, "900")
 	buf.PutString(Put, 91, "hello world")
 	buf.PutBytes(Put, 100, []byte("binary"))
 	buf.PutBool(110, true)
 	buf.PutBool(111, false)
-	buf.PutInt(Put, 120, 1000)
-	buf.PutUint(Put, 130, 1100)
-	buf.PutNumber(Put, 140, 12.34)
+	buf.PutInt(120, 1000)
+	buf.PutUint(130, 1100)
+	buf.PutNumber(140, 12.34)
 
 	// Read values back
 	r := NewReader()
@@ -221,7 +221,7 @@ func TestReadWrite(t *testing.T) {
 
 func TestBufferClone(t *testing.T) {
 	buf := NewBuffer(0)
-	buf.PutInt16(Put, 10, 100)
+	buf.PutInt16(10, 100)
 	buf.PutString(Put, 20, "hello")
 
 	cloned := buf.Clone()
@@ -251,7 +251,7 @@ func TestPutBitmap(t *testing.T) {
 func TestBufferWriteTo(t *testing.T) {
 	input := NewBuffer(0)
 	input.Column = "test"
-	input.PutInt16(Put, 10, 100)
+	input.PutInt16(10, 100)
 	input.PutString(Put, 20, "hello")
 
 	buffer := bytes.NewBuffer(nil)
@@ -269,7 +269,7 @@ func TestBufferWriteTo(t *testing.T) {
 func TestBufferWriteToFailures(t *testing.T) {
 	buf := NewBuffer(0)
 	buf.Column = "test"
-	buf.PutInt16(Put, 10, 100)
+	buf.PutInt16(10, 100)
 	buf.PutString(Put, 20, "hello")
 
 	for size := 0; size < 30; size++ {
@@ -282,7 +282,7 @@ func TestBufferWriteToFailures(t *testing.T) {
 func TestBufferReadFromFailures(t *testing.T) {
 	input := NewBuffer(0)
 	input.Column = "test"
-	input.PutInt16(Put, 10, 100)
+	input.PutInt16(10, 100)
 	input.PutString(Put, 20, "hello")
 
 	buffer := bytes.NewBuffer(nil)

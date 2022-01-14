@@ -102,33 +102,33 @@ func (b *Buffer) RangeChunks(fn func(chunk Chunk)) {
 func (b *Buffer) PutAny(op OpType, idx uint32, value interface{}) {
 	switch v := value.(type) {
 	case uint64:
-		b.PutUint64(op, idx, v)
+		b.PutUint64(idx, v)
 	case uint32:
-		b.PutUint32(op, idx, v)
+		b.PutUint32(idx, v)
 	case uint16:
-		b.PutUint16(op, idx, v)
+		b.PutUint16(idx, v)
 	case uint8:
-		b.PutUint16(op, idx, uint16(v))
+		b.PutUint16(idx, uint16(v))
 	case int64:
-		b.PutInt64(op, idx, v)
+		b.PutInt64(idx, v)
 	case int32:
-		b.PutInt32(op, idx, v)
+		b.PutInt32(idx, v)
 	case int16:
-		b.PutInt16(op, idx, v)
+		b.PutInt16(idx, v)
 	case int8:
-		b.PutInt16(op, idx, int16(v))
+		b.PutInt16(idx, int16(v))
 	case string:
 		b.PutString(op, idx, v)
 	case []byte:
 		b.PutBytes(op, idx, v)
 	case float32:
-		b.PutFloat32(op, idx, v)
+		b.PutFloat32(idx, v)
 	case float64:
-		b.PutFloat64(op, idx, v)
+		b.PutFloat64(idx, v)
 	case int:
-		b.PutInt64(op, idx, int64(v))
+		b.PutInt64(idx, int64(v))
 	case uint:
-		b.PutUint64(op, idx, uint64(v))
+		b.PutUint64(idx, uint64(v))
 	case bool:
 		b.PutBool(idx, v)
 	case nil:
@@ -138,55 +138,121 @@ func (b *Buffer) PutAny(op OpType, idx uint32, value interface{}) {
 	}
 }
 
-// PutUint64 appends a uint64 value.
-func (b *Buffer) PutUint64(op OpType, idx uint32, value uint64) {
-	delta := b.writeChunk(idx)
-	switch delta {
-	case 1:
-		b.buffer = append(b.buffer,
-			byte(op)|size8|isNext,
-			byte(value>>56), byte(value>>48), byte(value>>40), byte(value>>32),
-			byte(value>>24), byte(value>>16), byte(value>>8), byte(value),
-		)
-	default:
-		b.buffer = append(b.buffer,
-			byte(op)|size8,
-			byte(value>>56), byte(value>>48), byte(value>>40), byte(value>>32),
-			byte(value>>24), byte(value>>16), byte(value>>8), byte(value),
-		)
-		b.writeOffset(uint32(delta))
-	}
+// --------------------------- Numbers ----------------------------
+
+// PutUint64 appends an uint64 value.
+func (b *Buffer) PutUint64(idx uint32, value uint64) {
+	b.writeUint64(Put, idx, value)
 }
 
-// PutUint32 appends a uint32 value.
-func (b *Buffer) PutUint32(op OpType, idx uint32, value uint32) {
-	delta := b.writeChunk(idx)
-	switch delta {
-	case 1:
-		b.buffer = append(b.buffer,
-			byte(op)|size4|isNext,
-			byte(value>>24), byte(value>>16), byte(value>>8), byte(value),
-		)
-	default:
-		b.buffer = append(b.buffer,
-			byte(op)|size4,
-			byte(value>>24), byte(value>>16), byte(value>>8), byte(value),
-		)
-		b.writeOffset(uint32(delta))
-	}
+// PutUint32 appends an uint32 value.
+func (b *Buffer) PutUint32(idx uint32, value uint32) {
+	b.writeUint32(Put, idx, value)
 }
 
-// PutUint16 appends a uint16 value.
-func (b *Buffer) PutUint16(op OpType, idx uint32, value uint16) {
-	delta := b.writeChunk(idx)
-	switch delta {
-	case 1:
-		b.buffer = append(b.buffer, byte(op)|size2|isNext, byte(value>>8), byte(value))
-	default:
-		b.buffer = append(b.buffer, byte(op)|size2, byte(value>>8), byte(value))
-		b.writeOffset(uint32(delta))
-	}
+// PutUint16 appends an uint16 value.
+func (b *Buffer) PutUint16(idx uint32, value uint16) {
+	b.writeUint16(Put, idx, value)
 }
+
+// PutUint appends a uint64 value.
+func (b *Buffer) PutUint(idx uint32, value uint) {
+	b.writeUint64(Put, idx, uint64(value))
+}
+
+// PutInt64 appends an int64 value.
+func (b *Buffer) PutInt64(idx uint32, value int64) {
+	b.writeUint64(Put, idx, uint64(value))
+}
+
+// PutInt32 appends an int32 value.
+func (b *Buffer) PutInt32(idx uint32, value int32) {
+	b.writeUint32(Put, idx, uint32(value))
+}
+
+// PutInt16 appends an int16 value.
+func (b *Buffer) PutInt16(idx uint32, value int16) {
+	b.writeUint16(Put, idx, uint16(value))
+}
+
+// PutInt appends a int64 value.
+func (b *Buffer) PutInt(idx uint32, value int) {
+	b.writeUint64(Put, idx, uint64(value))
+}
+
+// PutFloat64 appends a float64 value.
+func (b *Buffer) PutFloat64(idx uint32, value float64) {
+	b.writeUint64(Put, idx, math.Float64bits(value))
+}
+
+// PutFloat32 appends an int32 value.
+func (b *Buffer) PutFloat32(idx uint32, value float32) {
+	b.writeUint32(Put, idx, math.Float32bits(value))
+}
+
+// PutNumber appends a float64 value.
+func (b *Buffer) PutNumber(idx uint32, value float64) {
+	b.writeUint64(Put, idx, math.Float64bits(value))
+}
+
+// --------------------------- Additions ----------------------------
+
+// AddUint64 appends an addition of uint64 value.
+func (b *Buffer) AddUint64(idx uint32, value uint64) {
+	b.writeUint64(Add, idx, value)
+}
+
+// AddUint32 appends an addition of uint32 value.
+func (b *Buffer) AddUint32(idx uint32, value uint32) {
+	b.writeUint32(Add, idx, value)
+}
+
+// AddUint16 appends an addition of uint16 value.
+func (b *Buffer) AddUint16(idx uint32, value uint16) {
+	b.writeUint16(Add, idx, value)
+}
+
+// AddUint appends an addition of uint64 value.
+func (b *Buffer) AddUint(idx uint32, value uint) {
+	b.writeUint64(Add, idx, uint64(value))
+}
+
+// AddInt64 appends an addition of int64 value.
+func (b *Buffer) AddInt64(idx uint32, value int64) {
+	b.writeUint64(Add, idx, uint64(value))
+}
+
+// AddInt32 appends an addition of int32 value.
+func (b *Buffer) AddInt32(idx uint32, value int32) {
+	b.writeUint32(Add, idx, uint32(value))
+}
+
+// AddInt16 appends an addition of int16 value.
+func (b *Buffer) AddInt16(idx uint32, value int16) {
+	b.writeUint16(Add, idx, uint16(value))
+}
+
+// AddInt appends an addition of int64 value.
+func (b *Buffer) AddInt(idx uint32, value int) {
+	b.writeUint64(Add, idx, uint64(value))
+}
+
+// AddFloat64 appends a float64 value.
+func (b *Buffer) AddFloat64(idx uint32, value float64) {
+	b.writeUint64(Add, idx, math.Float64bits(value))
+}
+
+// AddFloat32 appends an addition of int32 value.
+func (b *Buffer) AddFloat32(idx uint32, value float32) {
+	b.writeUint32(Add, idx, math.Float32bits(value))
+}
+
+// AddNumber appends an addition of float64 value.
+func (b *Buffer) AddNumber(idx uint32, value float64) {
+	b.writeUint64(Add, idx, math.Float64bits(value))
+}
+
+// --------------------------- Others ----------------------------
 
 // PutOperation appends an operation type without a value.
 func (b *Buffer) PutOperation(op OpType, idx uint32) {
@@ -210,46 +276,6 @@ func (b *Buffer) PutBool(idx uint32, value bool) {
 	}
 
 	b.PutOperation(op, idx)
-}
-
-// PutInt64 appends an int64 value.
-func (b *Buffer) PutInt64(op OpType, idx uint32, value int64) {
-	b.PutUint64(op, idx, uint64(value))
-}
-
-// PutInt32 appends an int32 value.
-func (b *Buffer) PutInt32(op OpType, idx uint32, value int32) {
-	b.PutUint32(op, idx, uint32(value))
-}
-
-// PutInt16 appends an int16 value.
-func (b *Buffer) PutInt16(op OpType, idx uint32, value int16) {
-	b.PutUint16(op, idx, uint16(value))
-}
-
-// PutFloat64 appends a float64 value.
-func (b *Buffer) PutFloat64(op OpType, idx uint32, value float64) {
-	b.PutUint64(op, idx, math.Float64bits(value))
-}
-
-// PutFloat32 appends an int32 value.
-func (b *Buffer) PutFloat32(op OpType, idx uint32, value float32) {
-	b.PutUint32(op, idx, math.Float32bits(value))
-}
-
-// PutNumber appends a float64 value.
-func (b *Buffer) PutNumber(op OpType, idx uint32, value float64) {
-	b.PutUint64(op, idx, math.Float64bits(value))
-}
-
-// PutInt appends a int64 value.
-func (b *Buffer) PutInt(op OpType, idx uint32, value int) {
-	b.PutUint64(op, idx, uint64(value))
-}
-
-// PutUint appends a uint64 value.
-func (b *Buffer) PutUint(op OpType, idx uint32, value uint) {
-	b.PutUint64(op, idx, uint64(value))
 }
 
 // PutBytes appends a binary value.
@@ -285,6 +311,56 @@ func (b *Buffer) PutBitmap(op OpType, chunk Chunk, value bitmap.Bitmap) {
 	chunk.Range(value, func(idx uint32) {
 		b.PutOperation(op, idx)
 	})
+}
+
+// writeUint64 appends a uint64 value.
+func (b *Buffer) writeUint64(op OpType, idx uint32, value uint64) {
+	delta := b.writeChunk(idx)
+	switch delta {
+	case 1:
+		b.buffer = append(b.buffer,
+			byte(op)|size8|isNext,
+			byte(value>>56), byte(value>>48), byte(value>>40), byte(value>>32),
+			byte(value>>24), byte(value>>16), byte(value>>8), byte(value),
+		)
+	default:
+		b.buffer = append(b.buffer,
+			byte(op)|size8,
+			byte(value>>56), byte(value>>48), byte(value>>40), byte(value>>32),
+			byte(value>>24), byte(value>>16), byte(value>>8), byte(value),
+		)
+		b.writeOffset(uint32(delta))
+	}
+}
+
+// writeUint32 appends a uint32 value.
+func (b *Buffer) writeUint32(op OpType, idx uint32, value uint32) {
+	delta := b.writeChunk(idx)
+	switch delta {
+	case 1:
+		b.buffer = append(b.buffer,
+			byte(op)|size4|isNext,
+			byte(value>>24), byte(value>>16), byte(value>>8), byte(value),
+		)
+	default:
+		b.buffer = append(b.buffer,
+			byte(op)|size4,
+			byte(value>>24), byte(value>>16), byte(value>>8), byte(value),
+		)
+		b.writeOffset(uint32(delta))
+	}
+}
+
+// writeUint16 appends a uint16 value.
+func (b *Buffer) writeUint16(op OpType, idx uint32, value uint16) {
+	delta := b.writeChunk(idx)
+	switch delta {
+	case 1:
+		b.buffer = append(b.buffer, byte(op)|size2|isNext, byte(value>>8), byte(value))
+	default:
+		b.buffer = append(b.buffer, byte(op)|size2, byte(value>>8), byte(value))
+		b.writeOffset(uint32(delta))
+	}
 }
 
 // writeOffset writes the offset at the current head.

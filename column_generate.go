@@ -4,6 +4,8 @@
 package column
 
 import (
+	"fmt"
+
 	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
 	"github.com/kelindar/genny/generic"
@@ -86,26 +88,10 @@ func (c *columnNumber) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
-// LoadFloat64 retrieves a float64 value at a specified index
-func (c *columnNumber) LoadFloat64(idx uint32) (v float64, ok bool) {
+// LoadNumber retrieves a number value at a specified index
+func (c *columnNumber) LoadNumber(idx uint32) (v number, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
-		v, ok = float64(c.data[idx]), true
-	}
-	return
-}
-
-// LoadInt64 retrieves an int64 value at a specified index
-func (c *columnNumber) LoadInt64(idx uint32) (v int64, ok bool) {
-	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
-		v, ok = int64(c.data[idx]), true
-	}
-	return
-}
-
-// LoadUint64 retrieves an uint64 value at a specified index
-func (c *columnNumber) LoadUint64(idx uint32) (v uint64, ok bool) {
-	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
-		v, ok = uint64(c.data[idx]), true
+		v, ok = number(c.data[idx]), true
 	}
 	return
 }
@@ -140,7 +126,7 @@ func (c *columnNumber) FilterUint64(offset uint32, index bitmap.Bitmap, predicat
 // Snapshot writes the entire column into the specified destination buffer
 func (c *columnNumber) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	chunk.Range(c.fill, func(idx uint32) {
-		dst.PutNumber(commit.Put, idx, c.data[idx])
+		dst.PutNumber(idx, c.data[idx])
 	})
 }
 
@@ -149,23 +135,45 @@ func (c *columnNumber) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 // SetNumber updates a column value for the current item. The actual operation
 // will be queued and executed once the current the transaction completes.
 func (cur *Cursor) SetNumber(value number) {
-	cur.update.PutNumber(commit.Put, cur.idx, value)
+	cur.update.PutNumber(cur.idx, value)
 }
 
 // AddNumber atomically increments/decrements the current value by the specified amount. Note
 // that this only works for numerical values and the type of the value must match.
 func (cur *Cursor) AddNumber(amount number) {
-	cur.update.PutNumber(commit.Add, cur.idx, amount)
+	cur.update.AddNumber(cur.idx, amount)
 }
 
 // SetNumberAt updates a specified column value for the current item. The actual operation
 // will be queued and executed once the current the transaction completes.
 func (cur *Cursor) SetNumberAt(column string, value number) {
-	cur.txn.bufferFor(column).PutNumber(commit.Put, cur.idx, value)
+	cur.txn.bufferFor(column).PutNumber(cur.idx, value)
 }
 
 // AddNumberAt atomically increments/decrements the column value by the specified amount. Note
 // that this only works for numerical values and the type of the value must match.
 func (cur *Cursor) AddNumberAt(column string, amount number) {
-	cur.txn.bufferFor(column).PutNumber(commit.Add, cur.idx, amount)
+	cur.txn.bufferFor(column).AddNumber(cur.idx, amount)
+}
+
+// --------------------------- Column Slicer ----------------------------
+
+type NumberSlice struct {
+	Set func(uint32, number)
+	Get func(uint32) (number, bool)
+}
+
+// Number returns a number column accessor
+func (txn *Txn) Number(columnName string) numberSlice {
+	writer := txn.bufferFor(columnName)
+	column, _ := txn.columnAt(columnName)
+	reader, ok := column.Column.(*columnNumber)
+	if !ok {
+		panic(fmt.Errorf("column: column %s is not of type %T ", columnName, new(number)))
+	}
+
+	return NumberSlice{
+		Set: writer.PutNumber,
+		Get: reader.LoadNumber,
+	}
 }
