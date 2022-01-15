@@ -161,12 +161,12 @@ type keySlice struct {
 }
 
 // Set sets the value at the specified index
-func (s *keySlice) Set(index uint32, value string) {
+func (s keySlice) Set(index uint32, value string) {
 	s.writer.PutString(commit.Put, index, value)
 }
 
 // Get loads the value at a particular index
-func (s *keySlice) Get(index uint32) (string, bool) {
+func (s keySlice) Get(index uint32) (string, bool) {
 	return s.reader.LoadString(index)
 }
 

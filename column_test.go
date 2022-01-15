@@ -55,6 +55,7 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 	}
 
 	// Add a value
+	column.Grow(1)
 	applyChanges(column, Update{commit.Put, 9, value})
 
 	// Assert the value
@@ -349,45 +350,103 @@ func TestAccessors(t *testing.T) {
 	tests := []struct {
 		column Column
 		value  interface{}
-		access func(*Txn) interface{}
+		access func(*Txn, string) interface{}
 	}{
-		{column: ForEnum(), value: "mage", access: func(txn *Txn) interface{} { return txn.Enum("column") }},
-		{column: ForBool(), value: true, access: func(txn *Txn) interface{} { return txn.Bool("column") }},
-		{column: ForString(), value: "test", access: func(txn *Txn) interface{} { return txn.String("column") }},
-		{column: ForInt(), value: int(99), access: func(txn *Txn) interface{} { return txn.Int("column") }},
-		{column: ForInt16(), value: int16(99), access: func(txn *Txn) interface{} { return txn.Int16("column") }},
-		{column: ForInt32(), value: int32(99), access: func(txn *Txn) interface{} { return txn.Int32("column") }},
-		{column: ForInt64(), value: int64(99), access: func(txn *Txn) interface{} { return txn.Int64("column") }},
-		{column: ForUint(), value: uint(99), access: func(txn *Txn) interface{} { return txn.Uint("column") }},
-		{column: ForUint16(), value: uint16(99), access: func(txn *Txn) interface{} { return txn.Uint16("column") }},
-		{column: ForUint32(), value: uint32(99), access: func(txn *Txn) interface{} { return txn.Uint32("column") }},
-		{column: ForUint64(), value: uint64(99), access: func(txn *Txn) interface{} { return txn.Uint64("column") }},
-		{column: ForFloat32(), value: float32(99.5), access: func(txn *Txn) interface{} { return txn.Float32("column") }},
-		{column: ForFloat64(), value: float64(99.5), access: func(txn *Txn) interface{} { return txn.Float64("column") }},
+		{column: ForEnum(), value: "mage", access: func(txn *Txn, n string) interface{} { return txn.Enum(n) }},
+		{column: ForString(), value: "test", access: func(txn *Txn, n string) interface{} { return txn.String(n) }},
+		{column: ForInt(), value: int(99), access: func(txn *Txn, n string) interface{} { return txn.Int(n) }},
+		{column: ForInt16(), value: int16(99), access: func(txn *Txn, n string) interface{} { return txn.Int16(n) }},
+		{column: ForInt32(), value: int32(99), access: func(txn *Txn, n string) interface{} { return txn.Int32(n) }},
+		{column: ForInt64(), value: int64(99), access: func(txn *Txn, n string) interface{} { return txn.Int64(n) }},
+		{column: ForUint(), value: uint(99), access: func(txn *Txn, n string) interface{} { return txn.Uint(n) }},
+		{column: ForUint16(), value: uint16(99), access: func(txn *Txn, n string) interface{} { return txn.Uint16(n) }},
+		{column: ForUint32(), value: uint32(99), access: func(txn *Txn, n string) interface{} { return txn.Uint32(n) }},
+		{column: ForUint64(), value: uint64(99), access: func(txn *Txn, n string) interface{} { return txn.Uint64(n) }},
+		{column: ForFloat32(), value: float32(99.5), access: func(txn *Txn, n string) interface{} { return txn.Float32(n) }},
+		{column: ForFloat64(), value: float64(99.5), access: func(txn *Txn, n string) interface{} { return txn.Float64(n) }},
 	}
 
 	for _, tc := range tests {
 		t.Run(fmt.Sprintf("%T", tc.column), func(t *testing.T) {
 			col := NewCollection()
+			assert.NoError(t, col.CreateColumn("pk", ForKey()))
 			assert.NoError(t, col.CreateColumn("column", tc.column))
+
+			// Invoke 'Set' method of the accessor
 			assert.NoError(t, col.Query(func(txn *Txn) error {
-				assert.Len(t, invoke(tc.access(txn), "Set", uint32(0), tc.value), 0)
+				column := tc.access(txn, "column")
+				assert.Len(t, invoke(column, "Set", uint32(0), tc.value), 0)
 				return nil
 			}))
 
+			// Invoke 'Get' method of the accessor
 			assert.NoError(t, col.Query(func(txn *Txn) error {
-				assert.GreaterOrEqual(t, len(invoke(tc.access(txn), "Get", uint32(0))), 1)
+				column := tc.access(txn, "column")
+				assert.GreaterOrEqual(t, len(invoke(column, "Get", uint32(0))), 1)
 				return nil
 			}))
 
+			// If it has 'Add' method, try to invoke it
 			assert.NoError(t, col.Query(func(txn *Txn) error {
-				if m := reflect.ValueOf(tc.access(txn)).MethodByName("Add"); m.IsValid() {
-					assert.Len(t, invoke(tc.access(txn), "Add", uint32(0), tc.value), 0)
+				column := tc.access(txn, "column")
+				if m := reflect.ValueOf(column).MethodByName("Add"); m.IsValid() {
+					assert.Len(t, invoke(column, "Add", uint32(0), tc.value), 0)
 				}
 				return nil
 			}))
+
+			// Invalid column  name should panic
+			assert.Panics(t, func() {
+				col.Query(func(txn *Txn) error {
+					tc.access(txn, "invalid")
+					return nil
+				})
+			})
+
+			// Invalid column type should panic
+			assert.Panics(t, func() {
+				col.Query(func(txn *Txn) error {
+					tc.access(txn, "pk")
+					return nil
+				})
+			})
 		})
 	}
+}
+
+func TestBooleanAccessor(t *testing.T) {
+	col := NewCollection()
+	assert.NoError(t, col.CreateColumn("active", ForBool()))
+	assert.NoError(t, col.CreateColumn("name", ForString()))
+
+	// Insert a boolean value
+	_, err := col.Insert(func(txn *Txn, index uint32) error {
+		txn.Bool("active").Set(index, true)
+		txn.String("name").Set(index, "Roman")
+		return nil
+	})
+	assert.NoError(t, err)
+
+	// Boolean should also work for name
+	col.Query(func(txn *Txn) error {
+		active := txn.Bool("active")
+		hasName := txn.Bool("name")
+
+		assert.True(t, active.Get(0))
+		assert.True(t, hasName.Get(0))
+		return nil
+	})
+}
+
+func TestInvalidPKAccessor(t *testing.T) {
+	col := NewCollection()
+	assert.NoError(t, col.CreateColumn("pk", ForString()))
+	assert.Panics(t, func() {
+		col.Query(func(txn *Txn) error {
+			txn.Key()
+			return nil
+		})
+	})
 }
 
 func invoke(any interface{}, name string, args ...interface{}) []reflect.Value {
