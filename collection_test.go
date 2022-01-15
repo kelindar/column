@@ -129,10 +129,9 @@ func BenchmarkCollection(b *testing.B) {
 		for n := 0; n < b.N; n++ {
 			players.Query(func(txn *Txn) error {
 				balance := txn.Float64("balance")
-				txn.Range(func(idx uint32) {
+				return txn.Range(func(idx uint32) {
 					balance.Set(0.0)
 				})
-				return nil
 			})
 		}
 	})

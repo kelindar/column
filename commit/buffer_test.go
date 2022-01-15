@@ -219,6 +219,48 @@ func TestReadWrite(t *testing.T) {
 	assert.False(t, r.Next())
 }
 
+func TestAdd(t *testing.T) {
+	buf := NewBuffer(0)
+	buf.AddInt16(10, 100)
+	buf.AddInt32(20, 200)
+	buf.AddInt64(30, 300)
+	buf.AddUint16(40, 400)
+	buf.AddUint32(50, 500)
+	buf.AddUint64(60, 600)
+	buf.AddFloat32(70, 700)
+	buf.AddFloat64(80, 800)
+	buf.AddInt(90, 1000)
+	buf.AddUint(100, 1100)
+	buf.AddNumber(110, 12.34)
+
+	// Read values back
+	r := NewReader()
+	r.Seek(buf)
+	assert.True(t, r.Next())
+	assert.Equal(t, int16(100), r.Int16())
+	assert.True(t, r.Next())
+	assert.Equal(t, int32(200), r.Int32())
+	assert.True(t, r.Next())
+	assert.Equal(t, int64(300), r.Int64())
+	assert.True(t, r.Next())
+	assert.Equal(t, uint16(400), r.Uint16())
+	assert.True(t, r.Next())
+	assert.Equal(t, uint32(500), r.Uint32())
+	assert.True(t, r.Next())
+	assert.Equal(t, uint64(600), r.Uint64())
+	assert.True(t, r.Next())
+	assert.Equal(t, float32(700), r.Float32())
+	assert.True(t, r.Next())
+	assert.Equal(t, float64(800), r.Float64())
+	assert.True(t, r.Next())
+	assert.Equal(t, int(1000), r.Int())
+	assert.True(t, r.Next())
+	assert.Equal(t, uint(1100), r.Uint())
+	assert.True(t, r.Next())
+	assert.Equal(t, 12.34, r.Number())
+	assert.False(t, r.Next())
+}
+
 func TestBufferClone(t *testing.T) {
 	buf := NewBuffer(0)
 	buf.PutInt16(10, 100)
