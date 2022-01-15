@@ -273,12 +273,14 @@ func (c *columnBool) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 // slice accessor for boolean values
 type boolSlice struct {
 	writer *commit.Buffer
-	reader *columnBool
+	reader interface {
+		Contains(idx uint32) bool
+	}
 }
 
 // Set sets the value at the specified index
-func (s *boolSlice) Set(index uint32, value string) {
-	s.writer.PutString(commit.Put, index, value)
+func (s *boolSlice) Set(index uint32, value bool) {
+	s.writer.PutBool(index, value)
 }
 
 // Get loads the value at a particular index
@@ -290,7 +292,9 @@ func (s *boolSlice) Get(index uint32) bool {
 func (txn *Txn) Bool(columnName string) boolSlice {
 	writer := txn.bufferFor(columnName)
 	column, _ := txn.columnAt(columnName)
-	reader, ok := column.Column.(*columnBool)
+	reader, ok := column.Column.(interface {
+		Contains(idx uint32) bool
+	})
 	if !ok {
 		panic(fmt.Errorf("column: column %s is not of type boolean", columnName))
 	}
