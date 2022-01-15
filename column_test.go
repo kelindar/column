@@ -255,7 +255,7 @@ func TestAtKey(t *testing.T) {
 	players := loadPlayers(500)
 	players.UpdateAtKey(serial, func(txn *Txn, index uint32) error {
 		name := txn.Enum("name")
-		name.Set(index, "Roman")
+		name.Set("Roman")
 		return nil
 	})
 
@@ -276,7 +276,7 @@ func TestUpdateAtKeyWithoutPK(t *testing.T) {
 	col := NewCollection()
 	assert.Error(t, col.UpdateAtKey("test", func(txn *Txn, index uint32) error {
 		name := txn.Enum("name")
-		name.Set(index, "Roman")
+		name.Set("Roman")
 		return nil
 	}))
 }
@@ -373,24 +373,24 @@ func TestAccessors(t *testing.T) {
 			assert.NoError(t, col.CreateColumn("column", tc.column))
 
 			// Invoke 'Set' method of the accessor
-			assert.NoError(t, col.Query(func(txn *Txn) error {
+			assert.NoError(t, col.UpdateAt(0, func(txn *Txn, index uint32) error {
 				column := tc.access(txn, "column")
-				assert.Len(t, invoke(column, "Set", uint32(0), tc.value), 0)
+				assert.Len(t, invoke(column, "Set", tc.value), 0)
 				return nil
 			}))
 
 			// Invoke 'Get' method of the accessor
-			assert.NoError(t, col.Query(func(txn *Txn) error {
+			assert.NoError(t, col.UpdateAt(0, func(txn *Txn, index uint32) error {
 				column := tc.access(txn, "column")
-				assert.GreaterOrEqual(t, len(invoke(column, "Get", uint32(0))), 1)
+				assert.GreaterOrEqual(t, len(invoke(column, "Get")), 1)
 				return nil
 			}))
 
 			// If it has 'Add' method, try to invoke it
-			assert.NoError(t, col.Query(func(txn *Txn) error {
+			assert.NoError(t, col.UpdateAt(0, func(txn *Txn, index uint32) error {
 				column := tc.access(txn, "column")
 				if m := reflect.ValueOf(column).MethodByName("Add"); m.IsValid() {
-					assert.Len(t, invoke(column, "Add", uint32(0), tc.value), 0)
+					assert.Len(t, invoke(column, "Add", tc.value), 0)
 				}
 				return nil
 			}))
@@ -421,9 +421,9 @@ func TestBooleanAccessor(t *testing.T) {
 
 	// Insert a boolean value
 	_, err := col.Insert(func(txn *Txn, index uint32) error {
-		txn.Bool("active").Set(index, true)
-		txn.String("name").Set(index, "Roman")
-		txn.Any("name").Set(index, "Roman")
+		txn.Bool("active").Set(true)
+		txn.String("name").Set("Roman")
+		txn.Any("name").Set("Roman")
 		return nil
 	})
 	assert.NoError(t, err)
@@ -433,10 +433,10 @@ func TestBooleanAccessor(t *testing.T) {
 		active := txn.Bool("active")
 		hasName := txn.Bool("name")
 
-		assert.True(t, active.Get(index))
-		assert.True(t, hasName.Get(index))
+		assert.True(t, active.Get())
+		assert.True(t, hasName.Get())
 
-		name, ok := txn.Any("name").Get(index)
+		name, ok := txn.Any("name").Get()
 		assert.True(t, ok)
 		assert.Equal(t, "Roman", name)
 		return nil
@@ -471,14 +471,14 @@ func TestPKAccessor(t *testing.T) {
 
 	// Insert a primary key value
 	_, err := col.Insert(func(txn *Txn, index uint32) error {
-		txn.Key().Set(index, "Roman")
+		txn.Key().Set("Roman")
 		return nil
 	})
 	assert.NoError(t, err)
 
 	// Check if key is correct
 	col.UpdateAt(0, func(txn *Txn, index uint32) error {
-		value, ok := txn.Key().Get(index)
+		value, ok := txn.Key().Get()
 		assert.True(t, ok)
 		assert.Equal(t, "Roman", value)
 		return nil

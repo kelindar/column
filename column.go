@@ -272,20 +272,19 @@ func (c *columnBool) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 
 // slice accessor for boolean values
 type boolSlice struct {
+	cursor *uint32
 	writer *commit.Buffer
-	reader interface {
-		Contains(idx uint32) bool
-	}
+	reader Column
 }
 
-// Set sets the value at the specified index
-func (s boolSlice) Set(index uint32, value bool) {
-	s.writer.PutBool(index, value)
+// Set sets the value at the current transaction cursor
+func (s boolSlice) Set(value bool) {
+	s.writer.PutBool(*s.cursor, value)
 }
 
-// Get loads the value at a particular index
-func (s boolSlice) Get(index uint32) bool {
-	return s.reader.Contains(index)
+// Get loads the value at the current transaction cursor
+func (s boolSlice) Get() bool {
+	return s.reader.Contains(*s.cursor)
 }
 
 // String returns a string column accessor
@@ -297,8 +296,9 @@ func (txn *Txn) Bool(columnName string) boolSlice {
 	}
 
 	return boolSlice{
+		cursor: &txn.cursor,
 		writer: writer,
-		reader: column,
+		reader: column.Column,
 	}
 }
 
@@ -306,18 +306,19 @@ func (txn *Txn) Bool(columnName string) boolSlice {
 
 // slice accessor for any type
 type accessor struct {
+	cursor *uint32
 	writer *commit.Buffer
 	reader Column
 }
 
-// Set sets the value at the specified index
-func (s accessor) Set(index uint32, value interface{}) {
-	s.writer.PutAny(commit.Put, index, value)
+// Set sets the value at the current transaction cursor
+func (s accessor) Set(value interface{}) {
+	s.writer.PutAny(commit.Put, *s.cursor, value)
 }
 
-// Get loads the value at a particular index
-func (s accessor) Get(index uint32) (interface{}, bool) {
-	return s.reader.Value(index)
+// Get loads the value at the current transaction cursor
+func (s accessor) Get() (interface{}, bool) {
+	return s.reader.Value(*s.cursor)
 }
 
 // Any returns a column accessor
@@ -329,6 +330,7 @@ func (txn *Txn) Any(columnName string) accessor {
 	}
 
 	return accessor{
+		cursor: &txn.cursor,
 		writer: writer,
 		reader: column.Column,
 	}

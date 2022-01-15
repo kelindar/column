@@ -103,7 +103,7 @@ func BenchmarkCollection(b *testing.B) {
 				names := txn.Enum("name")
 				txn.With("human", "mage", "old").Range(func(idx uint32) {
 					count++
-					name, _ = names.Get(idx)
+					name, _ = names.Get()
 				})
 				return nil
 			})
@@ -117,7 +117,7 @@ func BenchmarkCollection(b *testing.B) {
 		for n := 0; n < b.N; n++ {
 			players.UpdateAt(20, func(txn *Txn, index uint32) error {
 				balance := txn.Float64("balance")
-				balance.Set(index, 1.0)
+				balance.Set(1.0)
 				return nil
 			})
 		}
@@ -130,7 +130,7 @@ func BenchmarkCollection(b *testing.B) {
 			players.Query(func(txn *Txn) error {
 				balance := txn.Float64("balance")
 				txn.Range(func(idx uint32) {
-					balance.Set(idx, 0.0)
+					balance.Set(0.0)
 				})
 				return nil
 			})
@@ -204,20 +204,20 @@ func TestCollection(t *testing.T) {
 	}
 
 	{ // Update the wallet
-		col.Query(func(txn *Txn) error {
+		col.UpdateAt(idx, func(txn *Txn, index uint32) error {
 			wallet := txn.Float64("wallet")
-			wallet.Set(idx, 1000)
+			wallet.Set(1000)
 			return nil
 		})
 
-		col.Query(func(txn *Txn) error {
+		col.UpdateAt(idx, func(txn *Txn, index uint32) error {
 			wallet := txn.Float64("wallet")
 			isRich := txn.Bool("rich")
 
-			balance, ok := wallet.Get(idx)
+			balance, ok := wallet.Get()
 			assert.True(t, ok)
 			assert.Equal(t, 1000.0, balance)
-			assert.True(t, isRich.Get(idx))
+			assert.True(t, isRich.Get())
 			return nil
 		})
 
@@ -271,9 +271,9 @@ func TestExpire(t *testing.T) {
 	col.Query(func(txn *Txn) error {
 		expire := txn.Int64(expireColumn)
 		return txn.Range(func(idx uint32) {
-			value, _ := expire.Get(idx)
+			value, _ := expire.Get()
 			expireAt := time.Unix(0, value)
-			expire.Set(idx, expireAt.Add(1*time.Microsecond).UnixNano())
+			expire.Set(expireAt.Add(1 * time.Microsecond).UnixNano())
 		})
 	})
 	assert.Equal(t, 1, col.Count())
@@ -433,7 +433,7 @@ func TestConcurrentPointReads(t *testing.T) {
 
 			col.UpdateAt(99, func(txn *Txn, index uint32) error {
 				name := txn.String("name")
-				name.Set(index, "test")
+				name.Set("test")
 				return nil
 			})
 			atomic.AddInt64(&ops, 1)
@@ -452,7 +452,7 @@ func TestInsert(t *testing.T) {
 
 	idx, err := c.Insert(func(txn *Txn, index uint32) error {
 		name := txn.String("name")
-		name.Set(index, "Roman")
+		name.Set("Roman")
 		return nil
 	})
 	assert.Equal(t, uint32(0), idx)
@@ -465,7 +465,7 @@ func TestInsertWithTTL(t *testing.T) {
 
 	idx, err := c.InsertWithTTL(time.Hour, func(txn *Txn, index uint32) error {
 		name := txn.String("name")
-		name.Set(index, "Roman")
+		name.Set("Roman")
 		return nil
 	})
 	assert.Equal(t, uint32(0), idx)
@@ -501,7 +501,7 @@ func TestFindFreeIndex(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		idx, err := col.Insert(func(txn *Txn, index uint32) error {
 			name := txn.String("name")
-			name.Set(index, "Roman")
+			name.Set("Roman")
 			return nil
 		})
 		assert.NoError(t, err)

@@ -156,18 +156,19 @@ func (c *columnKey) OffsetOf(v string) (uint32, bool) {
 
 // slice accessor for keys
 type keySlice struct {
+	cursor *uint32
 	writer *commit.Buffer
 	reader *columnKey
 }
 
-// Set sets the value at the specified index
-func (s keySlice) Set(index uint32, value string) {
-	s.writer.PutString(commit.Put, index, value)
+// Set sets the value at the current transaction index
+func (s keySlice) Set(value string) {
+	s.writer.PutString(commit.Put, *s.cursor, value)
 }
 
-// Get loads the value at a particular index
-func (s keySlice) Get(index uint32) (string, bool) {
-	return s.reader.LoadString(index)
+// Get loads the value at the current transaction index
+func (s keySlice) Get() (string, bool) {
+	return s.reader.LoadString(*s.cursor)
 }
 
 // Enum returns a enumerable column accessor
@@ -177,6 +178,7 @@ func (txn *Txn) Key() keySlice {
 	}
 
 	return keySlice{
+		cursor: &txn.cursor,
 		writer: txn.bufferFor(txn.owner.pk.name),
 		reader: txn.owner.pk,
 	}

@@ -147,18 +147,19 @@ func (c *columnEnum) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 
 // slice accessor for enums
 type enumSlice struct {
+	cursor *uint32
 	writer *commit.Buffer
 	reader *columnEnum
 }
 
-// Set sets the value at the specified index
-func (s enumSlice) Set(index uint32, value string) {
-	s.writer.PutString(commit.Put, index, value)
+// Set sets the value at the current transaction cursor
+func (s enumSlice) Set(value string) {
+	s.writer.PutString(commit.Put, *s.cursor, value)
 }
 
-// Get loads the value at a particular index
-func (s enumSlice) Get(index uint32) (string, bool) {
-	return s.reader.LoadString(index)
+// Get loads the value at the current transaction cursor
+func (s enumSlice) Get() (string, bool) {
+	return s.reader.LoadString(*s.cursor)
 }
 
 // Enum returns a enumerable column accessor
@@ -175,6 +176,7 @@ func (txn *Txn) Enum(columnName string) enumSlice {
 	}
 
 	return enumSlice{
+		cursor: &txn.cursor,
 		writer: writer,
 		reader: reader,
 	}
@@ -275,18 +277,19 @@ func (c *columnString) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 
 // slice accessor for strings
 type stringSlice struct {
+	cursor *uint32
 	writer *commit.Buffer
 	reader *columnString
 }
 
-// Set sets the value at the specified index
-func (s stringSlice) Set(index uint32, value string) {
-	s.writer.PutString(commit.Put, index, value)
+// Set sets the value at the current transaction cursor
+func (s stringSlice) Set(value string) {
+	s.writer.PutString(commit.Put, *s.cursor, value)
 }
 
-// Get loads the value at a particular index
-func (s stringSlice) Get(index uint32) (string, bool) {
-	return s.reader.LoadString(index)
+// Get loads the value at the current transaction cursor
+func (s stringSlice) Get() (string, bool) {
+	return s.reader.LoadString(*s.cursor)
 }
 
 // String returns a string column accessor
@@ -303,6 +306,7 @@ func (txn *Txn) String(columnName string) stringSlice {
 	}
 
 	return stringSlice{
+		cursor: &txn.cursor,
 		writer: writer,
 		reader: reader,
 	}

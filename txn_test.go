@@ -25,7 +25,7 @@ func TestFind(t *testing.T) {
 			return v >= 30
 		}).Range(func(index uint32) {
 			count++
-			name, _ := names.Get(index)
+			name, _ := names.Get()
 			assert.NotEmpty(t, name)
 		})
 		return nil
@@ -142,7 +142,7 @@ func TestIndexInvalid(t *testing.T) {
 		players.Query(func(txn *Txn) error {
 			invalid := txn.Float64("invalid-column")
 			return txn.Range(func(index uint32) {
-				invalid.Add(index, 1)
+				invalid.Add(1)
 			})
 		})
 	})
@@ -259,7 +259,7 @@ func TestUpdateBulkWithIndex(t *testing.T) {
 	players.Query(func(txn *Txn) error {
 		balance := txn.Float64("balance")
 		txn.Range(func(index uint32) {
-			balance.Set(index, 1.0)
+			balance.Set(1.0)
 		})
 		return nil
 	})
@@ -290,8 +290,8 @@ func TestIndexWithAtomicAdd(t *testing.T) {
 		balance := txn.Float64("balance")
 		for i := 0; i < 30; i++ {
 			txn.Range(func(index uint32) {
-				balance.Add(index, 50.0)
-				balance.Add(index, 50.0)
+				balance.Add(50.0)
+				balance.Add(50.0)
 			})
 		}
 		return nil
@@ -301,7 +301,7 @@ func TestIndexWithAtomicAdd(t *testing.T) {
 	players.Query(func(txn *Txn) error {
 		balance := txn.Float64("balance")
 		txn.Range(func(index uint32) {
-			value, ok := balance.Get(index)
+			value, ok := balance.Get()
 			assert.True(t, ok)
 			assert.GreaterOrEqual(t, value, 3000.0)
 		})
@@ -321,7 +321,7 @@ func TestUpdateWithRollback(t *testing.T) {
 	players.Query(func(txn *Txn) error {
 		balance := txn.Float64("balance")
 		txn.Range(func(index uint32) {
-			balance.Set(index, 5000.0)
+			balance.Set(5000.0)
 		})
 		return nil
 	})
@@ -336,7 +336,7 @@ func TestUpdateWithRollback(t *testing.T) {
 	players.Query(func(txn *Txn) error {
 		balance := txn.Float64("balance")
 		txn.Range(func(index uint32) {
-			balance.Set(index, 1.0)
+			balance.Set(1.0)
 		})
 		return fmt.Errorf("trigger rollback")
 	})
@@ -401,13 +401,13 @@ func TestUninitializedSet(t *testing.T) {
 		col3 := txn.String("col3")
 
 		assert.NoError(t, txn.Range(func(index uint32) {
-			col2.Set(index, 0)
+			col2.Set(0)
 		}))
 		return txn.Range(func(index uint32) {
-			value, _ := col1.Get(index)
+			value, _ := col1.Get()
 			if a, h := someMap[value]; h {
-				col2.Set(index, a[1].(float64))
-				col3.Set(index, a[0].(string))
+				col2.Set(a[1].(float64))
+				col3.Set(a[0].(string))
 			}
 		})
 	}))
@@ -424,7 +424,7 @@ func TestUpdateAt(t *testing.T) {
 		assert.Equal(t, index, idx)
 
 		name := txn.String("col1")
-		name.Set(index, "hi")
+		name.Set("hi")
 		return nil
 	}))
 
@@ -440,7 +440,7 @@ func TestUpdateAtInvalid(t *testing.T) {
 	assert.Panics(t, func() {
 		c.UpdateAt(0, func(txn *Txn, index uint32) error {
 			name := txn.String("col2")
-			name.Set(index, "hi")
+			name.Set("hi")
 			return nil
 		})
 	})
@@ -450,7 +450,7 @@ func TestUpdateAtNoChanges(t *testing.T) {
 	c.CreateColumn("col1", ForString())
 
 	assert.NoError(t, c.UpdateAt(20000, func(txn *Txn, index uint32) error {
-		txn.String("col1").Set(index, "Roman")
+		txn.String("col1").Set("Roman")
 		return nil
 	}))
 
@@ -466,7 +466,7 @@ func TestUpsertKey(t *testing.T) {
 	c.CreateColumn("val", ForString())
 	assert.NoError(t, c.UpdateAtKey("1", func(txn *Txn, index uint32) error {
 		name := txn.String("val")
-		name.Set(index, "Roman")
+		name.Set("Roman")
 		return nil
 	}))
 
@@ -506,7 +506,7 @@ func TestDataRace(t *testing.T) {
 	go c.Query(func(txn *Txn) error {
 		txn.Insert(func(txn *Txn, index uint32) error {
 			name := txn.Key()
-			name.Set(index, "Roman")
+			name.Set("Roman")
 			return nil
 		})
 		wg.Done()

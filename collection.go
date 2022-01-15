@@ -361,7 +361,7 @@ func (c *Collection) vacuum(ctx context.Context, interval time.Duration) {
 			c.Query(func(txn *Txn) error {
 				expire := txn.Int64(expireColumn)
 				return txn.With(expireColumn).Range(func(idx uint32) {
-					if expirateAt, ok := expire.Get(idx); ok && expirateAt != 0 && now >= expirateAt {
+					if expirateAt, ok := expire.Get(); ok && expirateAt != 0 && now >= expirateAt {
 						txn.DeleteAt(idx)
 					}
 				})

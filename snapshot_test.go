@@ -115,18 +115,18 @@ func runReplication(t *testing.T, updates, inserts, concurrency int) {
 				defer wg.Done()
 
 				// Randomly update a column
-				offset := uint32(rand.Int31n(int32(inserts - 1)))
 				primary.Query(func(txn *Txn) error {
+					txn.cursor = uint32(rand.Int31n(int32(inserts - 1)))
 					switch rand.Int31n(3) {
 					case 0:
 						col := txn.Float64("float64")
-						col.Set(offset, math.Round(rand.Float64()*1000)/100)
+						col.Set(math.Round(rand.Float64()*1000) / 100)
 					case 1:
 						col := txn.Int32("int32")
-						col.Set(offset, rand.Int31n(100000))
+						col.Set(rand.Int31n(100000))
 					case 2:
 						col := txn.String("string")
-						col.Set(offset, fmt.Sprintf("hi %v", rand.Int31n(10)))
+						col.Set(fmt.Sprintf("hi %v", rand.Int31n(10)))
 					}
 					return nil
 				})
@@ -181,7 +181,7 @@ func TestSnapshot(t *testing.T) {
 		for i := 0; i < amount; i++ {
 			assert.NoError(t, input.UpdateAt(uint32(i), func(txn *Txn, index uint32) error {
 				name := txn.Enum("name")
-				name.Set(index, "Roman")
+				name.Set("Roman")
 				return nil
 			}))
 			wg.Done()
@@ -204,13 +204,13 @@ func TestSnapshotFailures(t *testing.T) {
 	input.CreateColumn("name", ForString())
 	input.Insert(func(txn *Txn, index uint32) error {
 		name := txn.String("name")
-		name.Set(index, "Roman")
+		name.Set("Roman")
 		return nil
 	})
 
 	go input.Insert(func(txn *Txn, index uint32) error {
 		name := txn.String("name")
-		name.Set(index, "Roman")
+		name.Set("Roman")
 		return nil
 	})
 
@@ -234,7 +234,7 @@ func TestSnapshotFailedAppendCommit(t *testing.T) {
 	input.record = commit.Open(&limitWriter{Limit: 0})
 	_, err := input.Insert(func(txn *Txn, index uint32) error {
 		name := txn.String("name")
-		name.Set(index, "Roman")
+		name.Set("Roman")
 		return nil
 	})
 	assert.NoError(t, err)
@@ -248,7 +248,7 @@ func TestWriteTo(t *testing.T) {
 	for i := 0; i < 2e4; i++ {
 		input.Insert(func(txn *Txn, index uint32) error {
 			name := txn.Enum("name")
-			name.Set(index, "Roman")
+			name.Set("Roman")
 			return nil
 		})
 	}
@@ -302,7 +302,7 @@ func TestWriteToFailures(t *testing.T) {
 	input.CreateColumn("name", ForString())
 	input.Insert(func(txn *Txn, index uint32) error {
 		name := txn.String("name")
-		name.Set(index, "Roman")
+		name.Set("Roman")
 		return nil
 	})
 
@@ -337,7 +337,7 @@ func TestReadFromFailures(t *testing.T) {
 	input.CreateColumn("name", ForString())
 	input.Insert(func(txn *Txn, index uint32) error {
 		name := txn.String("name")
-		name.Set(index, "Roman")
+		name.Set("Roman")
 		return nil
 	})
 

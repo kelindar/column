@@ -21,6 +21,7 @@ const (
 // index and calls the provided function on it.
 func (txn *Txn) indexRead(index uint32, f func(*Txn, uint32) error) (err error) {
 	lock := txn.owner.slock
+	txn.cursor = index
 
 	chunk := commit.ChunkAt(index)
 	lock.RLock(uint(chunk))

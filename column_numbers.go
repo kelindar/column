@@ -153,23 +153,24 @@ func (c *columnfloat32) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 
 // slice accessor for float32s
 type float32Slice struct {
+	cursor *uint32
 	writer *commit.Buffer
 	reader *columnfloat32
 }
 
-// Set sets the value at the specified index
-func (s float32Slice) Set(index uint32, value float32) {
-	s.writer.PutFloat32(index, value)
+// Set sets the value at the current transaction cursor
+func (s float32Slice) Set(value float32) {
+	s.writer.PutFloat32(*s.cursor, value)
 }
 
-// Add atomically adds a value at a particular index
-func (s float32Slice) Add(index uint32, delta float32) {
-	s.writer.AddFloat32(index, delta)
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s float32Slice) Add(delta float32) {
+	s.writer.AddFloat32(*s.cursor, delta)
 }
 
-// Get loads the value at a particular index
-func (s float32Slice) Get(index uint32) (float32, bool) {
-	return s.reader.load(index)
+// Get loads the value at the current transaction cursor
+func (s float32Slice) Get() (float32, bool) {
+	return s.reader.load(*s.cursor)
 }
 
 // Float32 returns a float32 column accessor
@@ -186,6 +187,7 @@ func (txn *Txn) Float32(columnName string) float32Slice {
 	}
 
 	return float32Slice{
+		cursor: &txn.cursor,
 		writer: writer,
 		reader: reader,
 	}
@@ -334,23 +336,24 @@ func (c *columnfloat64) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 
 // slice accessor for float64s
 type float64Slice struct {
+	cursor *uint32
 	writer *commit.Buffer
 	reader *columnfloat64
 }
 
-// Set sets the value at the specified index
-func (s float64Slice) Set(index uint32, value float64) {
-	s.writer.PutFloat64(index, value)
+// Set sets the value at the current transaction cursor
+func (s float64Slice) Set(value float64) {
+	s.writer.PutFloat64(*s.cursor, value)
 }
 
-// Add atomically adds a value at a particular index
-func (s float64Slice) Add(index uint32, delta float64) {
-	s.writer.AddFloat64(index, delta)
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s float64Slice) Add(delta float64) {
+	s.writer.AddFloat64(*s.cursor, delta)
 }
 
-// Get loads the value at a particular index
-func (s float64Slice) Get(index uint32) (float64, bool) {
-	return s.reader.load(index)
+// Get loads the value at the current transaction cursor
+func (s float64Slice) Get() (float64, bool) {
+	return s.reader.load(*s.cursor)
 }
 
 // Float64 returns a float64 column accessor
@@ -367,6 +370,7 @@ func (txn *Txn) Float64(columnName string) float64Slice {
 	}
 
 	return float64Slice{
+		cursor: &txn.cursor,
 		writer: writer,
 		reader: reader,
 	}
@@ -515,23 +519,24 @@ func (c *columnint) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 
 // slice accessor for ints
 type intSlice struct {
+	cursor *uint32
 	writer *commit.Buffer
 	reader *columnint
 }
 
-// Set sets the value at the specified index
-func (s intSlice) Set(index uint32, value int) {
-	s.writer.PutInt(index, value)
+// Set sets the value at the current transaction cursor
+func (s intSlice) Set(value int) {
+	s.writer.PutInt(*s.cursor, value)
 }
 
-// Add atomically adds a value at a particular index
-func (s intSlice) Add(index uint32, delta int) {
-	s.writer.AddInt(index, delta)
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s intSlice) Add(delta int) {
+	s.writer.AddInt(*s.cursor, delta)
 }
 
-// Get loads the value at a particular index
-func (s intSlice) Get(index uint32) (int, bool) {
-	return s.reader.load(index)
+// Get loads the value at the current transaction cursor
+func (s intSlice) Get() (int, bool) {
+	return s.reader.load(*s.cursor)
 }
 
 // Int returns a int column accessor
@@ -548,6 +553,7 @@ func (txn *Txn) Int(columnName string) intSlice {
 	}
 
 	return intSlice{
+		cursor: &txn.cursor,
 		writer: writer,
 		reader: reader,
 	}
@@ -696,23 +702,24 @@ func (c *columnint16) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 
 // slice accessor for int16s
 type int16Slice struct {
+	cursor *uint32
 	writer *commit.Buffer
 	reader *columnint16
 }
 
-// Set sets the value at the specified index
-func (s int16Slice) Set(index uint32, value int16) {
-	s.writer.PutInt16(index, value)
+// Set sets the value at the current transaction cursor
+func (s int16Slice) Set(value int16) {
+	s.writer.PutInt16(*s.cursor, value)
 }
 
-// Add atomically adds a value at a particular index
-func (s int16Slice) Add(index uint32, delta int16) {
-	s.writer.AddInt16(index, delta)
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s int16Slice) Add(delta int16) {
+	s.writer.AddInt16(*s.cursor, delta)
 }
 
-// Get loads the value at a particular index
-func (s int16Slice) Get(index uint32) (int16, bool) {
-	return s.reader.load(index)
+// Get loads the value at the current transaction cursor
+func (s int16Slice) Get() (int16, bool) {
+	return s.reader.load(*s.cursor)
 }
 
 // Int16 returns a int16 column accessor
@@ -729,6 +736,7 @@ func (txn *Txn) Int16(columnName string) int16Slice {
 	}
 
 	return int16Slice{
+		cursor: &txn.cursor,
 		writer: writer,
 		reader: reader,
 	}
@@ -877,23 +885,24 @@ func (c *columnint32) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 
 // slice accessor for int32s
 type int32Slice struct {
+	cursor *uint32
 	writer *commit.Buffer
 	reader *columnint32
 }
 
-// Set sets the value at the specified index
-func (s int32Slice) Set(index uint32, value int32) {
-	s.writer.PutInt32(index, value)
+// Set sets the value at the current transaction cursor
+func (s int32Slice) Set(value int32) {
+	s.writer.PutInt32(*s.cursor, value)
 }
 
-// Add atomically adds a value at a particular index
-func (s int32Slice) Add(index uint32, delta int32) {
-	s.writer.AddInt32(index, delta)
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s int32Slice) Add(delta int32) {
+	s.writer.AddInt32(*s.cursor, delta)
 }
 
-// Get loads the value at a particular index
-func (s int32Slice) Get(index uint32) (int32, bool) {
-	return s.reader.load(index)
+// Get loads the value at the current transaction cursor
+func (s int32Slice) Get() (int32, bool) {
+	return s.reader.load(*s.cursor)
 }
 
 // Int32 returns a int32 column accessor
@@ -910,6 +919,7 @@ func (txn *Txn) Int32(columnName string) int32Slice {
 	}
 
 	return int32Slice{
+		cursor: &txn.cursor,
 		writer: writer,
 		reader: reader,
 	}
@@ -1058,23 +1068,24 @@ func (c *columnint64) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 
 // slice accessor for int64s
 type int64Slice struct {
+	cursor *uint32
 	writer *commit.Buffer
 	reader *columnint64
 }
 
-// Set sets the value at the specified index
-func (s int64Slice) Set(index uint32, value int64) {
-	s.writer.PutInt64(index, value)
+// Set sets the value at the current transaction cursor
+func (s int64Slice) Set(value int64) {
+	s.writer.PutInt64(*s.cursor, value)
 }
 
-// Add atomically adds a value at a particular index
-func (s int64Slice) Add(index uint32, delta int64) {
-	s.writer.AddInt64(index, delta)
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s int64Slice) Add(delta int64) {
+	s.writer.AddInt64(*s.cursor, delta)
 }
 
-// Get loads the value at a particular index
-func (s int64Slice) Get(index uint32) (int64, bool) {
-	return s.reader.load(index)
+// Get loads the value at the current transaction cursor
+func (s int64Slice) Get() (int64, bool) {
+	return s.reader.load(*s.cursor)
 }
 
 // Int64 returns a int64 column accessor
@@ -1091,6 +1102,7 @@ func (txn *Txn) Int64(columnName string) int64Slice {
 	}
 
 	return int64Slice{
+		cursor: &txn.cursor,
 		writer: writer,
 		reader: reader,
 	}
@@ -1239,23 +1251,24 @@ func (c *columnuint) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 
 // slice accessor for uints
 type uintSlice struct {
+	cursor *uint32
 	writer *commit.Buffer
 	reader *columnuint
 }
 
-// Set sets the value at the specified index
-func (s uintSlice) Set(index uint32, value uint) {
-	s.writer.PutUint(index, value)
+// Set sets the value at the current transaction cursor
+func (s uintSlice) Set(value uint) {
+	s.writer.PutUint(*s.cursor, value)
 }
 
-// Add atomically adds a value at a particular index
-func (s uintSlice) Add(index uint32, delta uint) {
-	s.writer.AddUint(index, delta)
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s uintSlice) Add(delta uint) {
+	s.writer.AddUint(*s.cursor, delta)
 }
 
-// Get loads the value at a particular index
-func (s uintSlice) Get(index uint32) (uint, bool) {
-	return s.reader.load(index)
+// Get loads the value at the current transaction cursor
+func (s uintSlice) Get() (uint, bool) {
+	return s.reader.load(*s.cursor)
 }
 
 // Uint returns a uint column accessor
@@ -1272,6 +1285,7 @@ func (txn *Txn) Uint(columnName string) uintSlice {
 	}
 
 	return uintSlice{
+		cursor: &txn.cursor,
 		writer: writer,
 		reader: reader,
 	}
@@ -1420,23 +1434,24 @@ func (c *columnuint16) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 
 // slice accessor for uint16s
 type uint16Slice struct {
+	cursor *uint32
 	writer *commit.Buffer
 	reader *columnuint16
 }
 
-// Set sets the value at the specified index
-func (s uint16Slice) Set(index uint32, value uint16) {
-	s.writer.PutUint16(index, value)
+// Set sets the value at the current transaction cursor
+func (s uint16Slice) Set(value uint16) {
+	s.writer.PutUint16(*s.cursor, value)
 }
 
-// Add atomically adds a value at a particular index
-func (s uint16Slice) Add(index uint32, delta uint16) {
-	s.writer.AddUint16(index, delta)
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s uint16Slice) Add(delta uint16) {
+	s.writer.AddUint16(*s.cursor, delta)
 }
 
-// Get loads the value at a particular index
-func (s uint16Slice) Get(index uint32) (uint16, bool) {
-	return s.reader.load(index)
+// Get loads the value at the current transaction cursor
+func (s uint16Slice) Get() (uint16, bool) {
+	return s.reader.load(*s.cursor)
 }
 
 // Uint16 returns a uint16 column accessor
@@ -1453,6 +1468,7 @@ func (txn *Txn) Uint16(columnName string) uint16Slice {
 	}
 
 	return uint16Slice{
+		cursor: &txn.cursor,
 		writer: writer,
 		reader: reader,
 	}
@@ -1601,23 +1617,24 @@ func (c *columnuint32) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 
 // slice accessor for uint32s
 type uint32Slice struct {
+	cursor *uint32
 	writer *commit.Buffer
 	reader *columnuint32
 }
 
-// Set sets the value at the specified index
-func (s uint32Slice) Set(index uint32, value uint32) {
-	s.writer.PutUint32(index, value)
+// Set sets the value at the current transaction cursor
+func (s uint32Slice) Set(value uint32) {
+	s.writer.PutUint32(*s.cursor, value)
 }
 
-// Add atomically adds a value at a particular index
-func (s uint32Slice) Add(index uint32, delta uint32) {
-	s.writer.AddUint32(index, delta)
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s uint32Slice) Add(delta uint32) {
+	s.writer.AddUint32(*s.cursor, delta)
 }
 
-// Get loads the value at a particular index
-func (s uint32Slice) Get(index uint32) (uint32, bool) {
-	return s.reader.load(index)
+// Get loads the value at the current transaction cursor
+func (s uint32Slice) Get() (uint32, bool) {
+	return s.reader.load(*s.cursor)
 }
 
 // Uint32 returns a uint32 column accessor
@@ -1634,6 +1651,7 @@ func (txn *Txn) Uint32(columnName string) uint32Slice {
 	}
 
 	return uint32Slice{
+		cursor: &txn.cursor,
 		writer: writer,
 		reader: reader,
 	}
@@ -1782,23 +1800,24 @@ func (c *columnuint64) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 
 // slice accessor for uint64s
 type uint64Slice struct {
+	cursor *uint32
 	writer *commit.Buffer
 	reader *columnuint64
 }
 
-// Set sets the value at the specified index
-func (s uint64Slice) Set(index uint32, value uint64) {
-	s.writer.PutUint64(index, value)
+// Set sets the value at the current transaction cursor
+func (s uint64Slice) Set(value uint64) {
+	s.writer.PutUint64(*s.cursor, value)
 }
 
-// Add atomically adds a value at a particular index
-func (s uint64Slice) Add(index uint32, delta uint64) {
-	s.writer.AddUint64(index, delta)
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s uint64Slice) Add(delta uint64) {
+	s.writer.AddUint64(*s.cursor, delta)
 }
 
-// Get loads the value at a particular index
-func (s uint64Slice) Get(index uint32) (uint64, bool) {
-	return s.reader.load(index)
+// Get loads the value at the current transaction cursor
+func (s uint64Slice) Get() (uint64, bool) {
+	return s.reader.load(*s.cursor)
 }
 
 // Uint64 returns a uint64 column accessor
@@ -1815,6 +1834,7 @@ func (txn *Txn) Uint64(columnName string) uint64Slice {
 	}
 
 	return uint64Slice{
+		cursor: &txn.cursor,
 		writer: writer,
 		reader: reader,
 	}

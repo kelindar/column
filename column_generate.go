@@ -156,23 +156,24 @@ func (c *columnNumber) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 
 // slice accessor for numbers
 type numberSlice struct {
+	cursor *uint32
 	writer *commit.Buffer
 	reader *columnNumber
 }
 
-// Set sets the value at the specified index
-func (s numberSlice) Set(index uint32, value number) {
-	s.writer.PutNumber(index, value)
+// Set sets the value at the current transaction cursor
+func (s numberSlice) Set(value number) {
+	s.writer.PutNumber(*s.cursor, value)
 }
 
-// Add atomically adds a value at a particular index
-func (s numberSlice) Add(index uint32, delta number) {
-	s.writer.AddNumber(index, delta)
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s numberSlice) Add(delta number) {
+	s.writer.AddNumber(*s.cursor, delta)
 }
 
-// Get loads the value at a particular index
-func (s numberSlice) Get(index uint32) (number, bool) {
-	return s.reader.load(index)
+// Get loads the value at the current transaction cursor
+func (s numberSlice) Get() (number, bool) {
+	return s.reader.load(*s.cursor)
 }
 
 // Number returns a number column accessor
@@ -189,6 +190,7 @@ func (txn *Txn) Number(columnName string) numberSlice {
 	}
 
 	return NumberSlice{
+		cursor: &txn.cursor,
 		writer: writer,
 		reader: reader,
 	}

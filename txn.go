@@ -78,6 +78,7 @@ func (p *txnPool) releasePage(buffer *commit.Buffer) {
 
 // Txn represents a transaction which supports filtering and projection.
 type Txn struct {
+	cursor  uint32           // The current cursor
 	owner   *Collection      // The target collection
 	index   bitmap.Bitmap    // The filtering index
 	dirty   bitmap.Bitmap    // The dirty chunks
@@ -258,7 +259,7 @@ func (txn *Txn) UpdateAtKey(key string, fn func(*Txn, uint32) error) error {
 	}
 
 	if idx, ok := txn.owner.pk.OffsetOf(key); ok {
-		return txn.UpdateAt(idx, fn)
+		return txn.indexRead(idx, fn)
 	}
 
 	// If not found, insert at a new index
@@ -349,7 +350,7 @@ func (txn *Txn) insert(fn func(*Txn, uint32) error, expireAt int64) (uint32, err
 	// If expiration was specified, set it
 	expire := txn.Int64(expireColumn)
 	return idx, txn.indexRead(idx, func(*Txn, uint32) error {
-		expire.Set(idx, expireAt)
+		expire.Set(expireAt)
 		return fn(txn, idx)
 	})
 }
@@ -392,6 +393,7 @@ func (txn *Txn) DeleteAll() {
 func (txn *Txn) Range(fn func(idx uint32)) error {
 	txn.rangeRead(func(offset uint32, index bitmap.Bitmap) {
 		index.Range(func(x uint32) {
+			txn.cursor = offset + x
 			fn(offset + x)
 		})
 	})
