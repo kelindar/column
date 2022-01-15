@@ -296,14 +296,9 @@ func (txn *Txn) Bool(columnName string) boolSlice {
 		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
 	}
 
-	reader, ok := column.Column.(interface{ Contains(idx uint32) bool })
-	if !ok {
-		panic(fmt.Errorf("column: column '%s' is not of type boolean", columnName))
-	}
-
 	return boolSlice{
 		writer: writer,
-		reader: reader,
+		reader: column,
 	}
 }
 

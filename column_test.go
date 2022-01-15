@@ -423,17 +423,64 @@ func TestBooleanAccessor(t *testing.T) {
 	_, err := col.Insert(func(txn *Txn, index uint32) error {
 		txn.Bool("active").Set(index, true)
 		txn.String("name").Set(index, "Roman")
+		txn.Any("name").Set(index, "Roman")
 		return nil
 	})
 	assert.NoError(t, err)
 
 	// Boolean should also work for name
-	col.Query(func(txn *Txn) error {
+	col.UpdateAt(0, func(txn *Txn, index uint32) error {
 		active := txn.Bool("active")
 		hasName := txn.Bool("name")
 
-		assert.True(t, active.Get(0))
-		assert.True(t, hasName.Get(0))
+		assert.True(t, active.Get(index))
+		assert.True(t, hasName.Get(index))
+
+		name, ok := txn.Any("name").Get(index)
+		assert.True(t, ok)
+		assert.Equal(t, "Roman", name)
+		return nil
+	})
+
+}
+
+func TestColumnNotFound(t *testing.T) {
+	col := NewCollection()
+	assert.NoError(t, col.CreateColumn("name", ForString()))
+
+	// Boolean column does not exist
+	assert.Panics(t, func() {
+		col.UpdateAt(0, func(txn *Txn, index uint32) error {
+			txn.Bool("xxx")
+			return nil
+		})
+	})
+
+	// Any column does not exist
+	assert.Panics(t, func() {
+		col.UpdateAt(0, func(txn *Txn, index uint32) error {
+			txn.Any("xxx")
+			return nil
+		})
+	})
+}
+
+func TestPKAccessor(t *testing.T) {
+	col := NewCollection()
+	assert.NoError(t, col.CreateColumn("name", ForKey()))
+
+	// Insert a primary key value
+	_, err := col.Insert(func(txn *Txn, index uint32) error {
+		txn.Key().Set(index, "Roman")
+		return nil
+	})
+	assert.NoError(t, err)
+
+	// Check if key is correct
+	col.UpdateAt(0, func(txn *Txn, index uint32) error {
+		value, ok := txn.Key().Get(index)
+		assert.True(t, ok)
+		assert.Equal(t, "Roman", value)
 		return nil
 	})
 }
@@ -451,7 +498,7 @@ func TestInvalidPKAccessor(t *testing.T) {
 
 func invoke(any interface{}, name string, args ...interface{}) []reflect.Value {
 	inputs := make([]reflect.Value, len(args))
-	for i, _ := range args {
+	for i := range args {
 		inputs[i] = reflect.ValueOf(args[i])
 	}
 

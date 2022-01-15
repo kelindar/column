@@ -445,6 +445,20 @@ func TestUpdateAtInvalid(t *testing.T) {
 		})
 	})
 }
+func TestUpdateAtNoChanges(t *testing.T) {
+	c := NewCollection()
+	c.CreateColumn("col1", ForString())
+
+	assert.NoError(t, c.UpdateAt(20000, func(txn *Txn, index uint32) error {
+		txn.String("col1").Set(index, "Roman")
+		return nil
+	}))
+
+	assert.NoError(t, c.UpdateAt(0, func(txn *Txn, index uint32) error {
+		txn.bufferFor("xxx").PutInt(123, 123)
+		return nil
+	}))
+}
 
 func TestUpsertKey(t *testing.T) {
 	c := NewCollection()
