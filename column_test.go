@@ -119,6 +119,55 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 		assert.Equal(t, 0, index.Count())
 	}
 
+	// Assert Numeric
+	if column, ok := column.(Numeric); ok {
+
+		// LoadFloat64
+		f64, ok := column.LoadFloat64(9)
+		assert.EqualValues(t, value, f64)
+		assert.True(t, ok)
+
+		// FilterFloat64
+		index := bitmap.Bitmap{0xffff}
+		column.FilterFloat64(0, index, func(v float64) bool {
+			return false
+		})
+		assert.Equal(t, 0, index.Count())
+
+		// LoadInt64
+		i64, ok := column.LoadInt64(9)
+		assert.EqualValues(t, value, i64)
+		assert.True(t, ok)
+
+		// FilterInt64
+		index = bitmap.Bitmap{0xffff}
+		column.FilterInt64(0, index, func(v int64) bool {
+			return false
+		})
+		assert.Equal(t, 0, index.Count())
+
+		// LoadUint64
+		u64, ok := column.LoadUint64(9)
+		assert.EqualValues(t, value, u64)
+		assert.True(t, ok)
+
+		// FilterUint64
+		index = bitmap.Bitmap{0xffff}
+		column.FilterUint64(0, index, func(v uint64) bool {
+			return false
+		})
+		assert.Equal(t, 0, index.Count())
+
+		// Atomic Add
+		applyChanges(column,
+			Update{Type: commit.Put, Index: 1, Value: value},
+			Update{Type: commit.Put, Index: 2, Value: value},
+			Update{Type: commit.Add, Index: 1, Value: value},
+		)
+
+		assert.True(t, column.Contains(1))
+		assert.True(t, column.Contains(2))
+	}
 }
 
 // testPutDelete test a put and a delete
@@ -294,4 +343,58 @@ func TestResize(t *testing.T) {
 	assert.Equal(t, 1213, resize(500, 1000)) // Inconsistent
 	assert.Equal(t, 22504, resize(512, 20000))
 	assert.Equal(t, 28322, resize(22504, 22600))
+}
+
+func TestAccessors(t *testing.T) {
+	tests := []struct {
+		column Column
+		value  interface{}
+		access func(*Txn) interface{}
+	}{
+		{column: ForEnum(), value: "mage", access: func(txn *Txn) interface{} { return txn.Enum("column") }},
+		{column: ForBool(), value: true, access: func(txn *Txn) interface{} { return txn.Bool("column") }},
+		{column: ForString(), value: "test", access: func(txn *Txn) interface{} { return txn.String("column") }},
+		{column: ForInt(), value: int(99), access: func(txn *Txn) interface{} { return txn.Int("column") }},
+		{column: ForInt16(), value: int16(99), access: func(txn *Txn) interface{} { return txn.Int16("column") }},
+		{column: ForInt32(), value: int32(99), access: func(txn *Txn) interface{} { return txn.Int32("column") }},
+		{column: ForInt64(), value: int64(99), access: func(txn *Txn) interface{} { return txn.Int64("column") }},
+		{column: ForUint(), value: uint(99), access: func(txn *Txn) interface{} { return txn.Uint("column") }},
+		{column: ForUint16(), value: uint16(99), access: func(txn *Txn) interface{} { return txn.Uint16("column") }},
+		{column: ForUint32(), value: uint32(99), access: func(txn *Txn) interface{} { return txn.Uint32("column") }},
+		{column: ForUint64(), value: uint64(99), access: func(txn *Txn) interface{} { return txn.Uint64("column") }},
+		{column: ForFloat32(), value: float32(99.5), access: func(txn *Txn) interface{} { return txn.Float32("column") }},
+		{column: ForFloat64(), value: float64(99.5), access: func(txn *Txn) interface{} { return txn.Float64("column") }},
+	}
+
+	for _, tc := range tests {
+		t.Run(fmt.Sprintf("%T", tc.column), func(t *testing.T) {
+			col := NewCollection()
+			assert.NoError(t, col.CreateColumn("column", tc.column))
+			assert.NoError(t, col.Query(func(txn *Txn) error {
+				assert.Len(t, invoke(tc.access(txn), "Set", uint32(0), tc.value), 0)
+				return nil
+			}))
+
+			assert.NoError(t, col.Query(func(txn *Txn) error {
+				assert.GreaterOrEqual(t, len(invoke(tc.access(txn), "Get", uint32(0))), 1)
+				return nil
+			}))
+
+			assert.NoError(t, col.Query(func(txn *Txn) error {
+				if m := reflect.ValueOf(tc.access(txn)).MethodByName("Add"); m.IsValid() {
+					assert.Len(t, invoke(tc.access(txn), "Add", uint32(0), tc.value), 0)
+				}
+				return nil
+			}))
+		})
+	}
+}
+
+func invoke(any interface{}, name string, args ...interface{}) []reflect.Value {
+	inputs := make([]reflect.Value, len(args))
+	for i, _ := range args {
+		inputs[i] = reflect.ValueOf(args[i])
+	}
+
+	return reflect.ValueOf(any).MethodByName(name).Call(inputs)
 }

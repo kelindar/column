@@ -158,27 +158,31 @@ type float32Slice struct {
 }
 
 // Set sets the value at the specified index
-func (s *float32Slice) Set(index uint32, value float32) {
+func (s float32Slice) Set(index uint32, value float32) {
 	s.writer.PutFloat32(index, value)
 }
 
 // Add atomically adds a value at a particular index
-func (s *float32Slice) Add(index uint32, delta float32) {
+func (s float32Slice) Add(index uint32, delta float32) {
 	s.writer.AddFloat32(index, delta)
 }
 
 // Get loads the value at a particular index
-func (s *float32Slice) Get(index uint32) (float32, bool) {
+func (s float32Slice) Get(index uint32) (float32, bool) {
 	return s.reader.load(index)
 }
 
 // Float32 returns a float32 column accessor
 func (txn *Txn) Float32(columnName string) float32Slice {
 	writer := txn.bufferFor(columnName)
-	column, _ := txn.columnAt(columnName)
+	column, ok := txn.columnAt(columnName)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
+	}
+
 	reader, ok := column.Column.(*columnfloat32)
 	if !ok {
-		panic(fmt.Errorf("column: column %s is not of type %T ", columnName, new(float32)))
+		panic(fmt.Errorf("column: column '%s' is not of type %T", columnName, float32(0)))
 	}
 
 	return float32Slice{
@@ -335,27 +339,31 @@ type float64Slice struct {
 }
 
 // Set sets the value at the specified index
-func (s *float64Slice) Set(index uint32, value float64) {
+func (s float64Slice) Set(index uint32, value float64) {
 	s.writer.PutFloat64(index, value)
 }
 
 // Add atomically adds a value at a particular index
-func (s *float64Slice) Add(index uint32, delta float64) {
+func (s float64Slice) Add(index uint32, delta float64) {
 	s.writer.AddFloat64(index, delta)
 }
 
 // Get loads the value at a particular index
-func (s *float64Slice) Get(index uint32) (float64, bool) {
+func (s float64Slice) Get(index uint32) (float64, bool) {
 	return s.reader.load(index)
 }
 
 // Float64 returns a float64 column accessor
 func (txn *Txn) Float64(columnName string) float64Slice {
 	writer := txn.bufferFor(columnName)
-	column, _ := txn.columnAt(columnName)
+	column, ok := txn.columnAt(columnName)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
+	}
+
 	reader, ok := column.Column.(*columnfloat64)
 	if !ok {
-		panic(fmt.Errorf("column: column %s is not of type %T ", columnName, new(float64)))
+		panic(fmt.Errorf("column: column '%s' is not of type %T", columnName, float64(0)))
 	}
 
 	return float64Slice{
@@ -512,27 +520,31 @@ type intSlice struct {
 }
 
 // Set sets the value at the specified index
-func (s *intSlice) Set(index uint32, value int) {
+func (s intSlice) Set(index uint32, value int) {
 	s.writer.PutInt(index, value)
 }
 
 // Add atomically adds a value at a particular index
-func (s *intSlice) Add(index uint32, delta int) {
+func (s intSlice) Add(index uint32, delta int) {
 	s.writer.AddInt(index, delta)
 }
 
 // Get loads the value at a particular index
-func (s *intSlice) Get(index uint32) (int, bool) {
+func (s intSlice) Get(index uint32) (int, bool) {
 	return s.reader.load(index)
 }
 
 // Int returns a int column accessor
 func (txn *Txn) Int(columnName string) intSlice {
 	writer := txn.bufferFor(columnName)
-	column, _ := txn.columnAt(columnName)
+	column, ok := txn.columnAt(columnName)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
+	}
+
 	reader, ok := column.Column.(*columnint)
 	if !ok {
-		panic(fmt.Errorf("column: column %s is not of type %T ", columnName, new(int)))
+		panic(fmt.Errorf("column: column '%s' is not of type %T", columnName, int(0)))
 	}
 
 	return intSlice{
@@ -689,27 +701,31 @@ type int16Slice struct {
 }
 
 // Set sets the value at the specified index
-func (s *int16Slice) Set(index uint32, value int16) {
+func (s int16Slice) Set(index uint32, value int16) {
 	s.writer.PutInt16(index, value)
 }
 
 // Add atomically adds a value at a particular index
-func (s *int16Slice) Add(index uint32, delta int16) {
+func (s int16Slice) Add(index uint32, delta int16) {
 	s.writer.AddInt16(index, delta)
 }
 
 // Get loads the value at a particular index
-func (s *int16Slice) Get(index uint32) (int16, bool) {
+func (s int16Slice) Get(index uint32) (int16, bool) {
 	return s.reader.load(index)
 }
 
 // Int16 returns a int16 column accessor
 func (txn *Txn) Int16(columnName string) int16Slice {
 	writer := txn.bufferFor(columnName)
-	column, _ := txn.columnAt(columnName)
+	column, ok := txn.columnAt(columnName)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
+	}
+
 	reader, ok := column.Column.(*columnint16)
 	if !ok {
-		panic(fmt.Errorf("column: column %s is not of type %T ", columnName, new(int16)))
+		panic(fmt.Errorf("column: column '%s' is not of type %T", columnName, int16(0)))
 	}
 
 	return int16Slice{
@@ -866,27 +882,31 @@ type int32Slice struct {
 }
 
 // Set sets the value at the specified index
-func (s *int32Slice) Set(index uint32, value int32) {
+func (s int32Slice) Set(index uint32, value int32) {
 	s.writer.PutInt32(index, value)
 }
 
 // Add atomically adds a value at a particular index
-func (s *int32Slice) Add(index uint32, delta int32) {
+func (s int32Slice) Add(index uint32, delta int32) {
 	s.writer.AddInt32(index, delta)
 }
 
 // Get loads the value at a particular index
-func (s *int32Slice) Get(index uint32) (int32, bool) {
+func (s int32Slice) Get(index uint32) (int32, bool) {
 	return s.reader.load(index)
 }
 
 // Int32 returns a int32 column accessor
 func (txn *Txn) Int32(columnName string) int32Slice {
 	writer := txn.bufferFor(columnName)
-	column, _ := txn.columnAt(columnName)
+	column, ok := txn.columnAt(columnName)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
+	}
+
 	reader, ok := column.Column.(*columnint32)
 	if !ok {
-		panic(fmt.Errorf("column: column %s is not of type %T ", columnName, new(int32)))
+		panic(fmt.Errorf("column: column '%s' is not of type %T", columnName, int32(0)))
 	}
 
 	return int32Slice{
@@ -1043,27 +1063,31 @@ type int64Slice struct {
 }
 
 // Set sets the value at the specified index
-func (s *int64Slice) Set(index uint32, value int64) {
+func (s int64Slice) Set(index uint32, value int64) {
 	s.writer.PutInt64(index, value)
 }
 
 // Add atomically adds a value at a particular index
-func (s *int64Slice) Add(index uint32, delta int64) {
+func (s int64Slice) Add(index uint32, delta int64) {
 	s.writer.AddInt64(index, delta)
 }
 
 // Get loads the value at a particular index
-func (s *int64Slice) Get(index uint32) (int64, bool) {
+func (s int64Slice) Get(index uint32) (int64, bool) {
 	return s.reader.load(index)
 }
 
 // Int64 returns a int64 column accessor
 func (txn *Txn) Int64(columnName string) int64Slice {
 	writer := txn.bufferFor(columnName)
-	column, _ := txn.columnAt(columnName)
+	column, ok := txn.columnAt(columnName)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
+	}
+
 	reader, ok := column.Column.(*columnint64)
 	if !ok {
-		panic(fmt.Errorf("column: column %s is not of type %T ", columnName, new(int64)))
+		panic(fmt.Errorf("column: column '%s' is not of type %T", columnName, int64(0)))
 	}
 
 	return int64Slice{
@@ -1220,27 +1244,31 @@ type uintSlice struct {
 }
 
 // Set sets the value at the specified index
-func (s *uintSlice) Set(index uint32, value uint) {
+func (s uintSlice) Set(index uint32, value uint) {
 	s.writer.PutUint(index, value)
 }
 
 // Add atomically adds a value at a particular index
-func (s *uintSlice) Add(index uint32, delta uint) {
+func (s uintSlice) Add(index uint32, delta uint) {
 	s.writer.AddUint(index, delta)
 }
 
 // Get loads the value at a particular index
-func (s *uintSlice) Get(index uint32) (uint, bool) {
+func (s uintSlice) Get(index uint32) (uint, bool) {
 	return s.reader.load(index)
 }
 
 // Uint returns a uint column accessor
 func (txn *Txn) Uint(columnName string) uintSlice {
 	writer := txn.bufferFor(columnName)
-	column, _ := txn.columnAt(columnName)
+	column, ok := txn.columnAt(columnName)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
+	}
+
 	reader, ok := column.Column.(*columnuint)
 	if !ok {
-		panic(fmt.Errorf("column: column %s is not of type %T ", columnName, new(uint)))
+		panic(fmt.Errorf("column: column '%s' is not of type %T", columnName, uint(0)))
 	}
 
 	return uintSlice{
@@ -1397,27 +1425,31 @@ type uint16Slice struct {
 }
 
 // Set sets the value at the specified index
-func (s *uint16Slice) Set(index uint32, value uint16) {
+func (s uint16Slice) Set(index uint32, value uint16) {
 	s.writer.PutUint16(index, value)
 }
 
 // Add atomically adds a value at a particular index
-func (s *uint16Slice) Add(index uint32, delta uint16) {
+func (s uint16Slice) Add(index uint32, delta uint16) {
 	s.writer.AddUint16(index, delta)
 }
 
 // Get loads the value at a particular index
-func (s *uint16Slice) Get(index uint32) (uint16, bool) {
+func (s uint16Slice) Get(index uint32) (uint16, bool) {
 	return s.reader.load(index)
 }
 
 // Uint16 returns a uint16 column accessor
 func (txn *Txn) Uint16(columnName string) uint16Slice {
 	writer := txn.bufferFor(columnName)
-	column, _ := txn.columnAt(columnName)
+	column, ok := txn.columnAt(columnName)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
+	}
+
 	reader, ok := column.Column.(*columnuint16)
 	if !ok {
-		panic(fmt.Errorf("column: column %s is not of type %T ", columnName, new(uint16)))
+		panic(fmt.Errorf("column: column '%s' is not of type %T", columnName, uint16(0)))
 	}
 
 	return uint16Slice{
@@ -1574,27 +1606,31 @@ type uint32Slice struct {
 }
 
 // Set sets the value at the specified index
-func (s *uint32Slice) Set(index uint32, value uint32) {
+func (s uint32Slice) Set(index uint32, value uint32) {
 	s.writer.PutUint32(index, value)
 }
 
 // Add atomically adds a value at a particular index
-func (s *uint32Slice) Add(index uint32, delta uint32) {
+func (s uint32Slice) Add(index uint32, delta uint32) {
 	s.writer.AddUint32(index, delta)
 }
 
 // Get loads the value at a particular index
-func (s *uint32Slice) Get(index uint32) (uint32, bool) {
+func (s uint32Slice) Get(index uint32) (uint32, bool) {
 	return s.reader.load(index)
 }
 
 // Uint32 returns a uint32 column accessor
 func (txn *Txn) Uint32(columnName string) uint32Slice {
 	writer := txn.bufferFor(columnName)
-	column, _ := txn.columnAt(columnName)
+	column, ok := txn.columnAt(columnName)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
+	}
+
 	reader, ok := column.Column.(*columnuint32)
 	if !ok {
-		panic(fmt.Errorf("column: column %s is not of type %T ", columnName, new(uint32)))
+		panic(fmt.Errorf("column: column '%s' is not of type %T", columnName, uint32(0)))
 	}
 
 	return uint32Slice{
@@ -1751,27 +1787,31 @@ type uint64Slice struct {
 }
 
 // Set sets the value at the specified index
-func (s *uint64Slice) Set(index uint32, value uint64) {
+func (s uint64Slice) Set(index uint32, value uint64) {
 	s.writer.PutUint64(index, value)
 }
 
 // Add atomically adds a value at a particular index
-func (s *uint64Slice) Add(index uint32, delta uint64) {
+func (s uint64Slice) Add(index uint32, delta uint64) {
 	s.writer.AddUint64(index, delta)
 }
 
 // Get loads the value at a particular index
-func (s *uint64Slice) Get(index uint32) (uint64, bool) {
+func (s uint64Slice) Get(index uint32) (uint64, bool) {
 	return s.reader.load(index)
 }
 
 // Uint64 returns a uint64 column accessor
 func (txn *Txn) Uint64(columnName string) uint64Slice {
 	writer := txn.bufferFor(columnName)
-	column, _ := txn.columnAt(columnName)
+	column, ok := txn.columnAt(columnName)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
+	}
+
 	reader, ok := column.Column.(*columnuint64)
 	if !ok {
-		panic(fmt.Errorf("column: column %s is not of type %T ", columnName, new(uint64)))
+		panic(fmt.Errorf("column: column '%s' is not of type %T", columnName, uint64(0)))
 	}
 
 	return uint64Slice{

@@ -279,12 +279,12 @@ type boolSlice struct {
 }
 
 // Set sets the value at the specified index
-func (s *boolSlice) Set(index uint32, value bool) {
+func (s boolSlice) Set(index uint32, value bool) {
 	s.writer.PutBool(index, value)
 }
 
 // Get loads the value at a particular index
-func (s *boolSlice) Get(index uint32) bool {
+func (s boolSlice) Get(index uint32) bool {
 	return s.reader.Contains(index)
 }
 
@@ -316,12 +316,12 @@ type accessor struct {
 }
 
 // Set sets the value at the specified index
-func (s *accessor) Set(index uint32, value interface{}) {
+func (s accessor) Set(index uint32, value interface{}) {
 	s.writer.PutAny(commit.Put, index, value)
 }
 
 // Get loads the value at a particular index
-func (s *accessor) Get(index uint32) (interface{}, bool) {
+func (s accessor) Get(index uint32) (interface{}, bool) {
 	return s.reader.Value(index)
 }
 

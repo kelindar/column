@@ -161,27 +161,31 @@ type numberSlice struct {
 }
 
 // Set sets the value at the specified index
-func (s *numberSlice) Set(index uint32, value number) {
+func (s numberSlice) Set(index uint32, value number) {
 	s.writer.PutNumber(index, value)
 }
 
 // Add atomically adds a value at a particular index
-func (s *numberSlice) Add(index uint32, delta number) {
+func (s numberSlice) Add(index uint32, delta number) {
 	s.writer.AddNumber(index, delta)
 }
 
 // Get loads the value at a particular index
-func (s *numberSlice) Get(index uint32) (number, bool) {
+func (s numberSlice) Get(index uint32) (number, bool) {
 	return s.reader.load(index)
 }
 
 // Number returns a number column accessor
 func (txn *Txn) Number(columnName string) numberSlice {
 	writer := txn.bufferFor(columnName)
-	column, _ := txn.columnAt(columnName)
+	column, ok := txn.columnAt(columnName)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
+	}
+
 	reader, ok := column.Column.(*columnNumber)
 	if !ok {
-		panic(fmt.Errorf("column: column %s is not of type %T ", columnName, new(number)))
+		panic(fmt.Errorf("column: column '%s' is not of type %T", columnName, number(0)))
 	}
 
 	return NumberSlice{

@@ -152,12 +152,12 @@ type enumSlice struct {
 }
 
 // Set sets the value at the specified index
-func (s *enumSlice) Set(index uint32, value string) {
+func (s enumSlice) Set(index uint32, value string) {
 	s.writer.PutString(commit.Put, index, value)
 }
 
 // Get loads the value at a particular index
-func (s *enumSlice) Get(index uint32) (string, bool) {
+func (s enumSlice) Get(index uint32) (string, bool) {
 	return s.reader.LoadString(index)
 }
 
@@ -280,12 +280,12 @@ type stringSlice struct {
 }
 
 // Set sets the value at the specified index
-func (s *stringSlice) Set(index uint32, value string) {
+func (s stringSlice) Set(index uint32, value string) {
 	s.writer.PutString(commit.Put, index, value)
 }
 
 // Get loads the value at a particular index
-func (s *stringSlice) Get(index uint32) (string, bool) {
+func (s stringSlice) Get(index uint32) (string, bool) {
 	return s.reader.LoadString(index)
 }
 
