@@ -17,6 +17,18 @@ const (
 
 // --------------------------- Locked Range ---------------------------
 
+// indexRead acquires a read lock for a chunk that contains the given
+// index and calls the provided function on it.
+func (txn *Txn) indexRead(index uint32, f func(*Txn, uint32) error) (err error) {
+	lock := txn.owner.slock
+
+	chunk := commit.ChunkAt(index)
+	lock.RLock(uint(chunk))
+	err = f(txn, index)
+	lock.RUnlock(uint(chunk))
+	return err
+}
+
 // rangeRead iterates over index, chunk by chunk and ensures that each
 // chunk is protected by an appropriate read lock.
 func (txn *Txn) rangeRead(f func(offset uint32, index bitmap.Bitmap)) {

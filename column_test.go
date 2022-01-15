@@ -203,8 +203,9 @@ func TestAtKey(t *testing.T) {
 
 	// Update a name
 	players := loadPlayers(500)
-	players.UpdateAtKey(serial, "name", func(v Cursor) error {
-		v.SetString("Roman")
+	players.UpdateAtKey(serial, func(txn *Txn, index uint32) error {
+		name := txn.Enum("name")
+		name.Set(index, "Roman")
 		return nil
 	})
 
@@ -223,7 +224,9 @@ func TestAtKey(t *testing.T) {
 
 func TestUpdateAtKeyWithoutPK(t *testing.T) {
 	col := NewCollection()
-	assert.Error(t, col.UpdateAtKey("test", "name", func(v Cursor) error {
+	assert.Error(t, col.UpdateAtKey("test", func(txn *Txn, index uint32) error {
+		name := txn.Enum("name")
+		name.Set(index, "Roman")
 		return nil
 	}))
 }

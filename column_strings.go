@@ -164,10 +164,14 @@ func (s *enumSlice) Get(index uint32) (string, bool) {
 // Enum returns a enumerable column accessor
 func (txn *Txn) Enum(columnName string) enumSlice {
 	writer := txn.bufferFor(columnName)
-	column, _ := txn.columnAt(columnName)
+	column, ok := txn.columnAt(columnName)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
+	}
+
 	reader, ok := column.Column.(*columnEnum)
 	if !ok {
-		panic(fmt.Errorf("column: column %s is not of type enum", columnName))
+		panic(fmt.Errorf("column: column '%s' is not of type enum", columnName))
 	}
 
 	return enumSlice{
@@ -288,10 +292,14 @@ func (s *stringSlice) Get(index uint32) (string, bool) {
 // String returns a string column accessor
 func (txn *Txn) String(columnName string) stringSlice {
 	writer := txn.bufferFor(columnName)
-	column, _ := txn.columnAt(columnName)
+	column, ok := txn.columnAt(columnName)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
+	}
+
 	reader, ok := column.Column.(*columnString)
 	if !ok {
-		panic(fmt.Errorf("column: column %s is not of type string", columnName))
+		panic(fmt.Errorf("column: column '%s' is not of type string", columnName))
 	}
 
 	return stringSlice{

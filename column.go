@@ -291,17 +291,51 @@ func (s *boolSlice) Get(index uint32) bool {
 // String returns a string column accessor
 func (txn *Txn) Bool(columnName string) boolSlice {
 	writer := txn.bufferFor(columnName)
-	column, _ := txn.columnAt(columnName)
-	reader, ok := column.Column.(interface {
-		Contains(idx uint32) bool
-	})
+	column, ok := txn.columnAt(columnName)
 	if !ok {
-		panic(fmt.Errorf("column: column %s is not of type boolean", columnName))
+		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
+	}
+
+	reader, ok := column.Column.(interface{ Contains(idx uint32) bool })
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' is not of type boolean", columnName))
 	}
 
 	return boolSlice{
 		writer: writer,
 		reader: reader,
+	}
+}
+
+// --------------------------- Accessor ----------------------------
+
+// slice accessor for any type
+type accessor struct {
+	writer *commit.Buffer
+	reader Column
+}
+
+// Set sets the value at the specified index
+func (s *accessor) Set(index uint32, value interface{}) {
+	s.writer.PutAny(commit.Put, index, value)
+}
+
+// Get loads the value at a particular index
+func (s *accessor) Get(index uint32) (interface{}, bool) {
+	return s.reader.Value(index)
+}
+
+// Any returns a column accessor
+func (txn *Txn) Any(columnName string) accessor {
+	writer := txn.bufferFor(columnName)
+	column, ok := txn.columnAt(columnName)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
+	}
+
+	return accessor{
+		writer: writer,
+		reader: column.Column,
 	}
 }
 

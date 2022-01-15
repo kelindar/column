@@ -126,7 +126,7 @@ func TestIndexInvalid(t *testing.T) {
 		return nil
 	})
 
-	assert.Error(t, players.Query(func(txn *Txn) error {
+	assert.NoError(t, players.Query(func(txn *Txn) error {
 		return txn.Range(func(index uint32) {
 			// do nothing
 		})
@@ -138,12 +138,14 @@ func TestIndexInvalid(t *testing.T) {
 		return nil
 	})
 
-	assert.NoError(t, players.Query(func(txn *Txn) error {
-		invalid := txn.Float64("invalid-column")
-		return txn.Range(func(index uint32) {
-			invalid.Add(index, 1)
+	assert.Panics(t, func() {
+		players.Query(func(txn *Txn) error {
+			invalid := txn.Float64("invalid-column")
+			return txn.Range(func(index uint32) {
+				invalid.Add(index, 1)
+			})
 		})
-	}))
+	})
 
 	assert.NoError(t, players.Query(func(txn *Txn) error {
 		txn.DeleteIf(func(v Selector) bool {
@@ -288,7 +290,8 @@ func TestIndexWithAtomicAdd(t *testing.T) {
 		balance := txn.Float64("balance")
 		for i := 0; i < 30; i++ {
 			txn.Range(func(index uint32) {
-				balance.Set(index, 50.0)
+				balance.Add(index, 50.0)
+				balance.Add(index, 50.0)
 			})
 		}
 		return nil
@@ -417,9 +420,11 @@ func TestUpdateAt(t *testing.T) {
 		"col1": "hello",
 	})
 
-	assert.NoError(t, c.UpdateAt(index, "col1", func(v Cursor) error {
-		assert.Equal(t, index, v.Index())
-		v.Set("hi")
+	assert.NoError(t, c.UpdateAt(index, func(txn *Txn, idx uint32) error {
+		assert.Equal(t, index, idx)
+
+		name := txn.String("col1")
+		name.Set(index, "hi")
 		return nil
 	}))
 
@@ -432,18 +437,22 @@ func TestUpdateAtInvalid(t *testing.T) {
 	c := NewCollection()
 	c.CreateColumn("col1", ForString())
 
-	assert.Error(t, c.UpdateAt(0, "col2", func(v Cursor) error {
-		v.SetString("hi")
-		return nil
-	}))
+	assert.Panics(t, func() {
+		c.UpdateAt(0, func(txn *Txn, index uint32) error {
+			name := txn.String("col2")
+			name.Set(index, "hi")
+			return nil
+		})
+	})
 }
 
 func TestUpsertKey(t *testing.T) {
 	c := NewCollection()
 	c.CreateColumn("key", ForKey())
 	c.CreateColumn("val", ForString())
-	assert.NoError(t, c.UpdateAtKey("1", "val", func(v Cursor) error {
-		v.Set("Roman")
+	assert.NoError(t, c.UpdateAtKey("1", func(txn *Txn, index uint32) error {
+		name := txn.String("val")
+		name.Set(index, "Roman")
 		return nil
 	}))
 
@@ -458,9 +467,13 @@ func TestUpsertKey(t *testing.T) {
 func TestUpsertKeyNoColumn(t *testing.T) {
 	c := NewCollection()
 	c.CreateColumn("key", ForKey())
-	assert.Error(t, c.UpdateAtKey("1", "xxx", func(v Cursor) error {
-		return nil
-	}))
+
+	assert.Panics(t, func() {
+		c.UpdateAtKey("1", func(txn *Txn, index uint32) error {
+			txn.Enum("xxx")
+			return nil
+		})
+	})
 }
 
 func TestDuplicateKey(t *testing.T) {
@@ -477,8 +490,9 @@ func TestDataRace(t *testing.T) {
 	wg.Add(2)
 
 	go c.Query(func(txn *Txn) error {
-		txn.Insert("name", func(v Cursor) error {
-			v.Set("Roman")
+		txn.Insert(func(txn *Txn, index uint32) error {
+			name := txn.Key()
+			name.Set(index, "Roman")
 			return nil
 		})
 		wg.Done()

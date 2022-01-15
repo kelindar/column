@@ -115,8 +115,9 @@ func BenchmarkCollection(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			players.UpdateAt(20, "balance", func(v Cursor) error {
-				v.Set(1.0)
+			players.UpdateAt(20, func(txn *Txn, index uint32) error {
+				balance := txn.Float64("balance")
+				balance.Set(index, 1.0)
 				return nil
 			})
 		}
@@ -429,8 +430,10 @@ func TestConcurrentPointReads(t *testing.T) {
 	// Writer
 	go func() {
 		for i := 0; i < 10000; i++ {
-			col.UpdateAt(99, "name", func(v Cursor) error {
-				v.SetString("test")
+
+			col.UpdateAt(99, func(txn *Txn, index uint32) error {
+				name := txn.String("name")
+				name.Set(index, "test")
 				return nil
 			})
 			atomic.AddInt64(&ops, 1)
@@ -447,8 +450,9 @@ func TestInsert(t *testing.T) {
 	c := NewCollection()
 	c.CreateColumn("name", ForString())
 
-	idx, err := c.Insert("name", func(v Cursor) error {
-		v.Set("Roman")
+	idx, err := c.Insert(func(txn *Txn, index uint32) error {
+		name := txn.String("name")
+		name.Set(index, "Roman")
 		return nil
 	})
 	assert.Equal(t, uint32(0), idx)
@@ -459,8 +463,9 @@ func TestInsertWithTTL(t *testing.T) {
 	c := NewCollection()
 	c.CreateColumn("name", ForString())
 
-	idx, err := c.InsertWithTTL("name", time.Hour, func(v Cursor) error {
-		v.Set("Roman")
+	idx, err := c.InsertWithTTL(time.Hour, func(txn *Txn, index uint32) error {
+		name := txn.String("name")
+		name.Set(index, "Roman")
 		return nil
 	})
 	assert.Equal(t, uint32(0), idx)
@@ -494,8 +499,9 @@ func TestFindFreeIndex(t *testing.T) {
 	col := NewCollection()
 	assert.NoError(t, col.CreateColumn("name", ForString()))
 	for i := 0; i < 100; i++ {
-		idx, err := col.Insert("name", func(v Cursor) error {
-			v.SetString("Roman")
+		idx, err := col.Insert(func(txn *Txn, index uint32) error {
+			name := txn.String("name")
+			name.Set(index, "Roman")
 			return nil
 		})
 		assert.NoError(t, err)
