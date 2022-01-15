@@ -39,8 +39,9 @@ func main() {
 		for i := 0; i < 1000; i++ {
 			offset := xxrand.Uint32n(uint32(amount - 1))
 			if writeTxn {
-				players.UpdateAt(offset, "balance", func(v column.Cursor) error {
-					v.SetFloat64(0)
+				players.UpdateAt(offset, func(txn *column.Txn, index uint32) error {
+					balance := txn.Float64("balance")
+					balance.Set(index, 0)
 					return nil
 				})
 				writes++

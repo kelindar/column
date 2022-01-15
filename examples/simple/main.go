@@ -11,6 +11,17 @@ func main() {
 
 	// Create a new columnar collection
 	players := column.NewCollection()
+	players.CreateColumn("serial", column.ForKey())
+	players.CreateColumn("name", column.ForEnum())
+	players.CreateColumn("active", column.ForBool())
+	players.CreateColumn("class", column.ForEnum())
+	players.CreateColumn("race", column.ForEnum())
+	players.CreateColumn("age", column.ForFloat64())
+	players.CreateColumn("hp", column.ForFloat64())
+	players.CreateColumn("mp", column.ForFloat64())
+	players.CreateColumn("balance", column.ForFloat64())
+	players.CreateColumn("gender", column.ForEnum())
+	players.CreateColumn("guild", column.ForEnum())
 
 	// index on humans
 	players.CreateIndex("human", "race", func(r column.Reader) bool {
@@ -29,19 +40,6 @@ func main() {
 
 	// Load the items into the collection
 	loaded := loadFixture("players.json")
-	players.CreateColumn("serial", column.ForKey())
-	players.CreateColumn("name", column.ForEnum())
-	players.CreateColumn("active", column.ForBool())
-	players.CreateColumn("class", column.ForEnum())
-	players.CreateColumn("race", column.ForEnum())
-	players.CreateColumn("age", column.ForFloat64())
-	players.CreateColumn("hp", column.ForFloat64())
-	players.CreateColumn("mp", column.ForFloat64())
-	players.CreateColumn("balance", column.ForFloat64())
-	players.CreateColumn("gender", column.ForEnum())
-	players.CreateColumn("guild", column.ForEnum())
-
-	// Perform a bulk insert
 	players.Query(func(txn *column.Txn) error {
 		for _, v := range loaded {
 			txn.InsertObject(v)
@@ -51,8 +49,10 @@ func main() {
 
 	// Run an indexed query
 	players.Query(func(txn *column.Txn) error {
-		return txn.With("human", "mage", "old").Range("name", func(v column.Cursor) {
-			println("human old mage", v.String())
+		name := txn.Enum("name")
+		return txn.With("human", "mage", "old").Range(func(idx uint32) {
+			value, _ := name.Get(idx)
+			println("old mage, human:", value)
 		})
 	})
 }
