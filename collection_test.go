@@ -115,7 +115,7 @@ func BenchmarkCollection(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			players.UpdateAt(20, func(txn *Txn, index uint32) error {
+			players.UpdateAt(20, func(txn *Txn) error {
 				balance := txn.Float64("balance")
 				balance.Set(1.0)
 				return nil
@@ -204,13 +204,13 @@ func TestCollection(t *testing.T) {
 	}
 
 	{ // Update the wallet
-		col.UpdateAt(idx, func(txn *Txn, index uint32) error {
+		col.UpdateAt(idx, func(txn *Txn) error {
 			wallet := txn.Float64("wallet")
 			wallet.Set(1000)
 			return nil
 		})
 
-		col.UpdateAt(idx, func(txn *Txn, index uint32) error {
+		col.UpdateAt(idx, func(txn *Txn) error {
 			wallet := txn.Float64("wallet")
 			isRich := txn.Bool("rich")
 
@@ -431,7 +431,7 @@ func TestConcurrentPointReads(t *testing.T) {
 	go func() {
 		for i := 0; i < 10000; i++ {
 
-			col.UpdateAt(99, func(txn *Txn, index uint32) error {
+			col.UpdateAt(99, func(txn *Txn) error {
 				name := txn.String("name")
 				name.Set("test")
 				return nil
@@ -450,7 +450,7 @@ func TestInsert(t *testing.T) {
 	c := NewCollection()
 	c.CreateColumn("name", ForString())
 
-	idx, err := c.Insert(func(txn *Txn, index uint32) error {
+	idx, err := c.Insert(func(txn *Txn) error {
 		name := txn.String("name")
 		name.Set("Roman")
 		return nil
@@ -463,7 +463,7 @@ func TestInsertWithTTL(t *testing.T) {
 	c := NewCollection()
 	c.CreateColumn("name", ForString())
 
-	idx, err := c.InsertWithTTL(time.Hour, func(txn *Txn, index uint32) error {
+	idx, err := c.InsertWithTTL(time.Hour, func(txn *Txn) error {
 		name := txn.String("name")
 		name.Set("Roman")
 		return nil
@@ -499,7 +499,7 @@ func TestFindFreeIndex(t *testing.T) {
 	col := NewCollection()
 	assert.NoError(t, col.CreateColumn("name", ForString()))
 	for i := 0; i < 100; i++ {
-		idx, err := col.Insert(func(txn *Txn, index uint32) error {
+		idx, err := col.Insert(func(txn *Txn) error {
 			name := txn.String("name")
 			name.Set("Roman")
 			return nil

@@ -51,7 +51,7 @@ func main() {
 	players.Query(func(txn *column.Txn) error {
 		name := txn.Enum("name")
 		return txn.With("human", "mage", "old").Range(func(idx uint32) {
-			value, _ := name.Get(idx)
+			value, _ := name.Get()
 			println("old mage, human:", value)
 		})
 	})

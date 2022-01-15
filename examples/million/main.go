@@ -75,7 +75,7 @@ func main() {
 			balance := txn.Float64("balance")
 			return txn.Range(func(idx uint32) {
 				updates++
-				balance.Set(idx, 1000.0)
+				balance.Set(1000.0)
 			})
 		})
 		fmt.Printf("-> updated %v rows\n", updates)
@@ -88,7 +88,7 @@ func main() {
 			age := txn.Float64("age")
 			return txn.With("mage").Range(func(idx uint32) {
 				updates++
-				age.Set(idx, 99.0)
+				age.Set(99.0)
 			})
 		})
 		fmt.Printf("-> updated %v rows\n", updates)

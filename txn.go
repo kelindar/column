@@ -253,7 +253,7 @@ func (txn *Txn) Count() int {
 }
 
 // UpdateAtKey creates a cursor to a specific element at a given key that can be read or updated.
-func (txn *Txn) UpdateAtKey(key string, fn func(*Txn, uint32) error) error {
+func (txn *Txn) UpdateAtKey(key string, fn func(*Txn) error) error {
 	if txn.owner.pk == nil {
 		return errNoKey
 	}
@@ -269,7 +269,7 @@ func (txn *Txn) UpdateAtKey(key string, fn func(*Txn, uint32) error) error {
 }
 
 // UpdateAt creates a cursor to a specific element that can be read or updated.
-func (txn *Txn) UpdateAt(index uint32, fn func(*Txn, uint32) error) error {
+func (txn *Txn) UpdateAt(index uint32, fn func(*Txn) error) error {
 	return txn.indexRead(index, fn)
 }
 
@@ -313,22 +313,22 @@ func (txn *Txn) InsertObjectWithTTL(object Object, ttl time.Duration) (uint32, e
 }
 
 // Insert executes a mutable cursor trasactionally at a new offset.
-func (txn *Txn) Insert(fn func(txn *Txn, index uint32) error) (uint32, error) {
+func (txn *Txn) Insert(fn func(txn *Txn) error) (uint32, error) {
 	return txn.insert(fn, 0)
 }
 
 // InsertWithTTL executes a mutable cursor trasactionally at a new offset and sets the expiration time
 // based on the specified time-to-live and returns the allocated index.
-func (txn *Txn) InsertWithTTL(ttl time.Duration, fn func(txn *Txn, index uint32) error) (uint32, error) {
+func (txn *Txn) InsertWithTTL(ttl time.Duration, fn func(txn *Txn) error) (uint32, error) {
 	return txn.insert(fn, time.Now().Add(ttl).UnixNano())
 }
 
 // insertObject inserts all of the keys of a map, if previously registered as columns.
 func (txn *Txn) insertObject(object Object, expireAt int64) (uint32, error) {
-	return txn.insert(func(_ *Txn, index uint32) error {
+	return txn.insert(func(*Txn) error {
 		for k, v := range object {
 			if _, ok := txn.columnAt(k); ok {
-				txn.bufferFor(k).PutAny(commit.Put, index, v)
+				txn.bufferFor(k).PutAny(commit.Put, txn.cursor, v)
 			}
 		}
 		return nil
@@ -336,7 +336,7 @@ func (txn *Txn) insertObject(object Object, expireAt int64) (uint32, error) {
 }
 
 // insert creates an insertion cursor for a given column and expiration time.
-func (txn *Txn) insert(fn func(*Txn, uint32) error, expireAt int64) (uint32, error) {
+func (txn *Txn) insert(fn func(*Txn) error, expireAt int64) (uint32, error) {
 
 	// At a new index, add the insertion marker
 	idx := txn.owner.next()
@@ -349,9 +349,9 @@ func (txn *Txn) insert(fn func(*Txn, uint32) error, expireAt int64) (uint32, err
 
 	// If expiration was specified, set it
 	expire := txn.Int64(expireColumn)
-	return idx, txn.indexRead(idx, func(*Txn, uint32) error {
+	return idx, txn.indexRead(idx, func(*Txn) error {
 		expire.Set(expireAt)
-		return fn(txn, idx)
+		return fn(txn)
 	})
 }
 

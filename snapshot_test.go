@@ -179,7 +179,7 @@ func TestSnapshot(t *testing.T) {
 	wg.Add(amount)
 	go func() {
 		for i := 0; i < amount; i++ {
-			assert.NoError(t, input.UpdateAt(uint32(i), func(txn *Txn, index uint32) error {
+			assert.NoError(t, input.UpdateAt(uint32(i), func(txn *Txn) error {
 				name := txn.Enum("name")
 				name.Set("Roman")
 				return nil
@@ -202,13 +202,13 @@ func TestSnapshot(t *testing.T) {
 func TestSnapshotFailures(t *testing.T) {
 	input := NewCollection()
 	input.CreateColumn("name", ForString())
-	input.Insert(func(txn *Txn, index uint32) error {
+	input.Insert(func(txn *Txn) error {
 		name := txn.String("name")
 		name.Set("Roman")
 		return nil
 	})
 
-	go input.Insert(func(txn *Txn, index uint32) error {
+	go input.Insert(func(txn *Txn) error {
 		name := txn.String("name")
 		name.Set("Roman")
 		return nil
@@ -232,7 +232,7 @@ func TestSnapshotFailedAppendCommit(t *testing.T) {
 	input := NewCollection()
 	input.CreateColumn("name", ForString())
 	input.record = commit.Open(&limitWriter{Limit: 0})
-	_, err := input.Insert(func(txn *Txn, index uint32) error {
+	_, err := input.Insert(func(txn *Txn) error {
 		name := txn.String("name")
 		name.Set("Roman")
 		return nil
@@ -246,7 +246,7 @@ func TestWriteTo(t *testing.T) {
 	input := NewCollection()
 	input.CreateColumn("name", ForEnum())
 	for i := 0; i < 2e4; i++ {
-		input.Insert(func(txn *Txn, index uint32) error {
+		input.Insert(func(txn *Txn) error {
 			name := txn.Enum("name")
 			name.Set("Roman")
 			return nil
@@ -300,7 +300,7 @@ func TestWriteToSizeUncompresed(t *testing.T) {
 func TestWriteToFailures(t *testing.T) {
 	input := NewCollection()
 	input.CreateColumn("name", ForString())
-	input.Insert(func(txn *Txn, index uint32) error {
+	input.Insert(func(txn *Txn) error {
 		name := txn.String("name")
 		name.Set("Roman")
 		return nil
@@ -335,7 +335,7 @@ func TestWriteEmpty(t *testing.T) {
 func TestReadFromFailures(t *testing.T) {
 	input := NewCollection()
 	input.CreateColumn("name", ForString())
-	input.Insert(func(txn *Txn, index uint32) error {
+	input.Insert(func(txn *Txn) error {
 		name := txn.String("name")
 		name.Set("Roman")
 		return nil
