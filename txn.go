@@ -277,7 +277,7 @@ func (txn *Txn) Count() int {
 
 // QueryKey jumps at a particular key in the collection, sets the cursor to the
 // provided position and executes given callback fn.
-func (txn *Txn) QueryKey(key string, fn func(*Txn) error) error {
+func (txn *Txn) QueryKey(key string, fn func(Row) error) error {
 	if txn.owner.pk == nil {
 		return errNoKey
 	}
@@ -321,19 +321,19 @@ func (txn *Txn) InsertObjectWithTTL(object Object, ttl time.Duration) (uint32, e
 }
 
 // Insert executes a mutable cursor trasactionally at a new offset.
-func (txn *Txn) Insert(fn func(txn *Txn) error) (uint32, error) {
+func (txn *Txn) Insert(fn func(Row) error) (uint32, error) {
 	return txn.insert(fn, 0)
 }
 
 // InsertWithTTL executes a mutable cursor trasactionally at a new offset and sets the expiration time
 // based on the specified time-to-live and returns the allocated index.
-func (txn *Txn) InsertWithTTL(ttl time.Duration, fn func(txn *Txn) error) (uint32, error) {
+func (txn *Txn) InsertWithTTL(ttl time.Duration, fn func(Row) error) (uint32, error) {
 	return txn.insert(fn, time.Now().Add(ttl).UnixNano())
 }
 
 // insertObject inserts all of the keys of a map, if previously registered as columns.
 func (txn *Txn) insertObject(object Object, expireAt int64) (uint32, error) {
-	return txn.insert(func(*Txn) error {
+	return txn.insert(func(Row) error {
 		for k, v := range object {
 			if _, ok := txn.columnAt(k); ok {
 				txn.bufferFor(k).PutAny(commit.Put, txn.cursor, v)
@@ -344,7 +344,7 @@ func (txn *Txn) insertObject(object Object, expireAt int64) (uint32, error) {
 }
 
 // insert creates an insertion cursor for a given column and expiration time.
-func (txn *Txn) insert(fn func(*Txn) error, expireAt int64) (uint32, error) {
+func (txn *Txn) insert(fn func(Row) error, expireAt int64) (uint32, error) {
 
 	// At a new index, add the insertion marker
 	idx := txn.owner.next()
@@ -356,10 +356,9 @@ func (txn *Txn) insert(fn func(*Txn) error, expireAt int64) (uint32, error) {
 	}
 
 	// If expiration was specified, set it
-	expire := txn.Int64(expireColumn)
-	return idx, txn.QueryAt(idx, func(*Txn) error {
-		expire.Set(expireAt)
-		return fn(txn)
+	return idx, txn.QueryAt(idx, func(r Row) error {
+		r.SetInt64(expireColumn, expireAt)
+		return fn(r)
 	})
 }
 

@@ -255,16 +255,15 @@ func TestAtKey(t *testing.T) {
 
 	// Update a name
 	players := loadPlayers(500)
-	players.QueryKey(serial, func(txn *Txn) error {
-		name := txn.Enum("name")
-		name.Set("Roman")
+	players.QueryKey(serial, func(r Row) error {
+		r.SetEnum("name", "Roman")
 		return nil
 	})
 
 	// Read back and assert
-	assertion := func(txn *Txn) error {
-		name, _ := txn.Enum("name").Get()
-		race, _ := txn.Enum("race").Get()
+	assertion := func(r Row) error {
+		name, _ := r.Enum("name")
+		race, _ := r.Enum("race")
 		assert.Equal(t, "Roman", name)
 		assert.Equal(t, "elf", race)
 		return nil
@@ -279,16 +278,15 @@ func TestAtKey(t *testing.T) {
 
 func TestUpdateAtKeyWithoutPK(t *testing.T) {
 	col := NewCollection()
-	assert.Error(t, col.QueryKey("test", func(txn *Txn) error {
-		name := txn.Enum("name")
-		name.Set("Roman")
+	assert.Error(t, col.QueryKey("test", func(r Row) error {
+		r.SetEnum("name", "Roman")
 		return nil
 	}))
 }
 
 func TestSelectAtKeyWithoutPK(t *testing.T) {
 	col := NewCollection()
-	assert.Error(t, col.QueryKey("test", func(*Txn) error {
+	assert.Error(t, col.QueryKey("test", func(r Row) error {
 		return nil
 	}))
 }
@@ -380,24 +378,24 @@ func TestAccessors(t *testing.T) {
 			assert.NoError(t, col.CreateColumn("column", tc.column))
 
 			// Invoke 'Set' method of the accessor
-			assert.NoError(t, col.QueryAt(0, func(txn *Txn) error {
-				column := tc.access(txn, "column")
+			assert.NoError(t, col.QueryAt(0, func(r Row) error {
+				column := tc.access(r.txn, "column")
 				assert.Len(t, invoke(column, "Set", tc.value), 0)
 				return nil
 			}))
 
 			// Invoke 'Get' method of the accessor
-			assert.NoError(t, col.QueryAt(0, func(txn *Txn) error {
-				column := tc.access(txn, "column")
+			assert.NoError(t, col.QueryAt(0, func(r Row) error {
+				column := tc.access(r.txn, "column")
 				assert.GreaterOrEqual(t, len(invoke(column, "Get")), 1)
 				return nil
 			}))
 
 			// If it has 'Add' method, try to invoke it
-			assert.NoError(t, col.QueryAt(0, func(txn *Txn) error {
-				column := tc.access(txn, "column")
-				if m := reflect.ValueOf(column).MethodByName("Increment"); m.IsValid() {
-					assert.Len(t, invoke(column, "Increment", tc.value), 0)
+			assert.NoError(t, col.QueryAt(0, func(r Row) error {
+				column := tc.access(r.txn, "column")
+				if m := reflect.ValueOf(column).MethodByName("Add"); m.IsValid() {
+					assert.Len(t, invoke(column, "Add", tc.value), 0)
 				}
 				return nil
 			}))
@@ -427,23 +425,23 @@ func TestBooleanAccessor(t *testing.T) {
 	assert.NoError(t, col.CreateColumn("name", ForString()))
 
 	// Insert a boolean value
-	_, err := col.Insert(func(txn *Txn) error {
-		txn.Bool("active").Set(true)
-		txn.String("name").Set("Roman")
-		txn.Any("name").Set("Roman")
+	_, err := col.Insert(func(r Row) error {
+		r.txn.Bool("active").Set(true)
+		r.txn.String("name").Set("Roman")
+		r.txn.Any("name").Set("Roman")
 		return nil
 	})
 	assert.NoError(t, err)
 
 	// Boolean should also work for name
-	col.QueryAt(0, func(txn *Txn) error {
-		active := txn.Bool("active")
-		hasName := txn.Bool("name")
+	col.QueryAt(0, func(r Row) error {
+		active := r.txn.Bool("active")
+		hasName := r.txn.Bool("name")
 
 		assert.True(t, active.Get())
 		assert.True(t, hasName.Get())
 
-		name, ok := txn.Any("name").Get()
+		name, ok := r.txn.Any("name").Get()
 		assert.True(t, ok)
 		assert.Equal(t, "Roman", name)
 		return nil
@@ -457,16 +455,16 @@ func TestColumnNotFound(t *testing.T) {
 
 	// Boolean column does not exist
 	assert.Panics(t, func() {
-		col.QueryAt(0, func(txn *Txn) error {
-			txn.Bool("xxx")
+		col.QueryAt(0, func(r Row) error {
+			r.txn.Bool("xxx")
 			return nil
 		})
 	})
 
 	// Any column does not exist
 	assert.Panics(t, func() {
-		col.QueryAt(0, func(txn *Txn) error {
-			txn.Any("xxx")
+		col.QueryAt(0, func(r Row) error {
+			r.txn.Any("xxx")
 			return nil
 		})
 	})
@@ -477,15 +475,15 @@ func TestPKAccessor(t *testing.T) {
 	assert.NoError(t, col.CreateColumn("name", ForKey()))
 
 	// Insert a primary key value
-	_, err := col.Insert(func(txn *Txn) error {
-		txn.Key().Set("Roman")
+	_, err := col.Insert(func(r Row) error {
+		r.txn.Key().Set("Roman")
 		return nil
 	})
 	assert.NoError(t, err)
 
 	// Check if key is correct
-	col.QueryAt(0, func(txn *Txn) error {
-		value, ok := txn.Key().Get()
+	col.QueryAt(0, func(r Row) error {
+		value, ok := r.txn.Key().Get()
 		assert.True(t, ok)
 		assert.Equal(t, "Roman", value)
 		return nil

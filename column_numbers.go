@@ -191,8 +191,8 @@ func (s float32Writer) Set(value float32) {
 	s.writer.PutFloat32(*s.cursor, value)
 }
 
-// Increment atomically adds a delta to the value at the current transaction cursor
-func (s float32Writer) Increment(delta float32) {
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s float32Writer) Add(delta float32) {
 	s.writer.AddFloat32(*s.cursor, delta)
 }
 
@@ -385,8 +385,8 @@ func (s float64Writer) Set(value float64) {
 	s.writer.PutFloat64(*s.cursor, value)
 }
 
-// Increment atomically adds a delta to the value at the current transaction cursor
-func (s float64Writer) Increment(delta float64) {
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s float64Writer) Add(delta float64) {
 	s.writer.AddFloat64(*s.cursor, delta)
 }
 
@@ -579,8 +579,8 @@ func (s intWriter) Set(value int) {
 	s.writer.PutInt(*s.cursor, value)
 }
 
-// Increment atomically adds a delta to the value at the current transaction cursor
-func (s intWriter) Increment(delta int) {
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s intWriter) Add(delta int) {
 	s.writer.AddInt(*s.cursor, delta)
 }
 
@@ -773,8 +773,8 @@ func (s int16Writer) Set(value int16) {
 	s.writer.PutInt16(*s.cursor, value)
 }
 
-// Increment atomically adds a delta to the value at the current transaction cursor
-func (s int16Writer) Increment(delta int16) {
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s int16Writer) Add(delta int16) {
 	s.writer.AddInt16(*s.cursor, delta)
 }
 
@@ -967,8 +967,8 @@ func (s int32Writer) Set(value int32) {
 	s.writer.PutInt32(*s.cursor, value)
 }
 
-// Increment atomically adds a delta to the value at the current transaction cursor
-func (s int32Writer) Increment(delta int32) {
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s int32Writer) Add(delta int32) {
 	s.writer.AddInt32(*s.cursor, delta)
 }
 
@@ -1161,8 +1161,8 @@ func (s int64Writer) Set(value int64) {
 	s.writer.PutInt64(*s.cursor, value)
 }
 
-// Increment atomically adds a delta to the value at the current transaction cursor
-func (s int64Writer) Increment(delta int64) {
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s int64Writer) Add(delta int64) {
 	s.writer.AddInt64(*s.cursor, delta)
 }
 
@@ -1355,8 +1355,8 @@ func (s uintWriter) Set(value uint) {
 	s.writer.PutUint(*s.cursor, value)
 }
 
-// Increment atomically adds a delta to the value at the current transaction cursor
-func (s uintWriter) Increment(delta uint) {
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s uintWriter) Add(delta uint) {
 	s.writer.AddUint(*s.cursor, delta)
 }
 
@@ -1549,8 +1549,8 @@ func (s uint16Writer) Set(value uint16) {
 	s.writer.PutUint16(*s.cursor, value)
 }
 
-// Increment atomically adds a delta to the value at the current transaction cursor
-func (s uint16Writer) Increment(delta uint16) {
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s uint16Writer) Add(delta uint16) {
 	s.writer.AddUint16(*s.cursor, delta)
 }
 
@@ -1743,8 +1743,8 @@ func (s uint32Writer) Set(value uint32) {
 	s.writer.PutUint32(*s.cursor, value)
 }
 
-// Increment atomically adds a delta to the value at the current transaction cursor
-func (s uint32Writer) Increment(delta uint32) {
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s uint32Writer) Add(delta uint32) {
 	s.writer.AddUint32(*s.cursor, delta)
 }
 
@@ -1937,8 +1937,8 @@ func (s uint64Writer) Set(value uint64) {
 	s.writer.PutUint64(*s.cursor, value)
 }
 
-// Increment atomically adds a delta to the value at the current transaction cursor
-func (s uint64Writer) Increment(delta uint64) {
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s uint64Writer) Add(delta uint64) {
 	s.writer.AddUint64(*s.cursor, delta)
 }
 

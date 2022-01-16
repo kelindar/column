@@ -179,9 +179,8 @@ func TestSnapshot(t *testing.T) {
 	wg.Add(amount)
 	go func() {
 		for i := 0; i < amount; i++ {
-			assert.NoError(t, input.QueryAt(uint32(i), func(txn *Txn) error {
-				name := txn.Enum("name")
-				name.Set("Roman")
+			assert.NoError(t, input.QueryAt(uint32(i), func(r Row) error {
+				r.SetEnum("name", "Roman")
 				return nil
 			}))
 			wg.Done()
@@ -202,15 +201,13 @@ func TestSnapshot(t *testing.T) {
 func TestSnapshotFailures(t *testing.T) {
 	input := NewCollection()
 	input.CreateColumn("name", ForString())
-	input.Insert(func(txn *Txn) error {
-		name := txn.String("name")
-		name.Set("Roman")
+	input.Insert(func(r Row) error {
+		r.SetString("name", "Roman")
 		return nil
 	})
 
-	go input.Insert(func(txn *Txn) error {
-		name := txn.String("name")
-		name.Set("Roman")
+	go input.Insert(func(r Row) error {
+		r.SetString("name", "Roman")
 		return nil
 	})
 
@@ -232,9 +229,8 @@ func TestSnapshotFailedAppendCommit(t *testing.T) {
 	input := NewCollection()
 	input.CreateColumn("name", ForString())
 	input.record = commit.Open(&limitWriter{Limit: 0})
-	_, err := input.Insert(func(txn *Txn) error {
-		name := txn.String("name")
-		name.Set("Roman")
+	_, err := input.Insert(func(r Row) error {
+		r.SetString("name", "Roman")
 		return nil
 	})
 	assert.NoError(t, err)
@@ -246,9 +242,8 @@ func TestWriteTo(t *testing.T) {
 	input := NewCollection()
 	input.CreateColumn("name", ForEnum())
 	for i := 0; i < 2e4; i++ {
-		input.Insert(func(txn *Txn) error {
-			name := txn.Enum("name")
-			name.Set("Roman")
+		input.Insert(func(r Row) error {
+			r.SetEnum("name", "Roman")
 			return nil
 		})
 	}
@@ -267,8 +262,8 @@ func TestWriteTo(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, input.Count(), output.Count())
 
-	assert.NoError(t, output.QueryAt(0, func(txn *Txn) error {
-		name, _ := txn.Enum("name").Get()
+	assert.NoError(t, output.QueryAt(0, func(r Row) error {
+		name, _ := r.Enum("name")
 		assert.Equal(t, "Roman", name)
 		return nil
 	}))
@@ -302,9 +297,8 @@ func TestWriteToSizeUncompresed(t *testing.T) {
 func TestWriteToFailures(t *testing.T) {
 	input := NewCollection()
 	input.CreateColumn("name", ForString())
-	input.Insert(func(txn *Txn) error {
-		name := txn.String("name")
-		name.Set("Roman")
+	input.Insert(func(r Row) error {
+		r.SetString("name", "Roman")
 		return nil
 	})
 
@@ -337,9 +331,8 @@ func TestWriteEmpty(t *testing.T) {
 func TestReadFromFailures(t *testing.T) {
 	input := NewCollection()
 	input.CreateColumn("name", ForString())
-	input.Insert(func(txn *Txn) error {
-		name := txn.String("name")
-		name.Set("Roman")
+	input.Insert(func(r Row) error {
+		r.SetString("name", "Roman")
 		return nil
 	})
 

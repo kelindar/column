@@ -194,8 +194,8 @@ func (s numberWriter) Set(value number) {
 	s.writer.PutNumber(*s.cursor, value)
 }
 
-// Increment atomically adds a delta to the value at the current transaction cursor
-func (s numberWriter) Increment(delta number) {
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s numberWriter) Add(delta number) {
 	s.writer.AddNumber(*s.cursor, delta)
 }
 

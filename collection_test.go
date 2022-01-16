@@ -19,15 +19,15 @@ import (
 
 /*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkCollection/insert-8         	    2359	    460067 ns/op	   24354 B/op	     500 allocs/op
-BenchmarkCollection/select-at-8      	39667978	        29.02 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/scan-8           	    2331	    493212 ns/op	     101 B/op	       0 allocs/op
-BenchmarkCollection/count-8          	  630602	      1776 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/range-8          	   29124	     41815 ns/op	      12 B/op	       0 allocs/op
-BenchmarkCollection/update-at-8      	 3053928	       401.5 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/update-all-8     	    1401	    933124 ns/op	    3932 B/op	       0 allocs/op
-BenchmarkCollection/delete-at-8      	 5927190	       181.0 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/delete-all-8     	 2077669	       584.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/insert-8         	    2523	    469481 ns/op	   24356 B/op	     500 allocs/op
+BenchmarkCollection/select-at-8      	22194190	        54.23 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/scan-8           	    2068	    568953 ns/op	     122 B/op	       0 allocs/op
+BenchmarkCollection/count-8          	  571449	      2057 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/range-8          	   28660	     41695 ns/op	       3 B/op	       0 allocs/op
+BenchmarkCollection/update-at-8      	 5911978	       202.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/update-all-8     	    1280	    946272 ns/op	    3726 B/op	       0 allocs/op
+BenchmarkCollection/delete-at-8      	 6405852	       188.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/delete-all-8     	 2073188	       562.6 ns/op	       0 B/op	       0 allocs/op
 */
 func BenchmarkCollection(b *testing.B) {
 	amount := 100000
@@ -60,8 +60,8 @@ func BenchmarkCollection(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			players.QueryAt(20, func(txn *Txn) error {
-				name, _ = txn.Enum("name").Get()
+			players.QueryAt(20, func(r Row) error {
+				name, _ = r.Enum("name")
 				return nil
 			})
 		}
@@ -117,9 +117,8 @@ func BenchmarkCollection(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			players.QueryAt(20, func(txn *Txn) error {
-				balance := txn.Float64("balance")
-				balance.Set(1.0)
+			players.QueryAt(20, func(r Row) error {
+				r.SetFloat64("balance", 1.0)
 				return nil
 			})
 		}
@@ -184,8 +183,8 @@ func TestCollection(t *testing.T) {
 	}))
 
 	{ // Find the object by its index
-		assert.NoError(t, col.QueryAt(idx, func(txn *Txn) error {
-			name, ok := txn.String("name").Get()
+		assert.NoError(t, col.QueryAt(idx, func(r Row) error {
+			name, ok := r.String("name")
 			assert.True(t, ok)
 			assert.Equal(t, "Roman", name)
 			return nil
@@ -194,8 +193,8 @@ func TestCollection(t *testing.T) {
 
 	{ // Remove the object
 		assert.True(t, col.DeleteAt(idx))
-		assert.Error(t, col.QueryAt(idx, func(txn *Txn) error {
-			if _, ok := txn.String("name").Get(); !ok {
+		assert.Error(t, col.QueryAt(idx, func(r Row) error {
+			if _, ok := r.String("name"); !ok {
 				return fmt.Errorf("unreachable")
 			}
 
@@ -206,8 +205,8 @@ func TestCollection(t *testing.T) {
 	{ // Add a new one, should replace
 		newIdx := col.InsertObject(obj)
 		assert.Equal(t, idx, newIdx)
-		assert.NoError(t, col.QueryAt(newIdx, func(txn *Txn) error {
-			name, ok := txn.String("name").Get()
+		assert.NoError(t, col.QueryAt(newIdx, func(r Row) error {
+			name, ok := r.String("name")
 			assert.True(t, ok)
 			assert.Equal(t, "Roman", name)
 			return nil
@@ -215,26 +214,24 @@ func TestCollection(t *testing.T) {
 	}
 
 	{ // Update the wallet
-		col.QueryAt(idx, func(txn *Txn) error {
-			wallet := txn.Float64("wallet")
-			wallet.Set(1000)
+		col.QueryAt(idx, func(r Row) error {
+			r.SetFloat64("wallet", 1000)
 			return nil
 		})
 
-		col.QueryAt(idx, func(txn *Txn) error {
-			wallet := txn.Float64("wallet")
-			isRich := txn.Bool("rich")
+		col.QueryAt(idx, func(r Row) error {
+			wallet, ok := r.Float64("wallet")
+			isRich := r.Bool("rich")
 
-			balance, ok := wallet.Get()
 			assert.True(t, ok)
-			assert.Equal(t, 1000.0, balance)
-			assert.True(t, isRich.Get())
+			assert.Equal(t, 1000.0, wallet)
+			assert.True(t, isRich)
 			return nil
 		})
 
-		assert.NoError(t, col.QueryAt(idx, func(txn *Txn) error {
-			wallet, _ := txn.Float64("wallet").Get()
-			isRich := txn.Bool("rich").Get()
+		assert.NoError(t, col.QueryAt(idx, func(r Row) error {
+			wallet, _ := r.Float64("wallet")
+			isRich := r.Bool("rich")
 
 			assert.Equal(t, 1000.0, wallet)
 			assert.True(t, isRich)
@@ -271,8 +268,8 @@ func TestInsertObject(t *testing.T) {
 	col.InsertObject(Object{"name": "B"})
 
 	assert.Equal(t, 2, col.Count())
-	assert.NoError(t, col.QueryAt(0, func(txn *Txn) error {
-		name, ok := txn.String("name").Get()
+	assert.NoError(t, col.QueryAt(0, func(r Row) error {
+		name, ok := r.String("name")
 		assert.True(t, ok)
 		assert.Equal(t, "A", name)
 		return nil
@@ -446,8 +443,8 @@ func TestConcurrentPointReads(t *testing.T) {
 	// Reader
 	go func() {
 		for i := 0; i < 10000; i++ {
-			col.QueryAt(99, func(txn *Txn) error {
-				_, _ = txn.String("name").Get()
+			col.QueryAt(99, func(r Row) error {
+				_, _ = r.String("name")
 				return nil
 			})
 			atomic.AddInt64(&ops, 1)
@@ -459,10 +456,8 @@ func TestConcurrentPointReads(t *testing.T) {
 	// Writer
 	go func() {
 		for i := 0; i < 10000; i++ {
-
-			col.QueryAt(99, func(txn *Txn) error {
-				name := txn.String("name")
-				name.Set("test")
+			col.QueryAt(99, func(r Row) error {
+				r.SetString("name", "test")
 				return nil
 			})
 			atomic.AddInt64(&ops, 1)
@@ -479,9 +474,8 @@ func TestInsert(t *testing.T) {
 	c := NewCollection()
 	c.CreateColumn("name", ForString())
 
-	idx, err := c.Insert(func(txn *Txn) error {
-		name := txn.String("name")
-		name.Set("Roman")
+	idx, err := c.Insert(func(r Row) error {
+		r.SetString("name", "Roman")
 		return nil
 	})
 	assert.Equal(t, uint32(0), idx)
@@ -492,15 +486,14 @@ func TestInsertWithTTL(t *testing.T) {
 	c := NewCollection()
 	c.CreateColumn("name", ForString())
 
-	idx, err := c.InsertWithTTL(time.Hour, func(txn *Txn) error {
-		name := txn.String("name")
-		name.Set("Roman")
+	idx, err := c.InsertWithTTL(time.Hour, func(r Row) error {
+		r.SetString("name", "Roman")
 		return nil
 	})
 	assert.Equal(t, uint32(0), idx)
 	assert.NoError(t, err)
-	assert.NoError(t, c.QueryAt(idx, func(txn *Txn) error {
-		expire, ok := txn.Int64(expireColumn).Get()
+	assert.NoError(t, c.QueryAt(idx, func(r Row) error {
+		expire, ok := r.Int64(expireColumn)
 		assert.True(t, ok)
 		assert.NotZero(t, expire)
 		return nil
@@ -530,9 +523,8 @@ func TestFindFreeIndex(t *testing.T) {
 	col := NewCollection()
 	assert.NoError(t, col.CreateColumn("name", ForString()))
 	for i := 0; i < 100; i++ {
-		idx, err := col.Insert(func(txn *Txn) error {
-			name := txn.String("name")
-			name.Set("Roman")
+		idx, err := col.Insert(func(r Row) error {
+			r.SetString("name", "Roman")
 			return nil
 		})
 		assert.NoError(t, err)

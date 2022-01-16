@@ -133,10 +133,10 @@ func TestIndexInvalid(t *testing.T) {
 	}))
 
 	players.Query(func(txn *Txn) error {
-		assert.Error(t, txn.QueryAt(999999, func(*Txn) error {
+		assert.Error(t, txn.QueryAt(999999, func(Row) error {
 			return fmt.Errorf("not found")
 		}))
-		assert.NoError(t, txn.QueryAt(0, func(*Txn) error {
+		assert.NoError(t, txn.QueryAt(0, func(Row) error {
 			return nil
 		}))
 		return nil
@@ -146,7 +146,7 @@ func TestIndexInvalid(t *testing.T) {
 		players.Query(func(txn *Txn) error {
 			invalid := txn.Float64("invalid-column")
 			return txn.Range(func(index uint32) {
-				invalid.Increment(1)
+				invalid.Add(1)
 			})
 		})
 	})
@@ -291,13 +291,13 @@ func TestIndexWithAtomicAdd(t *testing.T) {
 		return r.Float() >= 3000
 	})
 
-	// Increment balance 30 times by 50+50 = 3000
+	// Add balance 30 times by 50+50 = 3000
 	players.Query(func(txn *Txn) error {
 		balance := txn.Float64("balance")
 		for i := 0; i < 30; i++ {
 			txn.Range(func(index uint32) {
-				balance.Increment(50.0)
-				balance.Increment(50.0)
+				balance.Add(50.0)
+				balance.Add(50.0)
 			})
 		}
 		return nil
@@ -429,9 +429,8 @@ func TestUpdateAt(t *testing.T) {
 		"col1": "hello",
 	})
 
-	assert.NoError(t, c.QueryAt(index, func(txn *Txn) error {
-		name := txn.String("col1")
-		name.Set("hi")
+	assert.NoError(t, c.QueryAt(index, func(r Row) error {
+		r.SetString("col1", "hi")
 		return nil
 	}))
 }
@@ -441,9 +440,8 @@ func TestUpdateAtInvalid(t *testing.T) {
 	c.CreateColumn("col1", ForString())
 
 	assert.Panics(t, func() {
-		c.QueryAt(0, func(txn *Txn) error {
-			name := txn.String("col2")
-			name.Set("hi")
+		c.QueryAt(0, func(r Row) error {
+			r.SetString("col2", "hi")
 			return nil
 		})
 	})
@@ -452,13 +450,13 @@ func TestUpdateAtNoChanges(t *testing.T) {
 	c := NewCollection()
 	c.CreateColumn("col1", ForString())
 
-	assert.NoError(t, c.QueryAt(20000, func(txn *Txn) error {
-		txn.String("col1").Set("Roman")
+	assert.NoError(t, c.QueryAt(20000, func(r Row) error {
+		r.SetString("col1", "Roman")
 		return nil
 	}))
 
-	assert.NoError(t, c.QueryAt(0, func(txn *Txn) error {
-		txn.bufferFor("xxx").PutInt(123, 123)
+	assert.NoError(t, c.QueryAt(0, func(r Row) error {
+		r.txn.bufferFor("xxx").PutInt(123, 123)
 		return nil
 	}))
 }
@@ -467,14 +465,13 @@ func TestUpsertKey(t *testing.T) {
 	c := NewCollection()
 	c.CreateColumn("key", ForKey())
 	c.CreateColumn("val", ForString())
-	assert.NoError(t, c.QueryKey("1", func(txn *Txn) error {
-		name := txn.String("val")
-		name.Set("Roman")
+	assert.NoError(t, c.QueryKey("1", func(r Row) error {
+		r.SetString("val", "Roman")
 		return nil
 	}))
 
 	count := 0
-	assert.NoError(t, c.QueryKey("1", func(txn *Txn) error {
+	assert.NoError(t, c.QueryKey("1", func(r Row) error {
 		count++
 		return nil
 	}))
@@ -487,8 +484,8 @@ func TestUpsertKeyNoColumn(t *testing.T) {
 	c.CreateColumn("key", ForKey())
 
 	assert.Panics(t, func() {
-		c.QueryKey("1", func(txn *Txn) error {
-			txn.Enum("xxx")
+		c.QueryKey("1", func(r Row) error {
+			r.Enum("xxx")
 			return nil
 		})
 	})
@@ -500,7 +497,77 @@ func TestDuplicateKey(t *testing.T) {
 	assert.Error(t, c.CreateColumn("key2", ForKey()))
 }
 
-func TestDataRace(t *testing.T) {
+func TestRowMethods(t *testing.T) {
+	c := NewCollection()
+	c.CreateColumn("key", ForKey())
+	c.CreateColumn("bool", ForBool())
+	c.CreateColumn("name", ForString())
+	c.CreateColumn("int", ForInt())
+	c.CreateColumn("int16", ForInt16())
+	c.CreateColumn("int32", ForInt32())
+	c.CreateColumn("int64", ForInt64())
+	c.CreateColumn("uint", ForUint())
+	c.CreateColumn("uint16", ForUint16())
+	c.CreateColumn("uint32", ForUint32())
+	c.CreateColumn("uint64", ForUint64())
+	c.CreateColumn("float32", ForFloat32())
+	c.CreateColumn("float64", ForFloat64())
+
+	c.Insert(func(r Row) error {
+		r.SetKey("key")
+		r.SetBool("bool", true)
+		r.SetAny("name", "Roman")
+
+		// Numbers
+		r.SetInt("int", 1)
+		r.SetInt16("int16", 1)
+		r.SetInt32("int32", 1)
+		r.SetInt64("int64", 1)
+		r.SetUint("uint", 1)
+		r.SetUint16("uint16", 1)
+		r.SetUint32("uint32", 1)
+		r.SetUint64("uint64", 1)
+		r.SetFloat32("float32", 1)
+		r.SetFloat64("float64", 1)
+
+		// Increment
+		r.AddInt("int", 1)
+		r.AddInt16("int16", 1)
+		r.AddInt32("int32", 1)
+		r.AddInt64("int64", 1)
+		r.AddUint("uint", 1)
+		r.AddUint16("uint16", 1)
+		r.AddUint32("uint32", 1)
+		r.AddUint64("uint64", 1)
+		r.AddFloat32("float32", 1)
+		r.AddFloat64("float64", 1)
+		return nil
+	})
+
+	exists := func(v interface{}, ok bool) {
+		assert.NotNil(t, v)
+		assert.True(t, ok)
+	}
+
+	c.QueryKey("key", func(r Row) error {
+		assert.True(t, r.Bool("bool"))
+		exists(r.Key())
+		exists(r.Any("name"))
+		exists(r.Int("int"))
+		exists(r.Int16("int16"))
+		exists(r.Int32("int32"))
+		exists(r.Int64("int64"))
+		exists(r.Uint("uint"))
+		exists(r.Uint16("uint16"))
+		exists(r.Uint32("uint32"))
+		exists(r.Uint64("uint64"))
+		exists(r.Float32("float32"))
+		exists(r.Float64("float64"))
+		return nil
+	})
+}
+
+func TestRow(t *testing.T) {
 	c := NewCollection()
 	c.CreateColumn("name", ForKey())
 
@@ -508,7 +575,7 @@ func TestDataRace(t *testing.T) {
 	wg.Add(2)
 
 	go c.Query(func(txn *Txn) error {
-		txn.Insert(func(txn *Txn) error {
+		txn.Insert(func(r Row) error {
 			name := txn.Key()
 			name.Set("Roman")
 			return nil

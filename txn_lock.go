@@ -33,13 +33,13 @@ func (txn *Txn) initialize() {
 
 // QueryAt jumps at a particular offset in the collection, sets the cursor to the
 // provided position and executes given callback fn.
-func (txn *Txn) QueryAt(index uint32, f func(*Txn) error) (err error) {
+func (txn *Txn) QueryAt(index uint32, f func(Row) error) (err error) {
 	lock := txn.owner.slock
 	txn.cursor = index
 
 	chunk := commit.ChunkAt(index)
 	lock.RLock(uint(chunk))
-	err = f(txn)
+	err = f(Row{txn})
 	lock.RUnlock(uint(chunk))
 	return err
 }

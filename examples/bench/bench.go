@@ -39,15 +39,14 @@ func main() {
 		for i := 0; i < 1000; i++ {
 			offset := xxrand.Uint32n(uint32(amount - 1))
 			if writeTxn {
-				players.QueryAt(offset, func(txn *column.Txn) error {
-					balance := txn.Float64("balance")
-					balance.Set(0)
+				players.QueryAt(offset, func(r column.Row) error {
+					r.SetFloat64("balance", 0)
 					return nil
 				})
 				writes++
 			} else {
-				players.QueryAt(offset, func(txn *column.Txn) error {
-					_, _ = txn.Float64("balance").Get()
+				players.QueryAt(offset, func(r column.Row) error {
+					_, _ = r.Float64("balance")
 					return nil
 				})
 				reads++

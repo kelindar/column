@@ -139,7 +139,7 @@ func (c *Collection) InsertObjectWithTTL(obj Object, ttl time.Duration) (index u
 }
 
 // Insert executes a mutable cursor trasactionally at a new offset.
-func (c *Collection) Insert(fn func(txn *Txn) error) (index uint32, err error) {
+func (c *Collection) Insert(fn func(Row) error) (index uint32, err error) {
 	err = c.Query(func(txn *Txn) (innerErr error) {
 		index, innerErr = txn.Insert(fn)
 		return
@@ -149,7 +149,7 @@ func (c *Collection) Insert(fn func(txn *Txn) error) (index uint32, err error) {
 
 // InsertWithTTL executes a mutable cursor trasactionally at a new offset and sets the expiration time
 // based on the specified time-to-live and returns the allocated index.
-func (c *Collection) InsertWithTTL(ttl time.Duration, fn func(txn *Txn) error) (index uint32, err error) {
+func (c *Collection) InsertWithTTL(ttl time.Duration, fn func(Row) error) (index uint32, err error) {
 	err = c.Query(func(txn *Txn) (innerErr error) {
 		index, innerErr = txn.InsertWithTTL(ttl, fn)
 		return
@@ -278,7 +278,7 @@ func (c *Collection) DropIndex(indexName string) error {
 
 // QueryAt jumps at a particular offset in the collection, sets the cursor to the
 // provided position and executes given callback fn.
-func (c *Collection) QueryAt(idx uint32, fn func(txn *Txn) error) error {
+func (c *Collection) QueryAt(idx uint32, fn func(Row) error) error {
 	return c.Query(func(txn *Txn) error {
 		return txn.QueryAt(idx, fn)
 	})
@@ -286,7 +286,7 @@ func (c *Collection) QueryAt(idx uint32, fn func(txn *Txn) error) error {
 
 // QueryAt jumps at a particular key in the collection, sets the cursor to the
 // provided position and executes given callback fn.
-func (c *Collection) QueryKey(key string, fn func(txn *Txn) error) error {
+func (c *Collection) QueryKey(key string, fn func(Row) error) error {
 	return c.Query(func(txn *Txn) error {
 		return txn.QueryKey(key, fn)
 	})
