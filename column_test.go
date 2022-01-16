@@ -38,10 +38,6 @@ func TestColumns(t *testing.T) {
 			testColumn(t, tc.column, tc.value)
 		})
 
-		t.Run(fmt.Sprintf("%T-cursor", tc.column), func(t *testing.T) {
-			testColumnCursor(t, tc.column, tc.value)
-		})
-
 		t.Run(fmt.Sprintf("%T-put-delete", tc.column), func(t *testing.T) {
 			testPutDelete(t, tc.column, tc.value)
 		})
@@ -59,6 +55,7 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 	}
 
 	// Add a value
+	column.Grow(1)
 	applyChanges(column, Update{commit.Put, 9, value})
 
 	// Assert the value
@@ -70,6 +67,58 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 
 	// Apply updates
 	applyChanges(column, Update{commit.Put, 9, value})
+
+	// Assert Numeric
+	if column, ok := column.(Numeric); ok {
+
+		// FilterFloat64
+		index := bitmap.Bitmap{0xffff}
+		column.FilterFloat64(0, index, func(v float64) bool {
+			return false
+		})
+		assert.Equal(t, 0, index.Count())
+
+		// FilterInt64
+		index = bitmap.Bitmap{0xffff}
+		column.FilterInt64(0, index, func(v int64) bool {
+			return false
+		})
+		assert.Equal(t, 0, index.Count())
+
+		// FilterUint64
+		index = bitmap.Bitmap{0xffff}
+		column.FilterUint64(0, index, func(v uint64) bool {
+			return false
+		})
+		assert.Equal(t, 0, index.Count())
+
+		// Atomic Add
+		applyChanges(column,
+			Update{Type: commit.Put, Index: 1, Value: value},
+			Update{Type: commit.Put, Index: 2, Value: value},
+			Update{Type: commit.Add, Index: 1, Value: value},
+		)
+
+		assert.True(t, column.Contains(1))
+		assert.True(t, column.Contains(2))
+		//v, _ := column.LoadInt64(1)
+	}
+
+	// Assert Textual
+	if column, ok := column.(Textual); ok {
+
+		// LoadString
+		str, ok := column.LoadString(9)
+		assert.EqualValues(t, value, str)
+		assert.True(t, ok)
+
+		// FilterFloat64
+		index := bitmap.Bitmap{0xffff}
+		column.FilterString(0, index, func(v string) bool {
+			return false
+		})
+		assert.Equal(t, 0, index.Count())
+	}
 
 	// Assert Numeric
 	if column, ok := column.(Numeric); ok {
@@ -119,45 +168,7 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 
 		assert.True(t, column.Contains(1))
 		assert.True(t, column.Contains(2))
-		//v, _ := column.LoadInt64(1)
 	}
-
-	// Assert Textual
-	if column, ok := column.(Textual); ok {
-
-		// LoadString
-		str, ok := column.LoadString(9)
-		assert.EqualValues(t, value, str)
-		assert.True(t, ok)
-
-		// FilterFloat64
-		index := bitmap.Bitmap{0xffff}
-		column.FilterString(0, index, func(v string) bool {
-			return false
-		})
-		assert.Equal(t, 0, index.Count())
-	}
-
-}
-
-// Tests an individual column cursor
-func testColumnCursor(t *testing.T, column Column, value interface{}) {
-	col := NewCollection()
-	col.CreateColumn("test", column)
-	col.InsertObject(map[string]interface{}{
-		"test": value,
-	})
-
-	assert.NotPanics(t, func() {
-		col.Query(func(txn *Txn) error {
-			return txn.Range("test", func(cur Cursor) {
-				setAny(&cur, "test", value)
-				if _, ok := column.(Numeric); ok {
-					addAny(&cur, "test", value)
-				}
-			})
-		})
-	})
 }
 
 // testPutDelete test a put and a delete
@@ -210,88 +221,6 @@ type Update struct {
 	Value interface{}
 }
 
-// setAny used for testing
-func setAny(cur *Cursor, column string, value interface{}) {
-	switch v := value.(type) {
-	case uint:
-		cur.SetUint(v)
-		cur.SetUintAt(column, v)
-	case uint64:
-		cur.SetUint64(v)
-		cur.SetUint64At(column, v)
-	case uint32:
-		cur.SetUint32(v)
-		cur.SetUint32At(column, v)
-	case uint16:
-		cur.SetUint16(v)
-		cur.SetUint16At(column, v)
-	case int:
-		cur.SetInt(v)
-		cur.SetIntAt(column, v)
-	case int64:
-		cur.SetInt64(v)
-		cur.SetInt64At(column, v)
-	case int32:
-		cur.SetInt32(v)
-		cur.SetInt32At(column, v)
-	case int16:
-		cur.SetInt16(v)
-		cur.SetInt16At(column, v)
-	case float64:
-		cur.SetFloat64(v)
-		cur.SetFloat64At(column, v)
-	case float32:
-		cur.SetFloat32(v)
-		cur.SetFloat32At(column, v)
-	case bool:
-		cur.SetBool(v)
-		cur.SetBoolAt(column, v)
-	case string:
-		cur.SetString(v)
-		cur.SetStringAt(column, v)
-	default:
-		panic(fmt.Errorf("column: unsupported type (%T)", value))
-	}
-}
-
-// addAny used for testing
-func addAny(cur *Cursor, column string, value interface{}) {
-	switch v := value.(type) {
-	case uint:
-		cur.AddUint(v)
-		cur.AddUintAt(column, v)
-	case uint64:
-		cur.AddUint64(v)
-		cur.AddUint64At(column, v)
-	case uint32:
-		cur.AddUint32(v)
-		cur.AddUint32At(column, v)
-	case uint16:
-		cur.AddUint16(v)
-		cur.AddUint16At(column, v)
-	case int:
-		cur.AddInt(v)
-		cur.AddIntAt(column, v)
-	case int64:
-		cur.AddInt64(v)
-		cur.AddInt64At(column, v)
-	case int32:
-		cur.AddInt32(v)
-		cur.AddInt32At(column, v)
-	case int16:
-		cur.AddInt16(v)
-		cur.AddInt16At(column, v)
-	case float64:
-		cur.AddFloat64(v)
-		cur.AddFloat64At(column, v)
-	case float32:
-		cur.AddFloat32(v)
-		cur.AddFloat32At(column, v)
-	default:
-		panic(fmt.Errorf("column: unsupported type (%T)", value))
-	}
-}
-
 func TestForString(t *testing.T) {
 	coll := NewCollection()
 	coll.CreateColumn("id", ForInt64())
@@ -305,9 +234,11 @@ func TestForString(t *testing.T) {
 		coll.InsertObject(map[string]interface{}{"id": i, "data": d})
 	}
 
-	coll.Query(func(tx *Txn) error {
-		tx.With("one").Select(func(v Selector) {
-			assert.Equal(t, "b", v.StringAt("data"))
+	coll.Query(func(txn *Txn) error {
+		txn.With("one").Range(func(i uint32) {
+			data, ok := txn.String("data").Get()
+			assert.True(t, ok)
+			assert.Equal(t, "b", data)
 		})
 		return nil
 	})
@@ -324,34 +255,40 @@ func TestAtKey(t *testing.T) {
 
 	// Update a name
 	players := loadPlayers(500)
-	players.UpdateAtKey(serial, "name", func(v Cursor) error {
-		v.SetString("Roman")
+	players.QueryKey(serial, func(r Row) error {
+		r.SetEnum("name", "Roman")
 		return nil
 	})
 
 	// Read back and assert
-	assertion := func(v Selector) {
-		assert.Equal(t, "Roman", v.StringAt("name"))
-		assert.Equal(t, "elf", v.StringAt("race"))
+	assertion := func(r Row) error {
+		name, _ := r.Enum("name")
+		race, _ := r.Enum("race")
+		assert.Equal(t, "Roman", name)
+		assert.Equal(t, "elf", race)
+		return nil
 	}
 
-	assert.True(t, players.SelectAtKey(serial, assertion))
+	assert.NoError(t, players.QueryKey(serial, assertion))
 	assert.NoError(t, players.Query(func(txn *Txn) error {
-		assert.True(t, txn.SelectAtKey(serial, assertion))
+		assert.NoError(t, txn.QueryKey(serial, assertion))
 		return nil
 	}))
 }
 
 func TestUpdateAtKeyWithoutPK(t *testing.T) {
 	col := NewCollection()
-	assert.Error(t, col.UpdateAtKey("test", "name", func(v Cursor) error {
+	assert.Error(t, col.QueryKey("test", func(r Row) error {
+		r.SetEnum("name", "Roman")
 		return nil
 	}))
 }
 
 func TestSelectAtKeyWithoutPK(t *testing.T) {
 	col := NewCollection()
-	assert.False(t, col.SelectAtKey("test", func(v Selector) {}))
+	assert.Error(t, col.QueryKey("test", func(r Row) error {
+		return nil
+	}))
 }
 
 func TestSnapshotBool(t *testing.T) {
@@ -412,4 +349,173 @@ func TestResize(t *testing.T) {
 	assert.Equal(t, 1213, resize(500, 1000)) // Inconsistent
 	assert.Equal(t, 22504, resize(512, 20000))
 	assert.Equal(t, 28322, resize(22504, 22600))
+}
+
+func TestAccessors(t *testing.T) {
+	tests := []struct {
+		column Column
+		value  interface{}
+		access func(*Txn, string) interface{}
+	}{
+		{column: ForEnum(), value: "mage", access: func(txn *Txn, n string) interface{} { return txn.Enum(n) }},
+		{column: ForString(), value: "test", access: func(txn *Txn, n string) interface{} { return txn.String(n) }},
+		{column: ForInt(), value: int(99), access: func(txn *Txn, n string) interface{} { return txn.Int(n) }},
+		{column: ForInt16(), value: int16(99), access: func(txn *Txn, n string) interface{} { return txn.Int16(n) }},
+		{column: ForInt32(), value: int32(99), access: func(txn *Txn, n string) interface{} { return txn.Int32(n) }},
+		{column: ForInt64(), value: int64(99), access: func(txn *Txn, n string) interface{} { return txn.Int64(n) }},
+		{column: ForUint(), value: uint(99), access: func(txn *Txn, n string) interface{} { return txn.Uint(n) }},
+		{column: ForUint16(), value: uint16(99), access: func(txn *Txn, n string) interface{} { return txn.Uint16(n) }},
+		{column: ForUint32(), value: uint32(99), access: func(txn *Txn, n string) interface{} { return txn.Uint32(n) }},
+		{column: ForUint64(), value: uint64(99), access: func(txn *Txn, n string) interface{} { return txn.Uint64(n) }},
+		{column: ForFloat32(), value: float32(99.5), access: func(txn *Txn, n string) interface{} { return txn.Float32(n) }},
+		{column: ForFloat64(), value: float64(99.5), access: func(txn *Txn, n string) interface{} { return txn.Float64(n) }},
+	}
+
+	for _, tc := range tests {
+		t.Run(fmt.Sprintf("%T", tc.column), func(t *testing.T) {
+			col := NewCollection()
+			assert.NoError(t, col.CreateColumn("pk", ForKey()))
+			assert.NoError(t, col.CreateColumn("column", tc.column))
+
+			// Invoke 'Set' method of the accessor
+			assert.NoError(t, col.QueryAt(0, func(r Row) error {
+				column := tc.access(r.txn, "column")
+				assert.Len(t, invoke(column, "Set", tc.value), 0)
+				return nil
+			}))
+
+			// Invoke 'Get' method of the accessor
+			assert.NoError(t, col.QueryAt(0, func(r Row) error {
+				column := tc.access(r.txn, "column")
+				assert.GreaterOrEqual(t, len(invoke(column, "Get")), 1)
+				return nil
+			}))
+
+			// If it has 'Add' method, try to invoke it
+			assert.NoError(t, col.QueryAt(0, func(r Row) error {
+				column := tc.access(r.txn, "column")
+				if m := reflect.ValueOf(column).MethodByName("Add"); m.IsValid() {
+					assert.Len(t, invoke(column, "Add", tc.value), 0)
+				}
+				return nil
+			}))
+
+			// Invalid column  name should panic
+			assert.Panics(t, func() {
+				col.Query(func(txn *Txn) error {
+					tc.access(txn, "invalid")
+					return nil
+				})
+			})
+
+			// Invalid column type should panic
+			assert.Panics(t, func() {
+				col.Query(func(txn *Txn) error {
+					tc.access(txn, "pk")
+					return nil
+				})
+			})
+		})
+	}
+}
+
+func TestBooleanAccessor(t *testing.T) {
+	col := NewCollection()
+	assert.NoError(t, col.CreateColumn("active", ForBool()))
+	assert.NoError(t, col.CreateColumn("name", ForString()))
+
+	// Insert a boolean value
+	_, err := col.Insert(func(r Row) error {
+		r.txn.Bool("active").Set(true)
+		r.txn.String("name").Set("Roman")
+		r.txn.Any("name").Set("Roman")
+		return nil
+	})
+	assert.NoError(t, err)
+
+	// Boolean should also work for name
+	col.QueryAt(0, func(r Row) error {
+		active := r.txn.Bool("active")
+		hasName := r.txn.Bool("name")
+
+		assert.True(t, active.Get())
+		assert.True(t, hasName.Get())
+
+		name, ok := r.txn.Any("name").Get()
+		assert.True(t, ok)
+		assert.Equal(t, "Roman", name)
+		return nil
+	})
+
+}
+
+func TestColumnNotFound(t *testing.T) {
+	col := NewCollection()
+	assert.NoError(t, col.CreateColumn("name", ForString()))
+
+	// Boolean column does not exist
+	assert.Panics(t, func() {
+		col.QueryAt(0, func(r Row) error {
+			r.txn.Bool("xxx")
+			return nil
+		})
+	})
+
+	// Any column does not exist
+	assert.Panics(t, func() {
+		col.QueryAt(0, func(r Row) error {
+			r.txn.Any("xxx")
+			return nil
+		})
+	})
+}
+
+func TestPKAccessor(t *testing.T) {
+	col := NewCollection()
+	assert.NoError(t, col.CreateColumn("name", ForKey()))
+
+	// Insert a primary key value
+	_, err := col.Insert(func(r Row) error {
+		r.txn.Key().Set("Roman")
+		return nil
+	})
+	assert.NoError(t, err)
+
+	// Check if key is correct
+	col.QueryAt(0, func(r Row) error {
+		value, ok := r.txn.Key().Get()
+		assert.True(t, ok)
+		assert.Equal(t, "Roman", value)
+		return nil
+	})
+}
+
+func TestInvalidPKAccessor(t *testing.T) {
+	col := NewCollection()
+	assert.NoError(t, col.CreateColumn("pk", ForString()))
+	assert.Panics(t, func() {
+		col.Query(func(txn *Txn) error {
+			txn.Key()
+			return nil
+		})
+	})
+}
+
+func TestIndexValue(t *testing.T) {
+	idx := newIndex("a", "b", func(r Reader) bool {
+		return r.Float() > 100
+	})
+
+	idx.Column.(*columnIndex).fill.Set(0)
+	_, ok := idx.Value(0)
+	assert.True(t, ok)
+}
+
+func invoke(any interface{}, name string, args ...interface{}) []reflect.Value {
+	inputs := make([]reflect.Value, len(args))
+	for i := range args {
+		inputs[i] = reflect.ValueOf(args[i])
+	}
+
+	return reflect.ValueOf(any).MethodByName(name).Call(inputs)
 }

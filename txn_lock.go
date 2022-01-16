@@ -15,6 +15,35 @@ const (
 	chunkSize   = 1 << chunkShift
 )
 
+// initialize ensures that the transaction is pre-initialized with the snapshot
+// of the owner's fill list.
+func (txn *Txn) initialize() {
+	if txn.setup {
+		return
+	}
+
+	txn.owner.lock.RLock()
+	txn.index.Grow(uint32(txn.owner.opts.Capacity))
+	txn.owner.fill.Clone(&txn.index)
+	txn.owner.lock.RUnlock()
+	txn.setup = true
+}
+
+// --------------------------- Locked Seek ---------------------------
+
+// QueryAt jumps at a particular offset in the collection, sets the cursor to the
+// provided position and executes given callback fn.
+func (txn *Txn) QueryAt(index uint32, f func(Row) error) (err error) {
+	lock := txn.owner.slock
+	txn.cursor = index
+
+	chunk := commit.ChunkAt(index)
+	lock.RLock(uint(chunk))
+	err = f(Row{txn})
+	lock.RUnlock(uint(chunk))
+	return err
+}
+
 // --------------------------- Locked Range ---------------------------
 
 // rangeRead iterates over index, chunk by chunk and ensures that each

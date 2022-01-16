@@ -72,9 +72,10 @@ func main() {
 	measure("update", "balance of everyone", func() {
 		updates := 0
 		players.Query(func(txn *column.Txn) error {
-			return txn.Range("balance", func(v column.Cursor) {
+			balance := txn.Float64("balance")
+			return txn.Range(func(idx uint32) {
 				updates++
-				v.SetFloat64(1000.0)
+				balance.Set(1000.0)
 			})
 		})
 		fmt.Printf("-> updated %v rows\n", updates)
@@ -84,9 +85,10 @@ func main() {
 	measure("update", "age of mages", func() {
 		updates := 0
 		players.Query(func(txn *column.Txn) error {
-			return txn.With("mage").Range("age", func(v column.Cursor) {
+			age := txn.Float64("age")
+			return txn.With("mage").Range(func(idx uint32) {
 				updates++
-				v.SetFloat64(99.0)
+				age.Set(99.0)
 			})
 		})
 		fmt.Printf("-> updated %v rows\n", updates)

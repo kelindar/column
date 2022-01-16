@@ -4,28 +4,30 @@
 package column
 
 import (
+	"fmt"
+
 	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
 )
 
 // --------------------------- Float32s ----------------------------
 
-// columnFloat32 represents a generic column
-type columnfloat32 struct {
+// float32Column represents a generic column
+type float32Column struct {
 	fill bitmap.Bitmap // The fill-list
 	data []float32     // The actual values
 }
 
 // makeFloat32s creates a new vector for Float32s
 func makeFloat32s() Column {
-	return &columnfloat32{
+	return &float32Column{
 		fill: make(bitmap.Bitmap, 0, 4),
 		data: make([]float32, 0, 64),
 	}
 }
 
 // Grow grows the size of the column until we have enough to store
-func (c *columnfloat32) Grow(idx uint32) {
+func (c *float32Column) Grow(idx uint32) {
 	if idx < uint32(len(c.data)) {
 		return
 	}
@@ -43,7 +45,7 @@ func (c *columnfloat32) Grow(idx uint32) {
 }
 
 // Apply applies a set of operations to the column.
-func (c *columnfloat32) Apply(r *commit.Reader) {
+func (c *float32Column) Apply(r *commit.Reader) {
 	for r.Next() {
 		switch r.Type {
 		case commit.Put:
@@ -65,17 +67,17 @@ func (c *columnfloat32) Apply(r *commit.Reader) {
 }
 
 // Contains checks whether the column has a value at a specified index.
-func (c *columnfloat32) Contains(idx uint32) bool {
+func (c *float32Column) Contains(idx uint32) bool {
 	return c.fill.Contains(idx)
 }
 
 // Index returns the fill list for the column
-func (c *columnfloat32) Index() *bitmap.Bitmap {
+func (c *float32Column) Index() *bitmap.Bitmap {
 	return &c.fill
 }
 
 // Value retrieves a value at a specified index
-func (c *columnfloat32) Value(idx uint32) (v interface{}, ok bool) {
+func (c *float32Column) Value(idx uint32) (v interface{}, ok bool) {
 	v = float32(0)
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = c.data[idx], true
@@ -83,8 +85,16 @@ func (c *columnfloat32) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
+// load retrieves a float32 value at a specified index
+func (c *float32Column) load(idx uint32) (v float32, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = float32(c.data[idx]), true
+	}
+	return
+}
+
 // LoadFloat64 retrieves a float64 value at a specified index
-func (c *columnfloat32) LoadFloat64(idx uint32) (v float64, ok bool) {
+func (c *float32Column) LoadFloat64(idx uint32) (v float64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = float64(c.data[idx]), true
 	}
@@ -92,7 +102,7 @@ func (c *columnfloat32) LoadFloat64(idx uint32) (v float64, ok bool) {
 }
 
 // LoadInt64 retrieves an int64 value at a specified index
-func (c *columnfloat32) LoadInt64(idx uint32) (v int64, ok bool) {
+func (c *float32Column) LoadInt64(idx uint32) (v int64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = int64(c.data[idx]), true
 	}
@@ -100,7 +110,7 @@ func (c *columnfloat32) LoadInt64(idx uint32) (v int64, ok bool) {
 }
 
 // LoadUint64 retrieves an uint64 value at a specified index
-func (c *columnfloat32) LoadUint64(idx uint32) (v uint64, ok bool) {
+func (c *float32Column) LoadUint64(idx uint32) (v uint64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = uint64(c.data[idx]), true
 	}
@@ -108,7 +118,7 @@ func (c *columnfloat32) LoadUint64(idx uint32) (v uint64, ok bool) {
 }
 
 // FilterFloat64 filters down the values based on the specified predicate.
-func (c *columnfloat32) FilterFloat64(offset uint32, index bitmap.Bitmap, predicate func(v float64) bool) {
+func (c *float32Column) FilterFloat64(offset uint32, index bitmap.Bitmap, predicate func(v float64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) bool {
 		idx = offset + idx
@@ -117,7 +127,7 @@ func (c *columnfloat32) FilterFloat64(offset uint32, index bitmap.Bitmap, predic
 }
 
 // FilterInt64 filters down the values based on the specified predicate.
-func (c *columnfloat32) FilterInt64(offset uint32, index bitmap.Bitmap, predicate func(v int64) bool) {
+func (c *float32Column) FilterInt64(offset uint32, index bitmap.Bitmap, predicate func(v int64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) (match bool) {
 		idx = offset + idx
@@ -126,7 +136,7 @@ func (c *columnfloat32) FilterInt64(offset uint32, index bitmap.Bitmap, predicat
 }
 
 // FilterUint64 filters down the values based on the specified predicate.
-func (c *columnfloat32) FilterUint64(offset uint32, index bitmap.Bitmap, predicate func(v uint64) bool) {
+func (c *float32Column) FilterUint64(offset uint32, index bitmap.Bitmap, predicate func(v uint64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) (match bool) {
 		idx = offset + idx
@@ -135,56 +145,83 @@ func (c *columnfloat32) FilterUint64(offset uint32, index bitmap.Bitmap, predica
 }
 
 // Snapshot writes the entire column into the specified destination buffer
-func (c *columnfloat32) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
+func (c *float32Column) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	chunk.Range(c.fill, func(idx uint32) {
-		dst.PutFloat32(commit.Put, idx, c.data[idx])
+		dst.PutFloat32(idx, c.data[idx])
 	})
 }
 
-// --------------------------- Cursor Update ----------------------------
-
-// SetFloat32 updates a column value for the current item. The actual operation
-// will be queued and executed once the current the transaction completes.
-func (cur *Cursor) SetFloat32(value float32) {
-	cur.update.PutFloat32(commit.Put, cur.idx, value)
+// float32Reader represens a read-only accessor for float32
+type float32Reader struct {
+	cursor *uint32
+	reader *float32Column
 }
 
-// AddFloat32 atomically increments/decrements the current value by the specified amount. Note
-// that this only works for numerical values and the type of the value must match.
-func (cur *Cursor) AddFloat32(amount float32) {
-	cur.update.PutFloat32(commit.Add, cur.idx, amount)
+// Get loads the value at the current transaction cursor
+func (s float32Reader) Get() (float32, bool) {
+	return s.reader.load(*s.cursor)
 }
 
-// SetFloat32At updates a specified column value for the current item. The actual operation
-// will be queued and executed once the current the transaction completes.
-func (cur *Cursor) SetFloat32At(column string, value float32) {
-	cur.txn.bufferFor(column).PutFloat32(commit.Put, cur.idx, value)
+// float32ReaderFor creates a new float32 reader
+func float32ReaderFor(txn *Txn, columnName string) float32Reader {
+	column, ok := txn.columnAt(columnName)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
+	}
+
+	reader, ok := column.Column.(*float32Column)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' is not of type %T", columnName, float32(0)))
+	}
+
+	return float32Reader{
+		cursor: &txn.cursor,
+		reader: reader,
+	}
 }
 
-// AddFloat32At atomically increments/decrements the column value by the specified amount. Note
-// that this only works for numerical values and the type of the value must match.
-func (cur *Cursor) AddFloat32At(column string, amount float32) {
-	cur.txn.bufferFor(column).PutFloat32(commit.Add, cur.idx, amount)
+// float32Writer represents a read-write accessor for float32
+type float32Writer struct {
+	float32Reader
+	writer *commit.Buffer
+}
+
+// Set sets the value at the current transaction cursor
+func (s float32Writer) Set(value float32) {
+	s.writer.PutFloat32(*s.cursor, value)
+}
+
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s float32Writer) Add(delta float32) {
+	s.writer.AddFloat32(*s.cursor, delta)
+}
+
+// Float32 returns a read-write accessor for float32 column
+func (txn *Txn) Float32(columnName string) float32Writer {
+	return float32Writer{
+		float32Reader: float32ReaderFor(txn, columnName),
+		writer:        txn.bufferFor(columnName),
+	}
 }
 
 // --------------------------- Float64s ----------------------------
 
-// columnFloat64 represents a generic column
-type columnfloat64 struct {
+// float64Column represents a generic column
+type float64Column struct {
 	fill bitmap.Bitmap // The fill-list
 	data []float64     // The actual values
 }
 
 // makeFloat64s creates a new vector for Float64s
 func makeFloat64s() Column {
-	return &columnfloat64{
+	return &float64Column{
 		fill: make(bitmap.Bitmap, 0, 4),
 		data: make([]float64, 0, 64),
 	}
 }
 
 // Grow grows the size of the column until we have enough to store
-func (c *columnfloat64) Grow(idx uint32) {
+func (c *float64Column) Grow(idx uint32) {
 	if idx < uint32(len(c.data)) {
 		return
 	}
@@ -202,7 +239,7 @@ func (c *columnfloat64) Grow(idx uint32) {
 }
 
 // Apply applies a set of operations to the column.
-func (c *columnfloat64) Apply(r *commit.Reader) {
+func (c *float64Column) Apply(r *commit.Reader) {
 	for r.Next() {
 		switch r.Type {
 		case commit.Put:
@@ -224,17 +261,17 @@ func (c *columnfloat64) Apply(r *commit.Reader) {
 }
 
 // Contains checks whether the column has a value at a specified index.
-func (c *columnfloat64) Contains(idx uint32) bool {
+func (c *float64Column) Contains(idx uint32) bool {
 	return c.fill.Contains(idx)
 }
 
 // Index returns the fill list for the column
-func (c *columnfloat64) Index() *bitmap.Bitmap {
+func (c *float64Column) Index() *bitmap.Bitmap {
 	return &c.fill
 }
 
 // Value retrieves a value at a specified index
-func (c *columnfloat64) Value(idx uint32) (v interface{}, ok bool) {
+func (c *float64Column) Value(idx uint32) (v interface{}, ok bool) {
 	v = float64(0)
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = c.data[idx], true
@@ -242,8 +279,16 @@ func (c *columnfloat64) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
+// load retrieves a float64 value at a specified index
+func (c *float64Column) load(idx uint32) (v float64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = float64(c.data[idx]), true
+	}
+	return
+}
+
 // LoadFloat64 retrieves a float64 value at a specified index
-func (c *columnfloat64) LoadFloat64(idx uint32) (v float64, ok bool) {
+func (c *float64Column) LoadFloat64(idx uint32) (v float64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = float64(c.data[idx]), true
 	}
@@ -251,7 +296,7 @@ func (c *columnfloat64) LoadFloat64(idx uint32) (v float64, ok bool) {
 }
 
 // LoadInt64 retrieves an int64 value at a specified index
-func (c *columnfloat64) LoadInt64(idx uint32) (v int64, ok bool) {
+func (c *float64Column) LoadInt64(idx uint32) (v int64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = int64(c.data[idx]), true
 	}
@@ -259,7 +304,7 @@ func (c *columnfloat64) LoadInt64(idx uint32) (v int64, ok bool) {
 }
 
 // LoadUint64 retrieves an uint64 value at a specified index
-func (c *columnfloat64) LoadUint64(idx uint32) (v uint64, ok bool) {
+func (c *float64Column) LoadUint64(idx uint32) (v uint64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = uint64(c.data[idx]), true
 	}
@@ -267,7 +312,7 @@ func (c *columnfloat64) LoadUint64(idx uint32) (v uint64, ok bool) {
 }
 
 // FilterFloat64 filters down the values based on the specified predicate.
-func (c *columnfloat64) FilterFloat64(offset uint32, index bitmap.Bitmap, predicate func(v float64) bool) {
+func (c *float64Column) FilterFloat64(offset uint32, index bitmap.Bitmap, predicate func(v float64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) bool {
 		idx = offset + idx
@@ -276,7 +321,7 @@ func (c *columnfloat64) FilterFloat64(offset uint32, index bitmap.Bitmap, predic
 }
 
 // FilterInt64 filters down the values based on the specified predicate.
-func (c *columnfloat64) FilterInt64(offset uint32, index bitmap.Bitmap, predicate func(v int64) bool) {
+func (c *float64Column) FilterInt64(offset uint32, index bitmap.Bitmap, predicate func(v int64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) (match bool) {
 		idx = offset + idx
@@ -285,7 +330,7 @@ func (c *columnfloat64) FilterInt64(offset uint32, index bitmap.Bitmap, predicat
 }
 
 // FilterUint64 filters down the values based on the specified predicate.
-func (c *columnfloat64) FilterUint64(offset uint32, index bitmap.Bitmap, predicate func(v uint64) bool) {
+func (c *float64Column) FilterUint64(offset uint32, index bitmap.Bitmap, predicate func(v uint64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) (match bool) {
 		idx = offset + idx
@@ -294,56 +339,83 @@ func (c *columnfloat64) FilterUint64(offset uint32, index bitmap.Bitmap, predica
 }
 
 // Snapshot writes the entire column into the specified destination buffer
-func (c *columnfloat64) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
+func (c *float64Column) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	chunk.Range(c.fill, func(idx uint32) {
-		dst.PutFloat64(commit.Put, idx, c.data[idx])
+		dst.PutFloat64(idx, c.data[idx])
 	})
 }
 
-// --------------------------- Cursor Update ----------------------------
-
-// SetFloat64 updates a column value for the current item. The actual operation
-// will be queued and executed once the current the transaction completes.
-func (cur *Cursor) SetFloat64(value float64) {
-	cur.update.PutFloat64(commit.Put, cur.idx, value)
+// float64Reader represens a read-only accessor for float64
+type float64Reader struct {
+	cursor *uint32
+	reader *float64Column
 }
 
-// AddFloat64 atomically increments/decrements the current value by the specified amount. Note
-// that this only works for numerical values and the type of the value must match.
-func (cur *Cursor) AddFloat64(amount float64) {
-	cur.update.PutFloat64(commit.Add, cur.idx, amount)
+// Get loads the value at the current transaction cursor
+func (s float64Reader) Get() (float64, bool) {
+	return s.reader.load(*s.cursor)
 }
 
-// SetFloat64At updates a specified column value for the current item. The actual operation
-// will be queued and executed once the current the transaction completes.
-func (cur *Cursor) SetFloat64At(column string, value float64) {
-	cur.txn.bufferFor(column).PutFloat64(commit.Put, cur.idx, value)
+// float64ReaderFor creates a new float64 reader
+func float64ReaderFor(txn *Txn, columnName string) float64Reader {
+	column, ok := txn.columnAt(columnName)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
+	}
+
+	reader, ok := column.Column.(*float64Column)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' is not of type %T", columnName, float64(0)))
+	}
+
+	return float64Reader{
+		cursor: &txn.cursor,
+		reader: reader,
+	}
 }
 
-// AddFloat64At atomically increments/decrements the column value by the specified amount. Note
-// that this only works for numerical values and the type of the value must match.
-func (cur *Cursor) AddFloat64At(column string, amount float64) {
-	cur.txn.bufferFor(column).PutFloat64(commit.Add, cur.idx, amount)
+// float64Writer represents a read-write accessor for float64
+type float64Writer struct {
+	float64Reader
+	writer *commit.Buffer
+}
+
+// Set sets the value at the current transaction cursor
+func (s float64Writer) Set(value float64) {
+	s.writer.PutFloat64(*s.cursor, value)
+}
+
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s float64Writer) Add(delta float64) {
+	s.writer.AddFloat64(*s.cursor, delta)
+}
+
+// Float64 returns a read-write accessor for float64 column
+func (txn *Txn) Float64(columnName string) float64Writer {
+	return float64Writer{
+		float64Reader: float64ReaderFor(txn, columnName),
+		writer:        txn.bufferFor(columnName),
+	}
 }
 
 // --------------------------- Ints ----------------------------
 
-// columnInt represents a generic column
-type columnint struct {
+// intColumn represents a generic column
+type intColumn struct {
 	fill bitmap.Bitmap // The fill-list
 	data []int         // The actual values
 }
 
 // makeInts creates a new vector for Ints
 func makeInts() Column {
-	return &columnint{
+	return &intColumn{
 		fill: make(bitmap.Bitmap, 0, 4),
 		data: make([]int, 0, 64),
 	}
 }
 
 // Grow grows the size of the column until we have enough to store
-func (c *columnint) Grow(idx uint32) {
+func (c *intColumn) Grow(idx uint32) {
 	if idx < uint32(len(c.data)) {
 		return
 	}
@@ -361,7 +433,7 @@ func (c *columnint) Grow(idx uint32) {
 }
 
 // Apply applies a set of operations to the column.
-func (c *columnint) Apply(r *commit.Reader) {
+func (c *intColumn) Apply(r *commit.Reader) {
 	for r.Next() {
 		switch r.Type {
 		case commit.Put:
@@ -383,17 +455,17 @@ func (c *columnint) Apply(r *commit.Reader) {
 }
 
 // Contains checks whether the column has a value at a specified index.
-func (c *columnint) Contains(idx uint32) bool {
+func (c *intColumn) Contains(idx uint32) bool {
 	return c.fill.Contains(idx)
 }
 
 // Index returns the fill list for the column
-func (c *columnint) Index() *bitmap.Bitmap {
+func (c *intColumn) Index() *bitmap.Bitmap {
 	return &c.fill
 }
 
 // Value retrieves a value at a specified index
-func (c *columnint) Value(idx uint32) (v interface{}, ok bool) {
+func (c *intColumn) Value(idx uint32) (v interface{}, ok bool) {
 	v = int(0)
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = c.data[idx], true
@@ -401,8 +473,16 @@ func (c *columnint) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
+// load retrieves a int value at a specified index
+func (c *intColumn) load(idx uint32) (v int, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = int(c.data[idx]), true
+	}
+	return
+}
+
 // LoadFloat64 retrieves a float64 value at a specified index
-func (c *columnint) LoadFloat64(idx uint32) (v float64, ok bool) {
+func (c *intColumn) LoadFloat64(idx uint32) (v float64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = float64(c.data[idx]), true
 	}
@@ -410,7 +490,7 @@ func (c *columnint) LoadFloat64(idx uint32) (v float64, ok bool) {
 }
 
 // LoadInt64 retrieves an int64 value at a specified index
-func (c *columnint) LoadInt64(idx uint32) (v int64, ok bool) {
+func (c *intColumn) LoadInt64(idx uint32) (v int64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = int64(c.data[idx]), true
 	}
@@ -418,7 +498,7 @@ func (c *columnint) LoadInt64(idx uint32) (v int64, ok bool) {
 }
 
 // LoadUint64 retrieves an uint64 value at a specified index
-func (c *columnint) LoadUint64(idx uint32) (v uint64, ok bool) {
+func (c *intColumn) LoadUint64(idx uint32) (v uint64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = uint64(c.data[idx]), true
 	}
@@ -426,7 +506,7 @@ func (c *columnint) LoadUint64(idx uint32) (v uint64, ok bool) {
 }
 
 // FilterFloat64 filters down the values based on the specified predicate.
-func (c *columnint) FilterFloat64(offset uint32, index bitmap.Bitmap, predicate func(v float64) bool) {
+func (c *intColumn) FilterFloat64(offset uint32, index bitmap.Bitmap, predicate func(v float64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) bool {
 		idx = offset + idx
@@ -435,7 +515,7 @@ func (c *columnint) FilterFloat64(offset uint32, index bitmap.Bitmap, predicate 
 }
 
 // FilterInt64 filters down the values based on the specified predicate.
-func (c *columnint) FilterInt64(offset uint32, index bitmap.Bitmap, predicate func(v int64) bool) {
+func (c *intColumn) FilterInt64(offset uint32, index bitmap.Bitmap, predicate func(v int64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) (match bool) {
 		idx = offset + idx
@@ -444,7 +524,7 @@ func (c *columnint) FilterInt64(offset uint32, index bitmap.Bitmap, predicate fu
 }
 
 // FilterUint64 filters down the values based on the specified predicate.
-func (c *columnint) FilterUint64(offset uint32, index bitmap.Bitmap, predicate func(v uint64) bool) {
+func (c *intColumn) FilterUint64(offset uint32, index bitmap.Bitmap, predicate func(v uint64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) (match bool) {
 		idx = offset + idx
@@ -453,56 +533,83 @@ func (c *columnint) FilterUint64(offset uint32, index bitmap.Bitmap, predicate f
 }
 
 // Snapshot writes the entire column into the specified destination buffer
-func (c *columnint) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
+func (c *intColumn) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	chunk.Range(c.fill, func(idx uint32) {
-		dst.PutInt(commit.Put, idx, c.data[idx])
+		dst.PutInt(idx, c.data[idx])
 	})
 }
 
-// --------------------------- Cursor Update ----------------------------
-
-// SetInt updates a column value for the current item. The actual operation
-// will be queued and executed once the current the transaction completes.
-func (cur *Cursor) SetInt(value int) {
-	cur.update.PutInt(commit.Put, cur.idx, value)
+// intReader represens a read-only accessor for int
+type intReader struct {
+	cursor *uint32
+	reader *intColumn
 }
 
-// AddInt atomically increments/decrements the current value by the specified amount. Note
-// that this only works for numerical values and the type of the value must match.
-func (cur *Cursor) AddInt(amount int) {
-	cur.update.PutInt(commit.Add, cur.idx, amount)
+// Get loads the value at the current transaction cursor
+func (s intReader) Get() (int, bool) {
+	return s.reader.load(*s.cursor)
 }
 
-// SetIntAt updates a specified column value for the current item. The actual operation
-// will be queued and executed once the current the transaction completes.
-func (cur *Cursor) SetIntAt(column string, value int) {
-	cur.txn.bufferFor(column).PutInt(commit.Put, cur.idx, value)
+// intReaderFor creates a new int reader
+func intReaderFor(txn *Txn, columnName string) intReader {
+	column, ok := txn.columnAt(columnName)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
+	}
+
+	reader, ok := column.Column.(*intColumn)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' is not of type %T", columnName, int(0)))
+	}
+
+	return intReader{
+		cursor: &txn.cursor,
+		reader: reader,
+	}
 }
 
-// AddIntAt atomically increments/decrements the column value by the specified amount. Note
-// that this only works for numerical values and the type of the value must match.
-func (cur *Cursor) AddIntAt(column string, amount int) {
-	cur.txn.bufferFor(column).PutInt(commit.Add, cur.idx, amount)
+// intWriter represents a read-write accessor for int
+type intWriter struct {
+	intReader
+	writer *commit.Buffer
+}
+
+// Set sets the value at the current transaction cursor
+func (s intWriter) Set(value int) {
+	s.writer.PutInt(*s.cursor, value)
+}
+
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s intWriter) Add(delta int) {
+	s.writer.AddInt(*s.cursor, delta)
+}
+
+// Int returns a read-write accessor for int column
+func (txn *Txn) Int(columnName string) intWriter {
+	return intWriter{
+		intReader: intReaderFor(txn, columnName),
+		writer:    txn.bufferFor(columnName),
+	}
 }
 
 // --------------------------- Int16s ----------------------------
 
-// columnInt16 represents a generic column
-type columnint16 struct {
+// int16Column represents a generic column
+type int16Column struct {
 	fill bitmap.Bitmap // The fill-list
 	data []int16       // The actual values
 }
 
 // makeInt16s creates a new vector for Int16s
 func makeInt16s() Column {
-	return &columnint16{
+	return &int16Column{
 		fill: make(bitmap.Bitmap, 0, 4),
 		data: make([]int16, 0, 64),
 	}
 }
 
 // Grow grows the size of the column until we have enough to store
-func (c *columnint16) Grow(idx uint32) {
+func (c *int16Column) Grow(idx uint32) {
 	if idx < uint32(len(c.data)) {
 		return
 	}
@@ -520,7 +627,7 @@ func (c *columnint16) Grow(idx uint32) {
 }
 
 // Apply applies a set of operations to the column.
-func (c *columnint16) Apply(r *commit.Reader) {
+func (c *int16Column) Apply(r *commit.Reader) {
 	for r.Next() {
 		switch r.Type {
 		case commit.Put:
@@ -542,17 +649,17 @@ func (c *columnint16) Apply(r *commit.Reader) {
 }
 
 // Contains checks whether the column has a value at a specified index.
-func (c *columnint16) Contains(idx uint32) bool {
+func (c *int16Column) Contains(idx uint32) bool {
 	return c.fill.Contains(idx)
 }
 
 // Index returns the fill list for the column
-func (c *columnint16) Index() *bitmap.Bitmap {
+func (c *int16Column) Index() *bitmap.Bitmap {
 	return &c.fill
 }
 
 // Value retrieves a value at a specified index
-func (c *columnint16) Value(idx uint32) (v interface{}, ok bool) {
+func (c *int16Column) Value(idx uint32) (v interface{}, ok bool) {
 	v = int16(0)
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = c.data[idx], true
@@ -560,8 +667,16 @@ func (c *columnint16) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
+// load retrieves a int16 value at a specified index
+func (c *int16Column) load(idx uint32) (v int16, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = int16(c.data[idx]), true
+	}
+	return
+}
+
 // LoadFloat64 retrieves a float64 value at a specified index
-func (c *columnint16) LoadFloat64(idx uint32) (v float64, ok bool) {
+func (c *int16Column) LoadFloat64(idx uint32) (v float64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = float64(c.data[idx]), true
 	}
@@ -569,7 +684,7 @@ func (c *columnint16) LoadFloat64(idx uint32) (v float64, ok bool) {
 }
 
 // LoadInt64 retrieves an int64 value at a specified index
-func (c *columnint16) LoadInt64(idx uint32) (v int64, ok bool) {
+func (c *int16Column) LoadInt64(idx uint32) (v int64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = int64(c.data[idx]), true
 	}
@@ -577,7 +692,7 @@ func (c *columnint16) LoadInt64(idx uint32) (v int64, ok bool) {
 }
 
 // LoadUint64 retrieves an uint64 value at a specified index
-func (c *columnint16) LoadUint64(idx uint32) (v uint64, ok bool) {
+func (c *int16Column) LoadUint64(idx uint32) (v uint64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = uint64(c.data[idx]), true
 	}
@@ -585,7 +700,7 @@ func (c *columnint16) LoadUint64(idx uint32) (v uint64, ok bool) {
 }
 
 // FilterFloat64 filters down the values based on the specified predicate.
-func (c *columnint16) FilterFloat64(offset uint32, index bitmap.Bitmap, predicate func(v float64) bool) {
+func (c *int16Column) FilterFloat64(offset uint32, index bitmap.Bitmap, predicate func(v float64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) bool {
 		idx = offset + idx
@@ -594,7 +709,7 @@ func (c *columnint16) FilterFloat64(offset uint32, index bitmap.Bitmap, predicat
 }
 
 // FilterInt64 filters down the values based on the specified predicate.
-func (c *columnint16) FilterInt64(offset uint32, index bitmap.Bitmap, predicate func(v int64) bool) {
+func (c *int16Column) FilterInt64(offset uint32, index bitmap.Bitmap, predicate func(v int64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) (match bool) {
 		idx = offset + idx
@@ -603,7 +718,7 @@ func (c *columnint16) FilterInt64(offset uint32, index bitmap.Bitmap, predicate 
 }
 
 // FilterUint64 filters down the values based on the specified predicate.
-func (c *columnint16) FilterUint64(offset uint32, index bitmap.Bitmap, predicate func(v uint64) bool) {
+func (c *int16Column) FilterUint64(offset uint32, index bitmap.Bitmap, predicate func(v uint64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) (match bool) {
 		idx = offset + idx
@@ -612,56 +727,83 @@ func (c *columnint16) FilterUint64(offset uint32, index bitmap.Bitmap, predicate
 }
 
 // Snapshot writes the entire column into the specified destination buffer
-func (c *columnint16) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
+func (c *int16Column) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	chunk.Range(c.fill, func(idx uint32) {
-		dst.PutInt16(commit.Put, idx, c.data[idx])
+		dst.PutInt16(idx, c.data[idx])
 	})
 }
 
-// --------------------------- Cursor Update ----------------------------
-
-// SetInt16 updates a column value for the current item. The actual operation
-// will be queued and executed once the current the transaction completes.
-func (cur *Cursor) SetInt16(value int16) {
-	cur.update.PutInt16(commit.Put, cur.idx, value)
+// int16Reader represens a read-only accessor for int16
+type int16Reader struct {
+	cursor *uint32
+	reader *int16Column
 }
 
-// AddInt16 atomically increments/decrements the current value by the specified amount. Note
-// that this only works for numerical values and the type of the value must match.
-func (cur *Cursor) AddInt16(amount int16) {
-	cur.update.PutInt16(commit.Add, cur.idx, amount)
+// Get loads the value at the current transaction cursor
+func (s int16Reader) Get() (int16, bool) {
+	return s.reader.load(*s.cursor)
 }
 
-// SetInt16At updates a specified column value for the current item. The actual operation
-// will be queued and executed once the current the transaction completes.
-func (cur *Cursor) SetInt16At(column string, value int16) {
-	cur.txn.bufferFor(column).PutInt16(commit.Put, cur.idx, value)
+// int16ReaderFor creates a new int16 reader
+func int16ReaderFor(txn *Txn, columnName string) int16Reader {
+	column, ok := txn.columnAt(columnName)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
+	}
+
+	reader, ok := column.Column.(*int16Column)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' is not of type %T", columnName, int16(0)))
+	}
+
+	return int16Reader{
+		cursor: &txn.cursor,
+		reader: reader,
+	}
 }
 
-// AddInt16At atomically increments/decrements the column value by the specified amount. Note
-// that this only works for numerical values and the type of the value must match.
-func (cur *Cursor) AddInt16At(column string, amount int16) {
-	cur.txn.bufferFor(column).PutInt16(commit.Add, cur.idx, amount)
+// int16Writer represents a read-write accessor for int16
+type int16Writer struct {
+	int16Reader
+	writer *commit.Buffer
+}
+
+// Set sets the value at the current transaction cursor
+func (s int16Writer) Set(value int16) {
+	s.writer.PutInt16(*s.cursor, value)
+}
+
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s int16Writer) Add(delta int16) {
+	s.writer.AddInt16(*s.cursor, delta)
+}
+
+// Int16 returns a read-write accessor for int16 column
+func (txn *Txn) Int16(columnName string) int16Writer {
+	return int16Writer{
+		int16Reader: int16ReaderFor(txn, columnName),
+		writer:      txn.bufferFor(columnName),
+	}
 }
 
 // --------------------------- Int32s ----------------------------
 
-// columnInt32 represents a generic column
-type columnint32 struct {
+// int32Column represents a generic column
+type int32Column struct {
 	fill bitmap.Bitmap // The fill-list
 	data []int32       // The actual values
 }
 
 // makeInt32s creates a new vector for Int32s
 func makeInt32s() Column {
-	return &columnint32{
+	return &int32Column{
 		fill: make(bitmap.Bitmap, 0, 4),
 		data: make([]int32, 0, 64),
 	}
 }
 
 // Grow grows the size of the column until we have enough to store
-func (c *columnint32) Grow(idx uint32) {
+func (c *int32Column) Grow(idx uint32) {
 	if idx < uint32(len(c.data)) {
 		return
 	}
@@ -679,7 +821,7 @@ func (c *columnint32) Grow(idx uint32) {
 }
 
 // Apply applies a set of operations to the column.
-func (c *columnint32) Apply(r *commit.Reader) {
+func (c *int32Column) Apply(r *commit.Reader) {
 	for r.Next() {
 		switch r.Type {
 		case commit.Put:
@@ -701,17 +843,17 @@ func (c *columnint32) Apply(r *commit.Reader) {
 }
 
 // Contains checks whether the column has a value at a specified index.
-func (c *columnint32) Contains(idx uint32) bool {
+func (c *int32Column) Contains(idx uint32) bool {
 	return c.fill.Contains(idx)
 }
 
 // Index returns the fill list for the column
-func (c *columnint32) Index() *bitmap.Bitmap {
+func (c *int32Column) Index() *bitmap.Bitmap {
 	return &c.fill
 }
 
 // Value retrieves a value at a specified index
-func (c *columnint32) Value(idx uint32) (v interface{}, ok bool) {
+func (c *int32Column) Value(idx uint32) (v interface{}, ok bool) {
 	v = int32(0)
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = c.data[idx], true
@@ -719,8 +861,16 @@ func (c *columnint32) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
+// load retrieves a int32 value at a specified index
+func (c *int32Column) load(idx uint32) (v int32, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = int32(c.data[idx]), true
+	}
+	return
+}
+
 // LoadFloat64 retrieves a float64 value at a specified index
-func (c *columnint32) LoadFloat64(idx uint32) (v float64, ok bool) {
+func (c *int32Column) LoadFloat64(idx uint32) (v float64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = float64(c.data[idx]), true
 	}
@@ -728,7 +878,7 @@ func (c *columnint32) LoadFloat64(idx uint32) (v float64, ok bool) {
 }
 
 // LoadInt64 retrieves an int64 value at a specified index
-func (c *columnint32) LoadInt64(idx uint32) (v int64, ok bool) {
+func (c *int32Column) LoadInt64(idx uint32) (v int64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = int64(c.data[idx]), true
 	}
@@ -736,7 +886,7 @@ func (c *columnint32) LoadInt64(idx uint32) (v int64, ok bool) {
 }
 
 // LoadUint64 retrieves an uint64 value at a specified index
-func (c *columnint32) LoadUint64(idx uint32) (v uint64, ok bool) {
+func (c *int32Column) LoadUint64(idx uint32) (v uint64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = uint64(c.data[idx]), true
 	}
@@ -744,7 +894,7 @@ func (c *columnint32) LoadUint64(idx uint32) (v uint64, ok bool) {
 }
 
 // FilterFloat64 filters down the values based on the specified predicate.
-func (c *columnint32) FilterFloat64(offset uint32, index bitmap.Bitmap, predicate func(v float64) bool) {
+func (c *int32Column) FilterFloat64(offset uint32, index bitmap.Bitmap, predicate func(v float64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) bool {
 		idx = offset + idx
@@ -753,7 +903,7 @@ func (c *columnint32) FilterFloat64(offset uint32, index bitmap.Bitmap, predicat
 }
 
 // FilterInt64 filters down the values based on the specified predicate.
-func (c *columnint32) FilterInt64(offset uint32, index bitmap.Bitmap, predicate func(v int64) bool) {
+func (c *int32Column) FilterInt64(offset uint32, index bitmap.Bitmap, predicate func(v int64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) (match bool) {
 		idx = offset + idx
@@ -762,7 +912,7 @@ func (c *columnint32) FilterInt64(offset uint32, index bitmap.Bitmap, predicate 
 }
 
 // FilterUint64 filters down the values based on the specified predicate.
-func (c *columnint32) FilterUint64(offset uint32, index bitmap.Bitmap, predicate func(v uint64) bool) {
+func (c *int32Column) FilterUint64(offset uint32, index bitmap.Bitmap, predicate func(v uint64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) (match bool) {
 		idx = offset + idx
@@ -771,56 +921,83 @@ func (c *columnint32) FilterUint64(offset uint32, index bitmap.Bitmap, predicate
 }
 
 // Snapshot writes the entire column into the specified destination buffer
-func (c *columnint32) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
+func (c *int32Column) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	chunk.Range(c.fill, func(idx uint32) {
-		dst.PutInt32(commit.Put, idx, c.data[idx])
+		dst.PutInt32(idx, c.data[idx])
 	})
 }
 
-// --------------------------- Cursor Update ----------------------------
-
-// SetInt32 updates a column value for the current item. The actual operation
-// will be queued and executed once the current the transaction completes.
-func (cur *Cursor) SetInt32(value int32) {
-	cur.update.PutInt32(commit.Put, cur.idx, value)
+// int32Reader represens a read-only accessor for int32
+type int32Reader struct {
+	cursor *uint32
+	reader *int32Column
 }
 
-// AddInt32 atomically increments/decrements the current value by the specified amount. Note
-// that this only works for numerical values and the type of the value must match.
-func (cur *Cursor) AddInt32(amount int32) {
-	cur.update.PutInt32(commit.Add, cur.idx, amount)
+// Get loads the value at the current transaction cursor
+func (s int32Reader) Get() (int32, bool) {
+	return s.reader.load(*s.cursor)
 }
 
-// SetInt32At updates a specified column value for the current item. The actual operation
-// will be queued and executed once the current the transaction completes.
-func (cur *Cursor) SetInt32At(column string, value int32) {
-	cur.txn.bufferFor(column).PutInt32(commit.Put, cur.idx, value)
+// int32ReaderFor creates a new int32 reader
+func int32ReaderFor(txn *Txn, columnName string) int32Reader {
+	column, ok := txn.columnAt(columnName)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
+	}
+
+	reader, ok := column.Column.(*int32Column)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' is not of type %T", columnName, int32(0)))
+	}
+
+	return int32Reader{
+		cursor: &txn.cursor,
+		reader: reader,
+	}
 }
 
-// AddInt32At atomically increments/decrements the column value by the specified amount. Note
-// that this only works for numerical values and the type of the value must match.
-func (cur *Cursor) AddInt32At(column string, amount int32) {
-	cur.txn.bufferFor(column).PutInt32(commit.Add, cur.idx, amount)
+// int32Writer represents a read-write accessor for int32
+type int32Writer struct {
+	int32Reader
+	writer *commit.Buffer
+}
+
+// Set sets the value at the current transaction cursor
+func (s int32Writer) Set(value int32) {
+	s.writer.PutInt32(*s.cursor, value)
+}
+
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s int32Writer) Add(delta int32) {
+	s.writer.AddInt32(*s.cursor, delta)
+}
+
+// Int32 returns a read-write accessor for int32 column
+func (txn *Txn) Int32(columnName string) int32Writer {
+	return int32Writer{
+		int32Reader: int32ReaderFor(txn, columnName),
+		writer:      txn.bufferFor(columnName),
+	}
 }
 
 // --------------------------- Int64s ----------------------------
 
-// columnInt64 represents a generic column
-type columnint64 struct {
+// int64Column represents a generic column
+type int64Column struct {
 	fill bitmap.Bitmap // The fill-list
 	data []int64       // The actual values
 }
 
 // makeInt64s creates a new vector for Int64s
 func makeInt64s() Column {
-	return &columnint64{
+	return &int64Column{
 		fill: make(bitmap.Bitmap, 0, 4),
 		data: make([]int64, 0, 64),
 	}
 }
 
 // Grow grows the size of the column until we have enough to store
-func (c *columnint64) Grow(idx uint32) {
+func (c *int64Column) Grow(idx uint32) {
 	if idx < uint32(len(c.data)) {
 		return
 	}
@@ -838,7 +1015,7 @@ func (c *columnint64) Grow(idx uint32) {
 }
 
 // Apply applies a set of operations to the column.
-func (c *columnint64) Apply(r *commit.Reader) {
+func (c *int64Column) Apply(r *commit.Reader) {
 	for r.Next() {
 		switch r.Type {
 		case commit.Put:
@@ -860,17 +1037,17 @@ func (c *columnint64) Apply(r *commit.Reader) {
 }
 
 // Contains checks whether the column has a value at a specified index.
-func (c *columnint64) Contains(idx uint32) bool {
+func (c *int64Column) Contains(idx uint32) bool {
 	return c.fill.Contains(idx)
 }
 
 // Index returns the fill list for the column
-func (c *columnint64) Index() *bitmap.Bitmap {
+func (c *int64Column) Index() *bitmap.Bitmap {
 	return &c.fill
 }
 
 // Value retrieves a value at a specified index
-func (c *columnint64) Value(idx uint32) (v interface{}, ok bool) {
+func (c *int64Column) Value(idx uint32) (v interface{}, ok bool) {
 	v = int64(0)
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = c.data[idx], true
@@ -878,8 +1055,16 @@ func (c *columnint64) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
+// load retrieves a int64 value at a specified index
+func (c *int64Column) load(idx uint32) (v int64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = int64(c.data[idx]), true
+	}
+	return
+}
+
 // LoadFloat64 retrieves a float64 value at a specified index
-func (c *columnint64) LoadFloat64(idx uint32) (v float64, ok bool) {
+func (c *int64Column) LoadFloat64(idx uint32) (v float64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = float64(c.data[idx]), true
 	}
@@ -887,7 +1072,7 @@ func (c *columnint64) LoadFloat64(idx uint32) (v float64, ok bool) {
 }
 
 // LoadInt64 retrieves an int64 value at a specified index
-func (c *columnint64) LoadInt64(idx uint32) (v int64, ok bool) {
+func (c *int64Column) LoadInt64(idx uint32) (v int64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = int64(c.data[idx]), true
 	}
@@ -895,7 +1080,7 @@ func (c *columnint64) LoadInt64(idx uint32) (v int64, ok bool) {
 }
 
 // LoadUint64 retrieves an uint64 value at a specified index
-func (c *columnint64) LoadUint64(idx uint32) (v uint64, ok bool) {
+func (c *int64Column) LoadUint64(idx uint32) (v uint64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = uint64(c.data[idx]), true
 	}
@@ -903,7 +1088,7 @@ func (c *columnint64) LoadUint64(idx uint32) (v uint64, ok bool) {
 }
 
 // FilterFloat64 filters down the values based on the specified predicate.
-func (c *columnint64) FilterFloat64(offset uint32, index bitmap.Bitmap, predicate func(v float64) bool) {
+func (c *int64Column) FilterFloat64(offset uint32, index bitmap.Bitmap, predicate func(v float64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) bool {
 		idx = offset + idx
@@ -912,7 +1097,7 @@ func (c *columnint64) FilterFloat64(offset uint32, index bitmap.Bitmap, predicat
 }
 
 // FilterInt64 filters down the values based on the specified predicate.
-func (c *columnint64) FilterInt64(offset uint32, index bitmap.Bitmap, predicate func(v int64) bool) {
+func (c *int64Column) FilterInt64(offset uint32, index bitmap.Bitmap, predicate func(v int64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) (match bool) {
 		idx = offset + idx
@@ -921,7 +1106,7 @@ func (c *columnint64) FilterInt64(offset uint32, index bitmap.Bitmap, predicate 
 }
 
 // FilterUint64 filters down the values based on the specified predicate.
-func (c *columnint64) FilterUint64(offset uint32, index bitmap.Bitmap, predicate func(v uint64) bool) {
+func (c *int64Column) FilterUint64(offset uint32, index bitmap.Bitmap, predicate func(v uint64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) (match bool) {
 		idx = offset + idx
@@ -930,56 +1115,83 @@ func (c *columnint64) FilterUint64(offset uint32, index bitmap.Bitmap, predicate
 }
 
 // Snapshot writes the entire column into the specified destination buffer
-func (c *columnint64) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
+func (c *int64Column) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	chunk.Range(c.fill, func(idx uint32) {
-		dst.PutInt64(commit.Put, idx, c.data[idx])
+		dst.PutInt64(idx, c.data[idx])
 	})
 }
 
-// --------------------------- Cursor Update ----------------------------
-
-// SetInt64 updates a column value for the current item. The actual operation
-// will be queued and executed once the current the transaction completes.
-func (cur *Cursor) SetInt64(value int64) {
-	cur.update.PutInt64(commit.Put, cur.idx, value)
+// int64Reader represens a read-only accessor for int64
+type int64Reader struct {
+	cursor *uint32
+	reader *int64Column
 }
 
-// AddInt64 atomically increments/decrements the current value by the specified amount. Note
-// that this only works for numerical values and the type of the value must match.
-func (cur *Cursor) AddInt64(amount int64) {
-	cur.update.PutInt64(commit.Add, cur.idx, amount)
+// Get loads the value at the current transaction cursor
+func (s int64Reader) Get() (int64, bool) {
+	return s.reader.load(*s.cursor)
 }
 
-// SetInt64At updates a specified column value for the current item. The actual operation
-// will be queued and executed once the current the transaction completes.
-func (cur *Cursor) SetInt64At(column string, value int64) {
-	cur.txn.bufferFor(column).PutInt64(commit.Put, cur.idx, value)
+// int64ReaderFor creates a new int64 reader
+func int64ReaderFor(txn *Txn, columnName string) int64Reader {
+	column, ok := txn.columnAt(columnName)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
+	}
+
+	reader, ok := column.Column.(*int64Column)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' is not of type %T", columnName, int64(0)))
+	}
+
+	return int64Reader{
+		cursor: &txn.cursor,
+		reader: reader,
+	}
 }
 
-// AddInt64At atomically increments/decrements the column value by the specified amount. Note
-// that this only works for numerical values and the type of the value must match.
-func (cur *Cursor) AddInt64At(column string, amount int64) {
-	cur.txn.bufferFor(column).PutInt64(commit.Add, cur.idx, amount)
+// int64Writer represents a read-write accessor for int64
+type int64Writer struct {
+	int64Reader
+	writer *commit.Buffer
+}
+
+// Set sets the value at the current transaction cursor
+func (s int64Writer) Set(value int64) {
+	s.writer.PutInt64(*s.cursor, value)
+}
+
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s int64Writer) Add(delta int64) {
+	s.writer.AddInt64(*s.cursor, delta)
+}
+
+// Int64 returns a read-write accessor for int64 column
+func (txn *Txn) Int64(columnName string) int64Writer {
+	return int64Writer{
+		int64Reader: int64ReaderFor(txn, columnName),
+		writer:      txn.bufferFor(columnName),
+	}
 }
 
 // --------------------------- Uints ----------------------------
 
-// columnUint represents a generic column
-type columnuint struct {
+// uintColumn represents a generic column
+type uintColumn struct {
 	fill bitmap.Bitmap // The fill-list
 	data []uint        // The actual values
 }
 
 // makeUints creates a new vector for Uints
 func makeUints() Column {
-	return &columnuint{
+	return &uintColumn{
 		fill: make(bitmap.Bitmap, 0, 4),
 		data: make([]uint, 0, 64),
 	}
 }
 
 // Grow grows the size of the column until we have enough to store
-func (c *columnuint) Grow(idx uint32) {
+func (c *uintColumn) Grow(idx uint32) {
 	if idx < uint32(len(c.data)) {
 		return
 	}
@@ -997,7 +1209,7 @@ func (c *columnuint) Grow(idx uint32) {
 }
 
 // Apply applies a set of operations to the column.
-func (c *columnuint) Apply(r *commit.Reader) {
+func (c *uintColumn) Apply(r *commit.Reader) {
 	for r.Next() {
 		switch r.Type {
 		case commit.Put:
@@ -1019,17 +1231,17 @@ func (c *columnuint) Apply(r *commit.Reader) {
 }
 
 // Contains checks whether the column has a value at a specified index.
-func (c *columnuint) Contains(idx uint32) bool {
+func (c *uintColumn) Contains(idx uint32) bool {
 	return c.fill.Contains(idx)
 }
 
 // Index returns the fill list for the column
-func (c *columnuint) Index() *bitmap.Bitmap {
+func (c *uintColumn) Index() *bitmap.Bitmap {
 	return &c.fill
 }
 
 // Value retrieves a value at a specified index
-func (c *columnuint) Value(idx uint32) (v interface{}, ok bool) {
+func (c *uintColumn) Value(idx uint32) (v interface{}, ok bool) {
 	v = uint(0)
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = c.data[idx], true
@@ -1037,8 +1249,16 @@ func (c *columnuint) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
+// load retrieves a uint value at a specified index
+func (c *uintColumn) load(idx uint32) (v uint, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = uint(c.data[idx]), true
+	}
+	return
+}
+
 // LoadFloat64 retrieves a float64 value at a specified index
-func (c *columnuint) LoadFloat64(idx uint32) (v float64, ok bool) {
+func (c *uintColumn) LoadFloat64(idx uint32) (v float64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = float64(c.data[idx]), true
 	}
@@ -1046,7 +1266,7 @@ func (c *columnuint) LoadFloat64(idx uint32) (v float64, ok bool) {
 }
 
 // LoadInt64 retrieves an int64 value at a specified index
-func (c *columnuint) LoadInt64(idx uint32) (v int64, ok bool) {
+func (c *uintColumn) LoadInt64(idx uint32) (v int64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = int64(c.data[idx]), true
 	}
@@ -1054,7 +1274,7 @@ func (c *columnuint) LoadInt64(idx uint32) (v int64, ok bool) {
 }
 
 // LoadUint64 retrieves an uint64 value at a specified index
-func (c *columnuint) LoadUint64(idx uint32) (v uint64, ok bool) {
+func (c *uintColumn) LoadUint64(idx uint32) (v uint64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = uint64(c.data[idx]), true
 	}
@@ -1062,7 +1282,7 @@ func (c *columnuint) LoadUint64(idx uint32) (v uint64, ok bool) {
 }
 
 // FilterFloat64 filters down the values based on the specified predicate.
-func (c *columnuint) FilterFloat64(offset uint32, index bitmap.Bitmap, predicate func(v float64) bool) {
+func (c *uintColumn) FilterFloat64(offset uint32, index bitmap.Bitmap, predicate func(v float64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) bool {
 		idx = offset + idx
@@ -1071,7 +1291,7 @@ func (c *columnuint) FilterFloat64(offset uint32, index bitmap.Bitmap, predicate
 }
 
 // FilterInt64 filters down the values based on the specified predicate.
-func (c *columnuint) FilterInt64(offset uint32, index bitmap.Bitmap, predicate func(v int64) bool) {
+func (c *uintColumn) FilterInt64(offset uint32, index bitmap.Bitmap, predicate func(v int64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) (match bool) {
 		idx = offset + idx
@@ -1080,7 +1300,7 @@ func (c *columnuint) FilterInt64(offset uint32, index bitmap.Bitmap, predicate f
 }
 
 // FilterUint64 filters down the values based on the specified predicate.
-func (c *columnuint) FilterUint64(offset uint32, index bitmap.Bitmap, predicate func(v uint64) bool) {
+func (c *uintColumn) FilterUint64(offset uint32, index bitmap.Bitmap, predicate func(v uint64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) (match bool) {
 		idx = offset + idx
@@ -1089,56 +1309,83 @@ func (c *columnuint) FilterUint64(offset uint32, index bitmap.Bitmap, predicate 
 }
 
 // Snapshot writes the entire column into the specified destination buffer
-func (c *columnuint) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
+func (c *uintColumn) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	chunk.Range(c.fill, func(idx uint32) {
-		dst.PutUint(commit.Put, idx, c.data[idx])
+		dst.PutUint(idx, c.data[idx])
 	})
 }
 
-// --------------------------- Cursor Update ----------------------------
-
-// SetUint updates a column value for the current item. The actual operation
-// will be queued and executed once the current the transaction completes.
-func (cur *Cursor) SetUint(value uint) {
-	cur.update.PutUint(commit.Put, cur.idx, value)
+// uintReader represens a read-only accessor for uint
+type uintReader struct {
+	cursor *uint32
+	reader *uintColumn
 }
 
-// AddUint atomically increments/decrements the current value by the specified amount. Note
-// that this only works for numerical values and the type of the value must match.
-func (cur *Cursor) AddUint(amount uint) {
-	cur.update.PutUint(commit.Add, cur.idx, amount)
+// Get loads the value at the current transaction cursor
+func (s uintReader) Get() (uint, bool) {
+	return s.reader.load(*s.cursor)
 }
 
-// SetUintAt updates a specified column value for the current item. The actual operation
-// will be queued and executed once the current the transaction completes.
-func (cur *Cursor) SetUintAt(column string, value uint) {
-	cur.txn.bufferFor(column).PutUint(commit.Put, cur.idx, value)
+// uintReaderFor creates a new uint reader
+func uintReaderFor(txn *Txn, columnName string) uintReader {
+	column, ok := txn.columnAt(columnName)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
+	}
+
+	reader, ok := column.Column.(*uintColumn)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' is not of type %T", columnName, uint(0)))
+	}
+
+	return uintReader{
+		cursor: &txn.cursor,
+		reader: reader,
+	}
 }
 
-// AddUintAt atomically increments/decrements the column value by the specified amount. Note
-// that this only works for numerical values and the type of the value must match.
-func (cur *Cursor) AddUintAt(column string, amount uint) {
-	cur.txn.bufferFor(column).PutUint(commit.Add, cur.idx, amount)
+// uintWriter represents a read-write accessor for uint
+type uintWriter struct {
+	uintReader
+	writer *commit.Buffer
+}
+
+// Set sets the value at the current transaction cursor
+func (s uintWriter) Set(value uint) {
+	s.writer.PutUint(*s.cursor, value)
+}
+
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s uintWriter) Add(delta uint) {
+	s.writer.AddUint(*s.cursor, delta)
+}
+
+// Uint returns a read-write accessor for uint column
+func (txn *Txn) Uint(columnName string) uintWriter {
+	return uintWriter{
+		uintReader: uintReaderFor(txn, columnName),
+		writer:     txn.bufferFor(columnName),
+	}
 }
 
 // --------------------------- Uint16s ----------------------------
 
-// columnUint16 represents a generic column
-type columnuint16 struct {
+// uint16Column represents a generic column
+type uint16Column struct {
 	fill bitmap.Bitmap // The fill-list
 	data []uint16      // The actual values
 }
 
 // makeUint16s creates a new vector for Uint16s
 func makeUint16s() Column {
-	return &columnuint16{
+	return &uint16Column{
 		fill: make(bitmap.Bitmap, 0, 4),
 		data: make([]uint16, 0, 64),
 	}
 }
 
 // Grow grows the size of the column until we have enough to store
-func (c *columnuint16) Grow(idx uint32) {
+func (c *uint16Column) Grow(idx uint32) {
 	if idx < uint32(len(c.data)) {
 		return
 	}
@@ -1156,7 +1403,7 @@ func (c *columnuint16) Grow(idx uint32) {
 }
 
 // Apply applies a set of operations to the column.
-func (c *columnuint16) Apply(r *commit.Reader) {
+func (c *uint16Column) Apply(r *commit.Reader) {
 	for r.Next() {
 		switch r.Type {
 		case commit.Put:
@@ -1178,17 +1425,17 @@ func (c *columnuint16) Apply(r *commit.Reader) {
 }
 
 // Contains checks whether the column has a value at a specified index.
-func (c *columnuint16) Contains(idx uint32) bool {
+func (c *uint16Column) Contains(idx uint32) bool {
 	return c.fill.Contains(idx)
 }
 
 // Index returns the fill list for the column
-func (c *columnuint16) Index() *bitmap.Bitmap {
+func (c *uint16Column) Index() *bitmap.Bitmap {
 	return &c.fill
 }
 
 // Value retrieves a value at a specified index
-func (c *columnuint16) Value(idx uint32) (v interface{}, ok bool) {
+func (c *uint16Column) Value(idx uint32) (v interface{}, ok bool) {
 	v = uint16(0)
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = c.data[idx], true
@@ -1196,8 +1443,16 @@ func (c *columnuint16) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
+// load retrieves a uint16 value at a specified index
+func (c *uint16Column) load(idx uint32) (v uint16, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = uint16(c.data[idx]), true
+	}
+	return
+}
+
 // LoadFloat64 retrieves a float64 value at a specified index
-func (c *columnuint16) LoadFloat64(idx uint32) (v float64, ok bool) {
+func (c *uint16Column) LoadFloat64(idx uint32) (v float64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = float64(c.data[idx]), true
 	}
@@ -1205,7 +1460,7 @@ func (c *columnuint16) LoadFloat64(idx uint32) (v float64, ok bool) {
 }
 
 // LoadInt64 retrieves an int64 value at a specified index
-func (c *columnuint16) LoadInt64(idx uint32) (v int64, ok bool) {
+func (c *uint16Column) LoadInt64(idx uint32) (v int64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = int64(c.data[idx]), true
 	}
@@ -1213,7 +1468,7 @@ func (c *columnuint16) LoadInt64(idx uint32) (v int64, ok bool) {
 }
 
 // LoadUint64 retrieves an uint64 value at a specified index
-func (c *columnuint16) LoadUint64(idx uint32) (v uint64, ok bool) {
+func (c *uint16Column) LoadUint64(idx uint32) (v uint64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = uint64(c.data[idx]), true
 	}
@@ -1221,7 +1476,7 @@ func (c *columnuint16) LoadUint64(idx uint32) (v uint64, ok bool) {
 }
 
 // FilterFloat64 filters down the values based on the specified predicate.
-func (c *columnuint16) FilterFloat64(offset uint32, index bitmap.Bitmap, predicate func(v float64) bool) {
+func (c *uint16Column) FilterFloat64(offset uint32, index bitmap.Bitmap, predicate func(v float64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) bool {
 		idx = offset + idx
@@ -1230,7 +1485,7 @@ func (c *columnuint16) FilterFloat64(offset uint32, index bitmap.Bitmap, predica
 }
 
 // FilterInt64 filters down the values based on the specified predicate.
-func (c *columnuint16) FilterInt64(offset uint32, index bitmap.Bitmap, predicate func(v int64) bool) {
+func (c *uint16Column) FilterInt64(offset uint32, index bitmap.Bitmap, predicate func(v int64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) (match bool) {
 		idx = offset + idx
@@ -1239,7 +1494,7 @@ func (c *columnuint16) FilterInt64(offset uint32, index bitmap.Bitmap, predicate
 }
 
 // FilterUint64 filters down the values based on the specified predicate.
-func (c *columnuint16) FilterUint64(offset uint32, index bitmap.Bitmap, predicate func(v uint64) bool) {
+func (c *uint16Column) FilterUint64(offset uint32, index bitmap.Bitmap, predicate func(v uint64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) (match bool) {
 		idx = offset + idx
@@ -1248,56 +1503,83 @@ func (c *columnuint16) FilterUint64(offset uint32, index bitmap.Bitmap, predicat
 }
 
 // Snapshot writes the entire column into the specified destination buffer
-func (c *columnuint16) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
+func (c *uint16Column) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	chunk.Range(c.fill, func(idx uint32) {
-		dst.PutUint16(commit.Put, idx, c.data[idx])
+		dst.PutUint16(idx, c.data[idx])
 	})
 }
 
-// --------------------------- Cursor Update ----------------------------
-
-// SetUint16 updates a column value for the current item. The actual operation
-// will be queued and executed once the current the transaction completes.
-func (cur *Cursor) SetUint16(value uint16) {
-	cur.update.PutUint16(commit.Put, cur.idx, value)
+// uint16Reader represens a read-only accessor for uint16
+type uint16Reader struct {
+	cursor *uint32
+	reader *uint16Column
 }
 
-// AddUint16 atomically increments/decrements the current value by the specified amount. Note
-// that this only works for numerical values and the type of the value must match.
-func (cur *Cursor) AddUint16(amount uint16) {
-	cur.update.PutUint16(commit.Add, cur.idx, amount)
+// Get loads the value at the current transaction cursor
+func (s uint16Reader) Get() (uint16, bool) {
+	return s.reader.load(*s.cursor)
 }
 
-// SetUint16At updates a specified column value for the current item. The actual operation
-// will be queued and executed once the current the transaction completes.
-func (cur *Cursor) SetUint16At(column string, value uint16) {
-	cur.txn.bufferFor(column).PutUint16(commit.Put, cur.idx, value)
+// uint16ReaderFor creates a new uint16 reader
+func uint16ReaderFor(txn *Txn, columnName string) uint16Reader {
+	column, ok := txn.columnAt(columnName)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
+	}
+
+	reader, ok := column.Column.(*uint16Column)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' is not of type %T", columnName, uint16(0)))
+	}
+
+	return uint16Reader{
+		cursor: &txn.cursor,
+		reader: reader,
+	}
 }
 
-// AddUint16At atomically increments/decrements the column value by the specified amount. Note
-// that this only works for numerical values and the type of the value must match.
-func (cur *Cursor) AddUint16At(column string, amount uint16) {
-	cur.txn.bufferFor(column).PutUint16(commit.Add, cur.idx, amount)
+// uint16Writer represents a read-write accessor for uint16
+type uint16Writer struct {
+	uint16Reader
+	writer *commit.Buffer
+}
+
+// Set sets the value at the current transaction cursor
+func (s uint16Writer) Set(value uint16) {
+	s.writer.PutUint16(*s.cursor, value)
+}
+
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s uint16Writer) Add(delta uint16) {
+	s.writer.AddUint16(*s.cursor, delta)
+}
+
+// Uint16 returns a read-write accessor for uint16 column
+func (txn *Txn) Uint16(columnName string) uint16Writer {
+	return uint16Writer{
+		uint16Reader: uint16ReaderFor(txn, columnName),
+		writer:       txn.bufferFor(columnName),
+	}
 }
 
 // --------------------------- Uint32s ----------------------------
 
-// columnUint32 represents a generic column
-type columnuint32 struct {
+// uint32Column represents a generic column
+type uint32Column struct {
 	fill bitmap.Bitmap // The fill-list
 	data []uint32      // The actual values
 }
 
 // makeUint32s creates a new vector for Uint32s
 func makeUint32s() Column {
-	return &columnuint32{
+	return &uint32Column{
 		fill: make(bitmap.Bitmap, 0, 4),
 		data: make([]uint32, 0, 64),
 	}
 }
 
 // Grow grows the size of the column until we have enough to store
-func (c *columnuint32) Grow(idx uint32) {
+func (c *uint32Column) Grow(idx uint32) {
 	if idx < uint32(len(c.data)) {
 		return
 	}
@@ -1315,7 +1597,7 @@ func (c *columnuint32) Grow(idx uint32) {
 }
 
 // Apply applies a set of operations to the column.
-func (c *columnuint32) Apply(r *commit.Reader) {
+func (c *uint32Column) Apply(r *commit.Reader) {
 	for r.Next() {
 		switch r.Type {
 		case commit.Put:
@@ -1337,17 +1619,17 @@ func (c *columnuint32) Apply(r *commit.Reader) {
 }
 
 // Contains checks whether the column has a value at a specified index.
-func (c *columnuint32) Contains(idx uint32) bool {
+func (c *uint32Column) Contains(idx uint32) bool {
 	return c.fill.Contains(idx)
 }
 
 // Index returns the fill list for the column
-func (c *columnuint32) Index() *bitmap.Bitmap {
+func (c *uint32Column) Index() *bitmap.Bitmap {
 	return &c.fill
 }
 
 // Value retrieves a value at a specified index
-func (c *columnuint32) Value(idx uint32) (v interface{}, ok bool) {
+func (c *uint32Column) Value(idx uint32) (v interface{}, ok bool) {
 	v = uint32(0)
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = c.data[idx], true
@@ -1355,8 +1637,16 @@ func (c *columnuint32) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
+// load retrieves a uint32 value at a specified index
+func (c *uint32Column) load(idx uint32) (v uint32, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = uint32(c.data[idx]), true
+	}
+	return
+}
+
 // LoadFloat64 retrieves a float64 value at a specified index
-func (c *columnuint32) LoadFloat64(idx uint32) (v float64, ok bool) {
+func (c *uint32Column) LoadFloat64(idx uint32) (v float64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = float64(c.data[idx]), true
 	}
@@ -1364,7 +1654,7 @@ func (c *columnuint32) LoadFloat64(idx uint32) (v float64, ok bool) {
 }
 
 // LoadInt64 retrieves an int64 value at a specified index
-func (c *columnuint32) LoadInt64(idx uint32) (v int64, ok bool) {
+func (c *uint32Column) LoadInt64(idx uint32) (v int64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = int64(c.data[idx]), true
 	}
@@ -1372,7 +1662,7 @@ func (c *columnuint32) LoadInt64(idx uint32) (v int64, ok bool) {
 }
 
 // LoadUint64 retrieves an uint64 value at a specified index
-func (c *columnuint32) LoadUint64(idx uint32) (v uint64, ok bool) {
+func (c *uint32Column) LoadUint64(idx uint32) (v uint64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = uint64(c.data[idx]), true
 	}
@@ -1380,7 +1670,7 @@ func (c *columnuint32) LoadUint64(idx uint32) (v uint64, ok bool) {
 }
 
 // FilterFloat64 filters down the values based on the specified predicate.
-func (c *columnuint32) FilterFloat64(offset uint32, index bitmap.Bitmap, predicate func(v float64) bool) {
+func (c *uint32Column) FilterFloat64(offset uint32, index bitmap.Bitmap, predicate func(v float64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) bool {
 		idx = offset + idx
@@ -1389,7 +1679,7 @@ func (c *columnuint32) FilterFloat64(offset uint32, index bitmap.Bitmap, predica
 }
 
 // FilterInt64 filters down the values based on the specified predicate.
-func (c *columnuint32) FilterInt64(offset uint32, index bitmap.Bitmap, predicate func(v int64) bool) {
+func (c *uint32Column) FilterInt64(offset uint32, index bitmap.Bitmap, predicate func(v int64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) (match bool) {
 		idx = offset + idx
@@ -1398,7 +1688,7 @@ func (c *columnuint32) FilterInt64(offset uint32, index bitmap.Bitmap, predicate
 }
 
 // FilterUint64 filters down the values based on the specified predicate.
-func (c *columnuint32) FilterUint64(offset uint32, index bitmap.Bitmap, predicate func(v uint64) bool) {
+func (c *uint32Column) FilterUint64(offset uint32, index bitmap.Bitmap, predicate func(v uint64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) (match bool) {
 		idx = offset + idx
@@ -1407,56 +1697,83 @@ func (c *columnuint32) FilterUint64(offset uint32, index bitmap.Bitmap, predicat
 }
 
 // Snapshot writes the entire column into the specified destination buffer
-func (c *columnuint32) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
+func (c *uint32Column) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	chunk.Range(c.fill, func(idx uint32) {
-		dst.PutUint32(commit.Put, idx, c.data[idx])
+		dst.PutUint32(idx, c.data[idx])
 	})
 }
 
-// --------------------------- Cursor Update ----------------------------
-
-// SetUint32 updates a column value for the current item. The actual operation
-// will be queued and executed once the current the transaction completes.
-func (cur *Cursor) SetUint32(value uint32) {
-	cur.update.PutUint32(commit.Put, cur.idx, value)
+// uint32Reader represens a read-only accessor for uint32
+type uint32Reader struct {
+	cursor *uint32
+	reader *uint32Column
 }
 
-// AddUint32 atomically increments/decrements the current value by the specified amount. Note
-// that this only works for numerical values and the type of the value must match.
-func (cur *Cursor) AddUint32(amount uint32) {
-	cur.update.PutUint32(commit.Add, cur.idx, amount)
+// Get loads the value at the current transaction cursor
+func (s uint32Reader) Get() (uint32, bool) {
+	return s.reader.load(*s.cursor)
 }
 
-// SetUint32At updates a specified column value for the current item. The actual operation
-// will be queued and executed once the current the transaction completes.
-func (cur *Cursor) SetUint32At(column string, value uint32) {
-	cur.txn.bufferFor(column).PutUint32(commit.Put, cur.idx, value)
+// uint32ReaderFor creates a new uint32 reader
+func uint32ReaderFor(txn *Txn, columnName string) uint32Reader {
+	column, ok := txn.columnAt(columnName)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
+	}
+
+	reader, ok := column.Column.(*uint32Column)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' is not of type %T", columnName, uint32(0)))
+	}
+
+	return uint32Reader{
+		cursor: &txn.cursor,
+		reader: reader,
+	}
 }
 
-// AddUint32At atomically increments/decrements the column value by the specified amount. Note
-// that this only works for numerical values and the type of the value must match.
-func (cur *Cursor) AddUint32At(column string, amount uint32) {
-	cur.txn.bufferFor(column).PutUint32(commit.Add, cur.idx, amount)
+// uint32Writer represents a read-write accessor for uint32
+type uint32Writer struct {
+	uint32Reader
+	writer *commit.Buffer
+}
+
+// Set sets the value at the current transaction cursor
+func (s uint32Writer) Set(value uint32) {
+	s.writer.PutUint32(*s.cursor, value)
+}
+
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s uint32Writer) Add(delta uint32) {
+	s.writer.AddUint32(*s.cursor, delta)
+}
+
+// Uint32 returns a read-write accessor for uint32 column
+func (txn *Txn) Uint32(columnName string) uint32Writer {
+	return uint32Writer{
+		uint32Reader: uint32ReaderFor(txn, columnName),
+		writer:       txn.bufferFor(columnName),
+	}
 }
 
 // --------------------------- Uint64s ----------------------------
 
-// columnUint64 represents a generic column
-type columnuint64 struct {
+// uint64Column represents a generic column
+type uint64Column struct {
 	fill bitmap.Bitmap // The fill-list
 	data []uint64      // The actual values
 }
 
 // makeUint64s creates a new vector for Uint64s
 func makeUint64s() Column {
-	return &columnuint64{
+	return &uint64Column{
 		fill: make(bitmap.Bitmap, 0, 4),
 		data: make([]uint64, 0, 64),
 	}
 }
 
 // Grow grows the size of the column until we have enough to store
-func (c *columnuint64) Grow(idx uint32) {
+func (c *uint64Column) Grow(idx uint32) {
 	if idx < uint32(len(c.data)) {
 		return
 	}
@@ -1474,7 +1791,7 @@ func (c *columnuint64) Grow(idx uint32) {
 }
 
 // Apply applies a set of operations to the column.
-func (c *columnuint64) Apply(r *commit.Reader) {
+func (c *uint64Column) Apply(r *commit.Reader) {
 	for r.Next() {
 		switch r.Type {
 		case commit.Put:
@@ -1496,17 +1813,17 @@ func (c *columnuint64) Apply(r *commit.Reader) {
 }
 
 // Contains checks whether the column has a value at a specified index.
-func (c *columnuint64) Contains(idx uint32) bool {
+func (c *uint64Column) Contains(idx uint32) bool {
 	return c.fill.Contains(idx)
 }
 
 // Index returns the fill list for the column
-func (c *columnuint64) Index() *bitmap.Bitmap {
+func (c *uint64Column) Index() *bitmap.Bitmap {
 	return &c.fill
 }
 
 // Value retrieves a value at a specified index
-func (c *columnuint64) Value(idx uint32) (v interface{}, ok bool) {
+func (c *uint64Column) Value(idx uint32) (v interface{}, ok bool) {
 	v = uint64(0)
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = c.data[idx], true
@@ -1514,8 +1831,16 @@ func (c *columnuint64) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
+// load retrieves a uint64 value at a specified index
+func (c *uint64Column) load(idx uint32) (v uint64, ok bool) {
+	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
+		v, ok = uint64(c.data[idx]), true
+	}
+	return
+}
+
 // LoadFloat64 retrieves a float64 value at a specified index
-func (c *columnuint64) LoadFloat64(idx uint32) (v float64, ok bool) {
+func (c *uint64Column) LoadFloat64(idx uint32) (v float64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = float64(c.data[idx]), true
 	}
@@ -1523,7 +1848,7 @@ func (c *columnuint64) LoadFloat64(idx uint32) (v float64, ok bool) {
 }
 
 // LoadInt64 retrieves an int64 value at a specified index
-func (c *columnuint64) LoadInt64(idx uint32) (v int64, ok bool) {
+func (c *uint64Column) LoadInt64(idx uint32) (v int64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = int64(c.data[idx]), true
 	}
@@ -1531,7 +1856,7 @@ func (c *columnuint64) LoadInt64(idx uint32) (v int64, ok bool) {
 }
 
 // LoadUint64 retrieves an uint64 value at a specified index
-func (c *columnuint64) LoadUint64(idx uint32) (v uint64, ok bool) {
+func (c *uint64Column) LoadUint64(idx uint32) (v uint64, ok bool) {
 	if idx < uint32(len(c.data)) && c.fill.Contains(idx) {
 		v, ok = uint64(c.data[idx]), true
 	}
@@ -1539,7 +1864,7 @@ func (c *columnuint64) LoadUint64(idx uint32) (v uint64, ok bool) {
 }
 
 // FilterFloat64 filters down the values based on the specified predicate.
-func (c *columnuint64) FilterFloat64(offset uint32, index bitmap.Bitmap, predicate func(v float64) bool) {
+func (c *uint64Column) FilterFloat64(offset uint32, index bitmap.Bitmap, predicate func(v float64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) bool {
 		idx = offset + idx
@@ -1548,7 +1873,7 @@ func (c *columnuint64) FilterFloat64(offset uint32, index bitmap.Bitmap, predica
 }
 
 // FilterInt64 filters down the values based on the specified predicate.
-func (c *columnuint64) FilterInt64(offset uint32, index bitmap.Bitmap, predicate func(v int64) bool) {
+func (c *uint64Column) FilterInt64(offset uint32, index bitmap.Bitmap, predicate func(v int64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) (match bool) {
 		idx = offset + idx
@@ -1557,7 +1882,7 @@ func (c *columnuint64) FilterInt64(offset uint32, index bitmap.Bitmap, predicate
 }
 
 // FilterUint64 filters down the values based on the specified predicate.
-func (c *columnuint64) FilterUint64(offset uint32, index bitmap.Bitmap, predicate func(v uint64) bool) {
+func (c *uint64Column) FilterUint64(offset uint32, index bitmap.Bitmap, predicate func(v uint64) bool) {
 	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
 	index.Filter(func(idx uint32) (match bool) {
 		idx = offset + idx
@@ -1566,34 +1891,61 @@ func (c *columnuint64) FilterUint64(offset uint32, index bitmap.Bitmap, predicat
 }
 
 // Snapshot writes the entire column into the specified destination buffer
-func (c *columnuint64) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
+func (c *uint64Column) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	chunk.Range(c.fill, func(idx uint32) {
-		dst.PutUint64(commit.Put, idx, c.data[idx])
+		dst.PutUint64(idx, c.data[idx])
 	})
 }
 
-// --------------------------- Cursor Update ----------------------------
-
-// SetUint64 updates a column value for the current item. The actual operation
-// will be queued and executed once the current the transaction completes.
-func (cur *Cursor) SetUint64(value uint64) {
-	cur.update.PutUint64(commit.Put, cur.idx, value)
+// uint64Reader represens a read-only accessor for uint64
+type uint64Reader struct {
+	cursor *uint32
+	reader *uint64Column
 }
 
-// AddUint64 atomically increments/decrements the current value by the specified amount. Note
-// that this only works for numerical values and the type of the value must match.
-func (cur *Cursor) AddUint64(amount uint64) {
-	cur.update.PutUint64(commit.Add, cur.idx, amount)
+// Get loads the value at the current transaction cursor
+func (s uint64Reader) Get() (uint64, bool) {
+	return s.reader.load(*s.cursor)
 }
 
-// SetUint64At updates a specified column value for the current item. The actual operation
-// will be queued and executed once the current the transaction completes.
-func (cur *Cursor) SetUint64At(column string, value uint64) {
-	cur.txn.bufferFor(column).PutUint64(commit.Put, cur.idx, value)
+// uint64ReaderFor creates a new uint64 reader
+func uint64ReaderFor(txn *Txn, columnName string) uint64Reader {
+	column, ok := txn.columnAt(columnName)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
+	}
+
+	reader, ok := column.Column.(*uint64Column)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' is not of type %T", columnName, uint64(0)))
+	}
+
+	return uint64Reader{
+		cursor: &txn.cursor,
+		reader: reader,
+	}
 }
 
-// AddUint64At atomically increments/decrements the column value by the specified amount. Note
-// that this only works for numerical values and the type of the value must match.
-func (cur *Cursor) AddUint64At(column string, amount uint64) {
-	cur.txn.bufferFor(column).PutUint64(commit.Add, cur.idx, amount)
+// uint64Writer represents a read-write accessor for uint64
+type uint64Writer struct {
+	uint64Reader
+	writer *commit.Buffer
+}
+
+// Set sets the value at the current transaction cursor
+func (s uint64Writer) Set(value uint64) {
+	s.writer.PutUint64(*s.cursor, value)
+}
+
+// Add atomically adds a delta to the value at the current transaction cursor
+func (s uint64Writer) Add(delta uint64) {
+	s.writer.AddUint64(*s.cursor, delta)
+}
+
+// Uint64 returns a read-write accessor for uint64 column
+func (txn *Txn) Uint64(columnName string) uint64Writer {
+	return uint64Writer{
+		uint64Reader: uint64ReaderFor(txn, columnName),
+		writer:       txn.bufferFor(columnName),
+	}
 }

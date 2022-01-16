@@ -4,6 +4,7 @@
 package column
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/kelindar/bitmap"
@@ -25,7 +26,6 @@ type Reader interface {
 // Assert reader implementations. Both our cursor and commit reader need to implement
 // this so that we can feed it to the index transparently.
 var _ Reader = new(commit.Reader)
-var _ Reader = new(Cursor)
 
 // --------------------------- Index ----------------------------
 
@@ -152,4 +152,34 @@ func (c *columnKey) OffsetOf(v string) (uint32, bool) {
 	idx, ok := c.seek[v]
 	c.lock.RUnlock()
 	return idx, ok
+}
+
+// slice accessor for keys
+type keySlice struct {
+	cursor *uint32
+	writer *commit.Buffer
+	reader *columnKey
+}
+
+// Set sets the value at the current transaction index
+func (s keySlice) Set(value string) {
+	s.writer.PutString(commit.Put, *s.cursor, value)
+}
+
+// Get loads the value at the current transaction index
+func (s keySlice) Get() (string, bool) {
+	return s.reader.LoadString(*s.cursor)
+}
+
+// Enum returns a enumerable column accessor
+func (txn *Txn) Key() keySlice {
+	if txn.owner.pk == nil {
+		panic(fmt.Errorf("column: primary key column does not exist"))
+	}
+
+	return keySlice{
+		cursor: &txn.cursor,
+		writer: txn.bufferFor(txn.owner.pk.name),
+		reader: txn.owner.pk,
+	}
 }

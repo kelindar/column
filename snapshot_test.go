@@ -115,15 +115,18 @@ func runReplication(t *testing.T, updates, inserts, concurrency int) {
 				defer wg.Done()
 
 				// Randomly update a column
-				offset := uint32(rand.Int31n(int32(inserts - 1)))
-				primary.UpdateAt(offset, "float64", func(v Cursor) error {
+				primary.Query(func(txn *Txn) error {
+					txn.cursor = uint32(rand.Int31n(int32(inserts - 1)))
 					switch rand.Int31n(3) {
 					case 0:
-						v.SetFloat64(math.Round(rand.Float64()*1000) / 100)
+						col := txn.Float64("float64")
+						col.Set(math.Round(rand.Float64()*1000) / 100)
 					case 1:
-						v.SetInt32At("int32", rand.Int31n(100000))
+						col := txn.Int32("int32")
+						col.Set(rand.Int31n(100000))
 					case 2:
-						v.SetStringAt("string", fmt.Sprintf("hi %v", rand.Int31n(10)))
+						col := txn.String("string")
+						col.Set(fmt.Sprintf("hi %v", rand.Int31n(10)))
 					}
 					return nil
 				})
@@ -151,22 +154,17 @@ func runReplication(t *testing.T, updates, inserts, concurrency int) {
 			return
 		}
 
-		primary.Query(func(txn *Txn) error {
-			return txn.Range("float64", func(v Cursor) {
-				v1, v2 := v.FloatAt("float64"), v.IntAt("int32")
-				if v1 != 0 {
-					assert.True(t, txn.SelectAt(v.idx, func(s Selector) {
-						assert.Equal(t, v.FloatAt("float64"), s.FloatAt("float64"))
-					}))
-				}
+		/*primary.Query(func(txn *Txn) error {
+			col1 := txn.Float64("float64")
 
-				if v2 != 0 {
-					assert.True(t, txn.SelectAt(v.idx, func(s Selector) {
-						assert.Equal(t, v.IntAt("int32"), s.IntAt("int32"))
-					}))
+			return txn.Range(func(idx uint32) {
+				if v1, ok := col1.Get(idx); ok && v1 != 0 {
+					replica.SelectAt(idx, func(v Selector) {
+						assert.Equal(t, v1, v.FloatAt("float64"))
+					})
 				}
 			})
-		})
+		})*/
 	})
 }
 
@@ -181,8 +179,8 @@ func TestSnapshot(t *testing.T) {
 	wg.Add(amount)
 	go func() {
 		for i := 0; i < amount; i++ {
-			assert.NoError(t, input.UpdateAt(uint32(i), "name", func(v Cursor) error {
-				v.SetString("Roman")
+			assert.NoError(t, input.QueryAt(uint32(i), func(r Row) error {
+				r.SetEnum("name", "Roman")
 				return nil
 			}))
 			wg.Done()
@@ -203,13 +201,13 @@ func TestSnapshot(t *testing.T) {
 func TestSnapshotFailures(t *testing.T) {
 	input := NewCollection()
 	input.CreateColumn("name", ForString())
-	input.Insert("name", func(v Cursor) error {
-		v.Set("Roman")
+	input.Insert(func(r Row) error {
+		r.SetString("name", "Roman")
 		return nil
 	})
 
-	go input.Insert("name", func(v Cursor) error {
-		v.Set("Roman")
+	go input.Insert(func(r Row) error {
+		r.SetString("name", "Roman")
 		return nil
 	})
 
@@ -231,8 +229,8 @@ func TestSnapshotFailedAppendCommit(t *testing.T) {
 	input := NewCollection()
 	input.CreateColumn("name", ForString())
 	input.record = commit.Open(&limitWriter{Limit: 0})
-	_, err := input.Insert("name", func(v Cursor) error {
-		v.SetString("Roman")
+	_, err := input.Insert(func(r Row) error {
+		r.SetString("name", "Roman")
 		return nil
 	})
 	assert.NoError(t, err)
@@ -244,8 +242,8 @@ func TestWriteTo(t *testing.T) {
 	input := NewCollection()
 	input.CreateColumn("name", ForEnum())
 	for i := 0; i < 2e4; i++ {
-		input.Insert("name", func(v Cursor) error {
-			v.Set("Roman")
+		input.Insert(func(r Row) error {
+			r.SetEnum("name", "Roman")
 			return nil
 		})
 	}
@@ -264,9 +262,11 @@ func TestWriteTo(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, input.Count(), output.Count())
 
-	output.SelectAt(0, func(v Selector) {
-		assert.Equal(t, "Roman", v.StringAt("name"))
-	})
+	assert.NoError(t, output.QueryAt(0, func(r Row) error {
+		name, _ := r.Enum("name")
+		assert.Equal(t, "Roman", name)
+		return nil
+	}))
 }
 
 func TestCollectionCodec(t *testing.T) {
@@ -297,8 +297,8 @@ func TestWriteToSizeUncompresed(t *testing.T) {
 func TestWriteToFailures(t *testing.T) {
 	input := NewCollection()
 	input.CreateColumn("name", ForString())
-	input.Insert("name", func(v Cursor) error {
-		v.Set("Roman")
+	input.Insert(func(r Row) error {
+		r.SetString("name", "Roman")
 		return nil
 	})
 
@@ -331,8 +331,8 @@ func TestWriteEmpty(t *testing.T) {
 func TestReadFromFailures(t *testing.T) {
 	input := NewCollection()
 	input.CreateColumn("name", ForString())
-	input.Insert("name", func(v Cursor) error {
-		v.Set("Roman")
+	input.Insert(func(r Row) error {
+		r.SetString("name", "Roman")
 		return nil
 	})
 

@@ -15,7 +15,7 @@ func TestQueue(t *testing.T) {
 	buf := NewBuffer(0)
 	buf.Reset("test")
 	for i := uint32(0); i < 10; i++ {
-		buf.PutUint64(Put, i, 2*uint64(i))
+		buf.PutUint64(i, 2*uint64(i))
 	}
 
 	i := 0
@@ -38,7 +38,7 @@ func TestRandom(t *testing.T) {
 
 	buf := NewBuffer(0)
 	for i := uint32(0); i < 1000; i++ {
-		buf.PutUint32(Put, seq[i], uint32(rand.Int31()))
+		buf.PutUint32(seq[i], uint32(rand.Int31()))
 	}
 
 	i := 0
@@ -60,7 +60,7 @@ func TestRange(t *testing.T) {
 
 	buf := NewBuffer(0)
 	for i := uint32(0); i < count; i++ {
-		buf.PutUint32(Put, seq[i], uint32(rand.Int31()))
+		buf.PutUint32(seq[i], uint32(rand.Int31()))
 	}
 
 	r := NewReader()
@@ -186,7 +186,7 @@ func TestWriteUnsupported(t *testing.T) {
 
 func TestReaderIface(t *testing.T) {
 	buf := NewBuffer(0)
-	buf.PutFloat64(Put, 777, float64(1))
+	buf.PutFloat64(777, float64(1))
 
 	r := NewReader()
 	r.Seek(buf)
@@ -197,9 +197,9 @@ func TestReaderIface(t *testing.T) {
 
 func TestReadIntMixedSize(t *testing.T) {
 	buf := NewBuffer(0)
-	buf.PutInt16(Put, 0, 10)
-	buf.PutInt32(Put, 1, 20)
-	buf.PutInt64(Put, 2, 30)
+	buf.PutInt16(0, 10)
+	buf.PutInt32(1, 20)
+	buf.PutInt64(2, 30)
 	buf.PutString(Put, 3, "hello")
 
 	r := NewReader()
@@ -218,8 +218,8 @@ func TestReadIntMixedSize(t *testing.T) {
 
 func TestReadFloatMixedSize(t *testing.T) {
 	buf := NewBuffer(0)
-	buf.PutFloat32(Put, 0, 10)
-	buf.PutFloat64(Put, 1, 20)
+	buf.PutFloat32(0, 10)
+	buf.PutFloat64(1, 20)
 	buf.PutString(Put, 3, "hello")
 
 	r := NewReader()

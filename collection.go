@@ -139,9 +139,9 @@ func (c *Collection) InsertObjectWithTTL(obj Object, ttl time.Duration) (index u
 }
 
 // Insert executes a mutable cursor trasactionally at a new offset.
-func (c *Collection) Insert(columnName string, fn func(v Cursor) error) (index uint32, err error) {
+func (c *Collection) Insert(fn func(Row) error) (index uint32, err error) {
 	err = c.Query(func(txn *Txn) (innerErr error) {
-		index, innerErr = txn.Insert(columnName, fn)
+		index, innerErr = txn.Insert(fn)
 		return
 	})
 	return
@@ -149,53 +149,11 @@ func (c *Collection) Insert(columnName string, fn func(v Cursor) error) (index u
 
 // InsertWithTTL executes a mutable cursor trasactionally at a new offset and sets the expiration time
 // based on the specified time-to-live and returns the allocated index.
-func (c *Collection) InsertWithTTL(columnName string, ttl time.Duration, fn func(v Cursor) error) (index uint32, err error) {
+func (c *Collection) InsertWithTTL(ttl time.Duration, fn func(Row) error) (index uint32, err error) {
 	err = c.Query(func(txn *Txn) (innerErr error) {
-		index, innerErr = txn.InsertWithTTL(columnName, ttl, fn)
+		index, innerErr = txn.InsertWithTTL(ttl, fn)
 		return
 	})
-	return
-}
-
-// UpdateAt updates a specific row by initiating a separate transaction for the update.
-func (c *Collection) UpdateAt(idx uint32, columnName string, fn func(v Cursor) error) error {
-	return c.Query(func(txn *Txn) error {
-		return txn.UpdateAt(idx, columnName, fn)
-	})
-}
-
-// UpdateAtKey updates a specific row by initiating a separate transaction for the update.
-func (c *Collection) UpdateAtKey(key, columnName string, fn func(v Cursor) error) error {
-	return c.Query(func(txn *Txn) error {
-		return txn.UpdateAtKey(key, columnName, fn)
-	})
-}
-
-// SelectAt performs a selection on a specific row specified by its index. It returns
-// a boolean value indicating whether an element is present at the index or not.
-func (c *Collection) SelectAt(idx uint32, fn func(v Selector)) bool {
-	chunk := uint(idx >> chunkShift)
-	if idx >= uint32(len(c.fill))<<6 || !c.fill.Contains(idx) {
-		return false
-	}
-
-	// Lock the chunk which we are about to read and call the selector delegate
-	c.slock.RLock(chunk)
-	fn(Selector{idx: idx, col: c})
-	c.slock.RUnlock(chunk)
-	return true
-}
-
-// SelectAtKey performs a selection on a specific row specified by its key. It returns
-// a boolean value indicating whether an element is present at the key or not.
-func (c *Collection) SelectAtKey(key string, fn func(v Selector)) (found bool) {
-	if c.pk == nil {
-		return false
-	}
-
-	if idx, ok := c.pk.OffsetOf(key); ok {
-		found = c.SelectAt(idx, fn)
-	}
 	return
 }
 
@@ -318,14 +276,28 @@ func (c *Collection) DropIndex(indexName string) error {
 	return nil
 }
 
+// QueryAt jumps at a particular offset in the collection, sets the cursor to the
+// provided position and executes given callback fn.
+func (c *Collection) QueryAt(idx uint32, fn func(Row) error) error {
+	return c.Query(func(txn *Txn) error {
+		return txn.QueryAt(idx, fn)
+	})
+}
+
+// QueryAt jumps at a particular key in the collection, sets the cursor to the
+// provided position and executes given callback fn.
+func (c *Collection) QueryKey(key string, fn func(Row) error) error {
+	return c.Query(func(txn *Txn) error {
+		return txn.QueryKey(key, fn)
+	})
+}
+
 // Query creates a transaction which allows for filtering and iteration over the
 // columns in this collection. It also allows for individual rows to be modified or
 // deleted during iteration (range), but the actual operations will be queued and
 // executed after the iteration.
 func (c *Collection) Query(fn func(txn *Txn) error) error {
-	c.lock.RLock()
 	txn := c.txns.acquire(c)
-	c.lock.RUnlock()
 
 	// Execute the query and keep the error for later
 	if err := fn(txn); err != nil {
@@ -344,7 +316,6 @@ func (c *Collection) Query(fn func(txn *Txn) error) error {
 // Close closes the collection and clears up all of the resources.
 func (c *Collection) Close() error {
 	c.cancel()
-
 	return nil
 }
 
@@ -357,11 +328,12 @@ func (c *Collection) vacuum(ctx context.Context, interval time.Duration) {
 			ticker.Stop()
 			return
 		case <-ticker.C:
-			now := int(time.Now().UnixNano())
+			now := time.Now().UnixNano()
 			c.Query(func(txn *Txn) error {
-				return txn.With(expireColumn).Range(expireColumn, func(v Cursor) {
-					if expirateAt := v.Int(); expirateAt != 0 && now >= v.Int() {
-						v.Delete()
+				expire := txn.Int64(expireColumn)
+				return txn.With(expireColumn).Range(func(idx uint32) {
+					if expirateAt, ok := expire.Get(); ok && expirateAt != 0 && now >= expirateAt {
+						txn.DeleteAt(idx)
 					}
 				})
 			})

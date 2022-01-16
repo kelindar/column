@@ -185,38 +185,6 @@ func (c *column) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
-// Value retrieves a value at a specified index
-func (c *column) String(idx uint32) (v string, ok bool) {
-	if column, text := c.Column.(Textual); text {
-		v, ok = column.LoadString(idx)
-	}
-	return
-}
-
-// Float64 retrieves a float64 value at a specified index
-func (c *column) Float64(idx uint32) (v float64, ok bool) {
-	if n, contains := c.Column.(Numeric); contains {
-		v, ok = n.LoadFloat64(idx)
-	}
-	return
-}
-
-// Int64 retrieves an int64 value at a specified index
-func (c *column) Int64(idx uint32) (v int64, ok bool) {
-	if n, contains := c.Column.(Numeric); contains {
-		v, ok = n.LoadInt64(idx)
-	}
-	return
-}
-
-// Uint64 retrieves an uint64 value at a specified index
-func (c *column) Uint64(idx uint32) (v uint64, ok bool) {
-	if n, contains := c.Column.(Numeric); contains {
-		v, ok = n.LoadUint64(idx)
-	}
-	return
-}
-
 // --------------------------- booleans ----------------------------
 
 // columnBool represents a boolean column
@@ -268,6 +236,94 @@ func (c *columnBool) Index() *bitmap.Bitmap {
 // Snapshot writes the entire column into the specified destination buffer
 func (c *columnBool) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	dst.PutBitmap(commit.PutTrue, chunk, c.data)
+}
+
+// boolReader represens a read-only accessor for boolean values
+type boolReader struct {
+	cursor *uint32
+	reader Column
+}
+
+// Get loads the value at the current transaction cursor
+func (s boolReader) Get() bool {
+	return s.reader.Contains(*s.cursor)
+}
+
+// boolReaderFor creates a new reader
+func boolReaderFor(txn *Txn, columnName string) boolReader {
+	column, ok := txn.columnAt(columnName)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
+	}
+
+	return boolReader{
+		cursor: &txn.cursor,
+		reader: column.Column,
+	}
+}
+
+// boolWriter represents read-write accessor for boolean values
+type boolWriter struct {
+	boolReader
+	writer *commit.Buffer
+}
+
+// Set sets the value at the current transaction cursor
+func (s boolWriter) Set(value bool) {
+	s.writer.PutBool(*s.cursor, value)
+}
+
+// String returns a string column accessor
+func (txn *Txn) Bool(columnName string) boolWriter {
+	return boolWriter{
+		boolReader: boolReaderFor(txn, columnName),
+		writer:     txn.bufferFor(columnName),
+	}
+}
+
+// --------------------------- Accessor ----------------------------
+
+// anyReader represens a read-only accessor for any value
+type anyReader struct {
+	cursor *uint32
+	reader Column
+}
+
+// Get loads the value at the current transaction cursor
+func (s anyReader) Get() (interface{}, bool) {
+	return s.reader.Value(*s.cursor)
+}
+
+// anyReaderFor creates a new any reader
+func anyReaderFor(txn *Txn, columnName string) anyReader {
+	column, ok := txn.columnAt(columnName)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
+	}
+
+	return anyReader{
+		cursor: &txn.cursor,
+		reader: column.Column,
+	}
+}
+
+// anyWriter represents read-write accessor for any column type
+type anyWriter struct {
+	anyReader
+	writer *commit.Buffer
+}
+
+// Set sets the value at the current transaction cursor
+func (s anyWriter) Set(value interface{}) {
+	s.writer.PutAny(commit.Put, *s.cursor, value)
+}
+
+// Any returns a column accessor
+func (txn *Txn) Any(columnName string) anyWriter {
+	return anyWriter{
+		anyReader: anyReaderFor(txn, columnName),
+		writer:    txn.bufferFor(columnName),
+	}
 }
 
 // --------------------------- funcs ----------------------------
