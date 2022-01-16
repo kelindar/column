@@ -157,20 +157,6 @@ func (c *Collection) InsertWithTTL(ttl time.Duration, fn func(txn *Txn) error) (
 	return
 }
 
-// UpdateAt updates a specific row by initiating a separate transaction for the update.
-func (c *Collection) UpdateAt(idx uint32, fn func(txn *Txn) error) error {
-	return c.Query(func(txn *Txn) error {
-		return txn.UpdateAt(idx, fn)
-	})
-}
-
-// UpdateAtKey updates a specific row by initiating a separate transaction for the update.
-func (c *Collection) UpdateAtKey(key string, fn func(txn *Txn) error) error {
-	return c.Query(func(txn *Txn) error {
-		return txn.UpdateAtKey(key, fn)
-	})
-}
-
 // DeleteAt attempts to delete an item at the specified index for this collection. If the item
 // exists, it marks at as deleted and returns true, otherwise it returns false.
 func (c *Collection) DeleteAt(idx uint32) (deleted bool) {
@@ -290,6 +276,22 @@ func (c *Collection) DropIndex(indexName string) error {
 	return nil
 }
 
+// QueryAt jumps at a particular offset in the collection, sets the cursor to the
+// provided position and executes given callback fn.
+func (c *Collection) QueryAt(idx uint32, fn func(txn *Txn) error) error {
+	return c.Query(func(txn *Txn) error {
+		return txn.QueryAt(idx, fn)
+	})
+}
+
+// QueryAt jumps at a particular key in the collection, sets the cursor to the
+// provided position and executes given callback fn.
+func (c *Collection) QueryKey(key string, fn func(txn *Txn) error) error {
+	return c.Query(func(txn *Txn) error {
+		return txn.QueryKey(key, fn)
+	})
+}
+
 // Query creates a transaction which allows for filtering and iteration over the
 // columns in this collection. It also allows for individual rows to be modified or
 // deleted during iteration (range), but the actual operations will be queued and
@@ -310,36 +312,6 @@ func (c *Collection) Query(fn func(txn *Txn) error) error {
 	c.txns.release(txn)
 	return nil
 }
-
-// Select ...
-/*
-func (c *Collection) Select(fn func(s Selector) error) error {
-	txn := c.txns.acquire(c)
-	err := fn(Selector{txn: txn})
-	txn.rollback()
-	c.txns.release(txn)
-	return err
-}
-
-// SelectAt performs a selection on a specific row specified by its index.
-func (c *Collection) SelectAt(idx uint32, fn func(s Selector) error) error {
-	return c.Select(func(s Selector) error {
-		return s.SelectAt(idx, fn)
-	})
-}
-
-// SelectAtKey performs a selection on a specific row specified by its key.
-func (c *Collection) SelectAtKey(key string, fn func(vs Selector) error) error {
-	if c.pk == nil {
-		return nil
-	}
-
-	if idx, ok := c.pk.OffsetOf(key); ok {
-		return c.SelectAt(idx, fn)
-	}
-	return nil
-}
-*/
 
 // Close closes the collection and clears up all of the resources.
 func (c *Collection) Close() error {

@@ -179,7 +179,7 @@ func TestSnapshot(t *testing.T) {
 	wg.Add(amount)
 	go func() {
 		for i := 0; i < amount; i++ {
-			assert.NoError(t, input.UpdateAt(uint32(i), func(txn *Txn) error {
+			assert.NoError(t, input.QueryAt(uint32(i), func(txn *Txn) error {
 				name := txn.Enum("name")
 				name.Set("Roman")
 				return nil
@@ -267,7 +267,7 @@ func TestWriteTo(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, input.Count(), output.Count())
 
-	assert.NoError(t, output.UpdateAt(0, func(txn *Txn) error {
+	assert.NoError(t, output.QueryAt(0, func(txn *Txn) error {
 		name, _ := txn.Enum("name").Get()
 		assert.Equal(t, "Roman", name)
 		return nil

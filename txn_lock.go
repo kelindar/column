@@ -31,9 +31,9 @@ func (txn *Txn) initialize() {
 
 // --------------------------- Locked Seek ---------------------------
 
-// UpdateAt jumps at a particular offset in the collection, sets the cursor to the
+// QueryAt jumps at a particular offset in the collection, sets the cursor to the
 // provided position and executes given callback fn.
-func (txn *Txn) UpdateAt(index uint32, f func(*Txn) error) (err error) {
+func (txn *Txn) QueryAt(index uint32, f func(*Txn) error) (err error) {
 	lock := txn.owner.slock
 	txn.cursor = index
 

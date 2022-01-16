@@ -133,10 +133,10 @@ func TestIndexInvalid(t *testing.T) {
 	}))
 
 	players.Query(func(txn *Txn) error {
-		assert.Error(t, txn.UpdateAt(999999, func(*Txn) error {
+		assert.Error(t, txn.QueryAt(999999, func(*Txn) error {
 			return fmt.Errorf("not found")
 		}))
-		assert.NoError(t, txn.UpdateAt(0, func(*Txn) error {
+		assert.NoError(t, txn.QueryAt(0, func(*Txn) error {
 			return nil
 		}))
 		return nil
@@ -429,7 +429,7 @@ func TestUpdateAt(t *testing.T) {
 		"col1": "hello",
 	})
 
-	assert.NoError(t, c.UpdateAt(index, func(txn *Txn) error {
+	assert.NoError(t, c.QueryAt(index, func(txn *Txn) error {
 		name := txn.String("col1")
 		name.Set("hi")
 		return nil
@@ -441,7 +441,7 @@ func TestUpdateAtInvalid(t *testing.T) {
 	c.CreateColumn("col1", ForString())
 
 	assert.Panics(t, func() {
-		c.UpdateAt(0, func(txn *Txn) error {
+		c.QueryAt(0, func(txn *Txn) error {
 			name := txn.String("col2")
 			name.Set("hi")
 			return nil
@@ -452,12 +452,12 @@ func TestUpdateAtNoChanges(t *testing.T) {
 	c := NewCollection()
 	c.CreateColumn("col1", ForString())
 
-	assert.NoError(t, c.UpdateAt(20000, func(txn *Txn) error {
+	assert.NoError(t, c.QueryAt(20000, func(txn *Txn) error {
 		txn.String("col1").Set("Roman")
 		return nil
 	}))
 
-	assert.NoError(t, c.UpdateAt(0, func(txn *Txn) error {
+	assert.NoError(t, c.QueryAt(0, func(txn *Txn) error {
 		txn.bufferFor("xxx").PutInt(123, 123)
 		return nil
 	}))
@@ -467,14 +467,14 @@ func TestUpsertKey(t *testing.T) {
 	c := NewCollection()
 	c.CreateColumn("key", ForKey())
 	c.CreateColumn("val", ForString())
-	assert.NoError(t, c.UpdateAtKey("1", func(txn *Txn) error {
+	assert.NoError(t, c.QueryKey("1", func(txn *Txn) error {
 		name := txn.String("val")
 		name.Set("Roman")
 		return nil
 	}))
 
 	count := 0
-	assert.NoError(t, c.UpdateAtKey("1", func(txn *Txn) error {
+	assert.NoError(t, c.QueryKey("1", func(txn *Txn) error {
 		count++
 		return nil
 	}))
@@ -487,7 +487,7 @@ func TestUpsertKeyNoColumn(t *testing.T) {
 	c.CreateColumn("key", ForKey())
 
 	assert.Panics(t, func() {
-		c.UpdateAtKey("1", func(txn *Txn) error {
+		c.QueryKey("1", func(txn *Txn) error {
 			txn.Enum("xxx")
 			return nil
 		})

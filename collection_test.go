@@ -60,7 +60,7 @@ func BenchmarkCollection(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			players.UpdateAt(20, func(txn *Txn) error {
+			players.QueryAt(20, func(txn *Txn) error {
 				name, _ = txn.Enum("name").Get()
 				return nil
 			})
@@ -117,7 +117,7 @@ func BenchmarkCollection(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			players.UpdateAt(20, func(txn *Txn) error {
+			players.QueryAt(20, func(txn *Txn) error {
 				balance := txn.Float64("balance")
 				balance.Set(1.0)
 				return nil
@@ -184,7 +184,7 @@ func TestCollection(t *testing.T) {
 	}))
 
 	{ // Find the object by its index
-		assert.NoError(t, col.UpdateAt(idx, func(txn *Txn) error {
+		assert.NoError(t, col.QueryAt(idx, func(txn *Txn) error {
 			name, ok := txn.String("name").Get()
 			assert.True(t, ok)
 			assert.Equal(t, "Roman", name)
@@ -194,7 +194,7 @@ func TestCollection(t *testing.T) {
 
 	{ // Remove the object
 		assert.True(t, col.DeleteAt(idx))
-		assert.Error(t, col.UpdateAt(idx, func(txn *Txn) error {
+		assert.Error(t, col.QueryAt(idx, func(txn *Txn) error {
 			if _, ok := txn.String("name").Get(); !ok {
 				return fmt.Errorf("unreachable")
 			}
@@ -206,7 +206,7 @@ func TestCollection(t *testing.T) {
 	{ // Add a new one, should replace
 		newIdx := col.InsertObject(obj)
 		assert.Equal(t, idx, newIdx)
-		assert.NoError(t, col.UpdateAt(newIdx, func(txn *Txn) error {
+		assert.NoError(t, col.QueryAt(newIdx, func(txn *Txn) error {
 			name, ok := txn.String("name").Get()
 			assert.True(t, ok)
 			assert.Equal(t, "Roman", name)
@@ -215,13 +215,13 @@ func TestCollection(t *testing.T) {
 	}
 
 	{ // Update the wallet
-		col.UpdateAt(idx, func(txn *Txn) error {
+		col.QueryAt(idx, func(txn *Txn) error {
 			wallet := txn.Float64("wallet")
 			wallet.Set(1000)
 			return nil
 		})
 
-		col.UpdateAt(idx, func(txn *Txn) error {
+		col.QueryAt(idx, func(txn *Txn) error {
 			wallet := txn.Float64("wallet")
 			isRich := txn.Bool("rich")
 
@@ -232,7 +232,7 @@ func TestCollection(t *testing.T) {
 			return nil
 		})
 
-		assert.NoError(t, col.UpdateAt(idx, func(txn *Txn) error {
+		assert.NoError(t, col.QueryAt(idx, func(txn *Txn) error {
 			wallet, _ := txn.Float64("wallet").Get()
 			isRich := txn.Bool("rich").Get()
 
@@ -271,7 +271,7 @@ func TestInsertObject(t *testing.T) {
 	col.InsertObject(Object{"name": "B"})
 
 	assert.Equal(t, 2, col.Count())
-	assert.NoError(t, col.UpdateAt(0, func(txn *Txn) error {
+	assert.NoError(t, col.QueryAt(0, func(txn *Txn) error {
 		name, ok := txn.String("name").Get()
 		assert.True(t, ok)
 		assert.Equal(t, "A", name)
@@ -446,7 +446,7 @@ func TestConcurrentPointReads(t *testing.T) {
 	// Reader
 	go func() {
 		for i := 0; i < 10000; i++ {
-			col.UpdateAt(99, func(txn *Txn) error {
+			col.QueryAt(99, func(txn *Txn) error {
 				_, _ = txn.String("name").Get()
 				return nil
 			})
@@ -460,7 +460,7 @@ func TestConcurrentPointReads(t *testing.T) {
 	go func() {
 		for i := 0; i < 10000; i++ {
 
-			col.UpdateAt(99, func(txn *Txn) error {
+			col.QueryAt(99, func(txn *Txn) error {
 				name := txn.String("name")
 				name.Set("test")
 				return nil
@@ -499,7 +499,7 @@ func TestInsertWithTTL(t *testing.T) {
 	})
 	assert.Equal(t, uint32(0), idx)
 	assert.NoError(t, err)
-	assert.NoError(t, c.UpdateAt(idx, func(txn *Txn) error {
+	assert.NoError(t, c.QueryAt(idx, func(txn *Txn) error {
 		expire, ok := txn.Int64(expireColumn).Get()
 		assert.True(t, ok)
 		assert.NotZero(t, expire)

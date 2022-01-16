@@ -275,15 +275,15 @@ func (txn *Txn) Count() int {
 	return int(txn.index.Count())
 }
 
-// UpdateAtKey jumps at a particular key in the collection, sets the cursor to the
+// QueryKey jumps at a particular key in the collection, sets the cursor to the
 // provided position and executes given callback fn.
-func (txn *Txn) UpdateAtKey(key string, fn func(*Txn) error) error {
+func (txn *Txn) QueryKey(key string, fn func(*Txn) error) error {
 	if txn.owner.pk == nil {
 		return errNoKey
 	}
 
 	if idx, ok := txn.owner.pk.OffsetOf(key); ok {
-		return txn.UpdateAt(idx, fn)
+		return txn.QueryAt(idx, fn)
 	}
 
 	// If not found, insert at a new index
@@ -291,14 +291,6 @@ func (txn *Txn) UpdateAtKey(key string, fn func(*Txn) error) error {
 	txn.bufferFor(txn.owner.pk.name).PutString(commit.Put, idx, key)
 	return err
 }
-
-/*
-// SelectAtKey jumps at a particular key in the collection, sets the cursor to the
-// provided position and executes given callback fn.
-func (txn *Txn) SelectAtKey(key string, fn func(s Selector) error) error {
-	return txn.owner.SelectAtKey(key, fn)
-}
-*/
 
 // DeleteAt attempts to delete an item at the specified index for this transaction. If the item
 // exists, it marks at as deleted and returns true, otherwise it returns false.
@@ -360,12 +352,12 @@ func (txn *Txn) insert(fn func(*Txn) error, expireAt int64) (uint32, error) {
 
 	// If no expiration was specified, simply insert
 	if expireAt == 0 {
-		return idx, txn.UpdateAt(idx, fn)
+		return idx, txn.QueryAt(idx, fn)
 	}
 
 	// If expiration was specified, set it
 	expire := txn.Int64(expireColumn)
-	return idx, txn.UpdateAt(idx, func(*Txn) error {
+	return idx, txn.QueryAt(idx, func(*Txn) error {
 		expire.Set(expireAt)
 		return fn(txn)
 	})
