@@ -234,9 +234,11 @@ func TestForString(t *testing.T) {
 		coll.InsertObject(map[string]interface{}{"id": i, "data": d})
 	}
 
-	coll.Query(func(tx *Txn) error {
-		tx.With("one").Select(func(v Selector) {
-			assert.Equal(t, "b", v.StringAt("data"))
+	coll.Query(func(txn *Txn) error {
+		txn.With("one").Range(func(i uint32) {
+			data, ok := txn.String("data").Get()
+			assert.True(t, ok)
+			assert.Equal(t, "b", data)
 		})
 		return nil
 	})
@@ -260,14 +262,17 @@ func TestAtKey(t *testing.T) {
 	})
 
 	// Read back and assert
-	assertion := func(v Selector) {
-		assert.Equal(t, "Roman", v.StringAt("name"))
-		assert.Equal(t, "elf", v.StringAt("race"))
+	assertion := func(txn *Txn) error {
+		name, _ := txn.Enum("name").Get()
+		race, _ := txn.Enum("race").Get()
+		assert.Equal(t, "Roman", name)
+		assert.Equal(t, "elf", race)
+		return nil
 	}
 
-	assert.True(t, players.SelectAtKey(serial, assertion))
+	assert.NoError(t, players.UpdateAtKey(serial, assertion))
 	assert.NoError(t, players.Query(func(txn *Txn) error {
-		assert.True(t, txn.SelectAtKey(serial, assertion))
+		assert.NoError(t, txn.UpdateAtKey(serial, assertion))
 		return nil
 	}))
 }
@@ -283,7 +288,9 @@ func TestUpdateAtKeyWithoutPK(t *testing.T) {
 
 func TestSelectAtKeyWithoutPK(t *testing.T) {
 	col := NewCollection()
-	assert.False(t, col.SelectAtKey("test", func(v Selector) {}))
+	assert.Error(t, col.UpdateAtKey("test", func(*Txn) error {
+		return nil
+	}))
 }
 
 func TestSnapshotBool(t *testing.T) {
@@ -389,8 +396,8 @@ func TestAccessors(t *testing.T) {
 			// If it has 'Add' method, try to invoke it
 			assert.NoError(t, col.UpdateAt(0, func(txn *Txn) error {
 				column := tc.access(txn, "column")
-				if m := reflect.ValueOf(column).MethodByName("Add"); m.IsValid() {
-					assert.Len(t, invoke(column, "Add", tc.value), 0)
+				if m := reflect.ValueOf(column).MethodByName("Increment"); m.IsValid() {
+					assert.Len(t, invoke(column, "Increment", tc.value), 0)
 				}
 				return nil
 			}))
@@ -494,6 +501,16 @@ func TestInvalidPKAccessor(t *testing.T) {
 			return nil
 		})
 	})
+}
+
+func TestIndexValue(t *testing.T) {
+	idx := newIndex("a", "b", func(r Reader) bool {
+		return r.Float() > 100
+	})
+
+	idx.Column.(*columnIndex).fill.Set(0)
+	_, ok := idx.Value(0)
+	assert.True(t, ok)
 }
 
 func invoke(any interface{}, name string, args ...interface{}) []reflect.Value {

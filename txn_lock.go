@@ -15,11 +15,25 @@ const (
 	chunkSize   = 1 << chunkShift
 )
 
-// --------------------------- Locked Range ---------------------------
+// initialize ensures that the transaction is pre-initialized with the snapshot
+// of the owner's fill list.
+func (txn *Txn) initialize() {
+	if txn.setup {
+		return
+	}
 
-// indexRead acquires a read lock for a chunk that contains the given
-// index and calls the provided function on it.
-func (txn *Txn) indexRead(index uint32, f func(*Txn) error) (err error) {
+	txn.owner.lock.RLock()
+	txn.index.Grow(uint32(txn.owner.opts.Capacity))
+	txn.owner.fill.Clone(&txn.index)
+	txn.owner.lock.RUnlock()
+	txn.setup = true
+}
+
+// --------------------------- Locked Seek ---------------------------
+
+// UpdateAt jumps at a particular offset in the collection, sets the cursor to the
+// provided position and executes given callback fn.
+func (txn *Txn) UpdateAt(index uint32, f func(*Txn) error) (err error) {
 	lock := txn.owner.slock
 	txn.cursor = index
 
@@ -29,6 +43,8 @@ func (txn *Txn) indexRead(index uint32, f func(*Txn) error) (err error) {
 	lock.RUnlock(uint(chunk))
 	return err
 }
+
+// --------------------------- Locked Range ---------------------------
 
 // rangeRead iterates over index, chunk by chunk and ensures that each
 // chunk is protected by an appropriate read lock.

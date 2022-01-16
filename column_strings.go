@@ -145,26 +145,19 @@ func (c *columnEnum) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	})
 }
 
-// slice accessor for enums
-type enumSlice struct {
+// enumReader represens a read-only accessor for enum strings
+type enumReader struct {
 	cursor *uint32
-	writer *commit.Buffer
 	reader *columnEnum
 }
 
-// Set sets the value at the current transaction cursor
-func (s enumSlice) Set(value string) {
-	s.writer.PutString(commit.Put, *s.cursor, value)
-}
-
 // Get loads the value at the current transaction cursor
-func (s enumSlice) Get() (string, bool) {
+func (s enumReader) Get() (string, bool) {
 	return s.reader.LoadString(*s.cursor)
 }
 
-// Enum returns a enumerable column accessor
-func (txn *Txn) Enum(columnName string) enumSlice {
-	writer := txn.bufferFor(columnName)
+// enumReaderFor creates a new enum string reader
+func enumReaderFor(txn *Txn, columnName string) enumReader {
 	column, ok := txn.columnAt(columnName)
 	if !ok {
 		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
@@ -172,13 +165,31 @@ func (txn *Txn) Enum(columnName string) enumSlice {
 
 	reader, ok := column.Column.(*columnEnum)
 	if !ok {
-		panic(fmt.Errorf("column: column '%s' is not of type enum", columnName))
+		panic(fmt.Errorf("column: column '%s' is not of type string", columnName))
 	}
 
-	return enumSlice{
+	return enumReader{
 		cursor: &txn.cursor,
-		writer: writer,
 		reader: reader,
+	}
+}
+
+// slice accessor for enums
+type enumSlice struct {
+	enumReader
+	writer *commit.Buffer
+}
+
+// Set sets the value at the current transaction cursor
+func (s enumSlice) Set(value string) {
+	s.writer.PutString(commit.Put, *s.cursor, value)
+}
+
+// Enum returns a enumerable column accessor
+func (txn *Txn) Enum(columnName string) enumSlice {
+	return enumSlice{
+		enumReader: enumReaderFor(txn, columnName),
+		writer:     txn.bufferFor(columnName),
 	}
 }
 
@@ -275,26 +286,19 @@ func (c *columnString) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	})
 }
 
-// slice accessor for strings
-type stringSlice struct {
+// stringReader represens a read-only accessor for strings
+type stringReader struct {
 	cursor *uint32
-	writer *commit.Buffer
 	reader *columnString
 }
 
-// Set sets the value at the current transaction cursor
-func (s stringSlice) Set(value string) {
-	s.writer.PutString(commit.Put, *s.cursor, value)
-}
-
 // Get loads the value at the current transaction cursor
-func (s stringSlice) Get() (string, bool) {
+func (s stringReader) Get() (string, bool) {
 	return s.reader.LoadString(*s.cursor)
 }
 
-// String returns a string column accessor
-func (txn *Txn) String(columnName string) stringSlice {
-	writer := txn.bufferFor(columnName)
+// stringReaderFor creates a new string reader
+func stringReaderFor(txn *Txn, columnName string) stringReader {
 	column, ok := txn.columnAt(columnName)
 	if !ok {
 		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
@@ -305,9 +309,27 @@ func (txn *Txn) String(columnName string) stringSlice {
 		panic(fmt.Errorf("column: column '%s' is not of type string", columnName))
 	}
 
-	return stringSlice{
+	return stringReader{
 		cursor: &txn.cursor,
-		writer: writer,
 		reader: reader,
+	}
+}
+
+// stringWriter represents read-write accessor for strings
+type stringWriter struct {
+	stringReader
+	writer *commit.Buffer
+}
+
+// Set sets the value at the current transaction cursor
+func (s stringWriter) Set(value string) {
+	s.writer.PutString(commit.Put, *s.cursor, value)
+}
+
+// String returns a string column accessor
+func (txn *Txn) String(columnName string) stringWriter {
+	return stringWriter{
+		stringReader: stringReaderFor(txn, columnName),
+		writer:       txn.bufferFor(columnName),
 	}
 }

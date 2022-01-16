@@ -25,9 +25,9 @@ func New() *Cache {
 
 // Get attempts to retrieve a value for a key
 func (c *Cache) Get(key string) (value string, found bool) {
-	c.store.SelectAtKey(key, func(v column.Selector) {
-		value = v.StringAt("val")
-		found = true
+	c.store.UpdateAtKey(key, func(txn *column.Txn) error {
+		value, found = txn.String("val").Get()
+		return nil
 	})
 	return
 }

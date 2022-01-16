@@ -133,8 +133,12 @@ func TestIndexInvalid(t *testing.T) {
 	}))
 
 	players.Query(func(txn *Txn) error {
-		assert.False(t, txn.SelectAt(999999, func(v Selector) {}))
-		assert.True(t, txn.SelectAt(0, func(v Selector) {}))
+		assert.Error(t, txn.UpdateAt(999999, func(*Txn) error {
+			return fmt.Errorf("not found")
+		}))
+		assert.NoError(t, txn.UpdateAt(0, func(*Txn) error {
+			return nil
+		}))
 		return nil
 	})
 
@@ -142,15 +146,15 @@ func TestIndexInvalid(t *testing.T) {
 		players.Query(func(txn *Txn) error {
 			invalid := txn.Float64("invalid-column")
 			return txn.Range(func(index uint32) {
-				invalid.Add(1)
+				invalid.Increment(1)
 			})
 		})
 	})
 
 	assert.NoError(t, players.Query(func(txn *Txn) error {
-		txn.DeleteIf(func(v Selector) bool {
-			return v.StringAt("class") == "rogue"
-		})
+		txn.WithString("class", func(v string) bool {
+			return v == "rogue"
+		}).DeleteAll()
 		return nil
 	}))
 
@@ -201,15 +205,17 @@ func TestIndexed(t *testing.T) {
 
 	// Check the index value
 	players.Query(func(txn *Txn) error {
+		age := txn.Float64("age")
+		old := txn.Bool("old")
+		class := txn.Enum("class")
 		txn.With("human", "mage", "old").
-			Select(func(v Selector) {
-				assert.True(t, v.FloatAt("age") >= 30)
-				assert.True(t, v.IntAt("age") >= 30)
-				assert.True(t, v.UintAt("age") >= 30)
-				assert.True(t, v.ValueAt("old").(bool))
-				assert.True(t, v.BoolAt("old"))
-				assert.Equal(t, "mage", v.StringAt("class"))
-				assert.False(t, v.BoolAt("xxx"))
+			Range(func(i uint32) {
+				age, _ := age.Get()
+				class, _ := class.Get()
+
+				assert.True(t, age >= 30)
+				assert.True(t, old.Get())
+				assert.Equal(t, "mage", class)
 			})
 		return nil
 	})
@@ -290,8 +296,8 @@ func TestIndexWithAtomicAdd(t *testing.T) {
 		balance := txn.Float64("balance")
 		for i := 0; i < 30; i++ {
 			txn.Range(func(index uint32) {
-				balance.Add(50.0)
-				balance.Add(50.0)
+				balance.Increment(50.0)
+				balance.Increment(50.0)
 			})
 		}
 		return nil
@@ -354,16 +360,19 @@ func TestCountTwice(t *testing.T) {
 	model.CreateColumnsOf(map[string]interface{}{
 		"string": "",
 	})
+
 	model.Query(func(txn *Txn) error {
 		for i := 0; i < 20000; i++ {
-			txn.InsertObject(map[string]interface{}{
+			_, err := txn.InsertObject(map[string]interface{}{
 				"string": fmt.Sprint(i),
 			})
+
+			assert.NoError(t, err)
 		}
 		return nil
 	})
 
-	model.Query(func(txn *Txn) error {
+	assert.NoError(t, model.Query(func(txn *Txn) error {
 		assert.Equal(t, 20000, txn.Count())
 		assert.Equal(t, 1, txn.WithValue("string", func(v interface{}) bool {
 			return v.(string) == "5"
@@ -372,7 +381,7 @@ func TestCountTwice(t *testing.T) {
 			return v == "5"
 		}).Count())
 		return nil
-	})
+	}))
 }
 
 // Details: https://github.com/kelindar/column/issues/15
@@ -425,10 +434,6 @@ func TestUpdateAt(t *testing.T) {
 		name.Set("hi")
 		return nil
 	}))
-
-	assert.True(t, c.SelectAt(index, func(v Selector) {
-		assert.Equal(t, "hi", v.StringAt("col1"))
-	}))
 }
 
 func TestUpdateAtInvalid(t *testing.T) {
@@ -469,10 +474,11 @@ func TestUpsertKey(t *testing.T) {
 	}))
 
 	count := 0
-	c.SelectAtKey("1", func(v Selector) {
-		assert.Equal(t, "Roman", v.StringAt("val"))
+	assert.NoError(t, c.UpdateAtKey("1", func(txn *Txn) error {
 		count++
-	})
+		return nil
+	}))
+
 	assert.Equal(t, 1, count)
 }
 

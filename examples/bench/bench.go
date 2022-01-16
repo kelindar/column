@@ -46,8 +46,9 @@ func main() {
 				})
 				writes++
 			} else {
-				players.SelectAt(offset, func(v column.Selector) {
-					_ = v.FloatAt("balance") // Read
+				players.UpdateAt(offset, func(txn *column.Txn) error {
+					_, _ = txn.Float64("balance").Get()
+					return nil
 				})
 				reads++
 			}

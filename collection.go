@@ -171,34 +171,6 @@ func (c *Collection) UpdateAtKey(key string, fn func(txn *Txn) error) error {
 	})
 }
 
-// SelectAt performs a selection on a specific row specified by its index. It returns
-// a boolean value indicating whether an element is present at the index or not.
-func (c *Collection) SelectAt(idx uint32, fn func(v Selector)) bool {
-	chunk := uint(idx >> chunkShift)
-	if idx >= uint32(len(c.fill))<<6 || !c.fill.Contains(idx) {
-		return false
-	}
-
-	// Lock the chunk which we are about to read and call the selector delegate
-	c.slock.RLock(chunk)
-	fn(Selector{idx: idx, col: c})
-	c.slock.RUnlock(chunk)
-	return true
-}
-
-// SelectAtKey performs a selection on a specific row specified by its key. It returns
-// a boolean value indicating whether an element is present at the key or not.
-func (c *Collection) SelectAtKey(key string, fn func(v Selector)) (found bool) {
-	if c.pk == nil {
-		return false
-	}
-
-	if idx, ok := c.pk.OffsetOf(key); ok {
-		found = c.SelectAt(idx, fn)
-	}
-	return
-}
-
 // DeleteAt attempts to delete an item at the specified index for this collection. If the item
 // exists, it marks at as deleted and returns true, otherwise it returns false.
 func (c *Collection) DeleteAt(idx uint32) (deleted bool) {
@@ -323,9 +295,7 @@ func (c *Collection) DropIndex(indexName string) error {
 // deleted during iteration (range), but the actual operations will be queued and
 // executed after the iteration.
 func (c *Collection) Query(fn func(txn *Txn) error) error {
-	c.lock.RLock()
 	txn := c.txns.acquire(c)
-	c.lock.RUnlock()
 
 	// Execute the query and keep the error for later
 	if err := fn(txn); err != nil {
@@ -341,10 +311,39 @@ func (c *Collection) Query(fn func(txn *Txn) error) error {
 	return nil
 }
 
+// Select ...
+/*
+func (c *Collection) Select(fn func(s Selector) error) error {
+	txn := c.txns.acquire(c)
+	err := fn(Selector{txn: txn})
+	txn.rollback()
+	c.txns.release(txn)
+	return err
+}
+
+// SelectAt performs a selection on a specific row specified by its index.
+func (c *Collection) SelectAt(idx uint32, fn func(s Selector) error) error {
+	return c.Select(func(s Selector) error {
+		return s.SelectAt(idx, fn)
+	})
+}
+
+// SelectAtKey performs a selection on a specific row specified by its key.
+func (c *Collection) SelectAtKey(key string, fn func(vs Selector) error) error {
+	if c.pk == nil {
+		return nil
+	}
+
+	if idx, ok := c.pk.OffsetOf(key); ok {
+		return c.SelectAt(idx, fn)
+	}
+	return nil
+}
+*/
+
 // Close closes the collection and clears up all of the resources.
 func (c *Collection) Close() error {
 	c.cancel()
-
 	return nil
 }
 

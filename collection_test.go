@@ -6,6 +6,7 @@ package column
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"runtime"
 	"sync"
@@ -59,8 +60,9 @@ func BenchmarkCollection(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			players.SelectAt(20, func(v Selector) {
-				name = v.StringAt("name")
+			players.UpdateAt(20, func(txn *Txn) error {
+				name, _ = txn.Enum("name").Get()
+				return nil
 			})
 		}
 		assert.NotEmpty(b, name)
@@ -182,23 +184,33 @@ func TestCollection(t *testing.T) {
 	}))
 
 	{ // Find the object by its index
-		assert.True(t, col.SelectAt(idx, func(v Selector) {
-			assert.Equal(t, "Roman", v.StringAt("name"))
+		assert.NoError(t, col.UpdateAt(idx, func(txn *Txn) error {
+			name, ok := txn.String("name").Get()
+			assert.True(t, ok)
+			assert.Equal(t, "Roman", name)
+			return nil
 		}))
 	}
 
 	{ // Remove the object
 		assert.True(t, col.DeleteAt(idx))
-		assert.False(t, col.SelectAt(idx, func(v Selector) {
-			assert.Fail(t, "unreachable")
+		assert.Error(t, col.UpdateAt(idx, func(txn *Txn) error {
+			if _, ok := txn.String("name").Get(); !ok {
+				return fmt.Errorf("unreachable")
+			}
+
+			return nil
 		}))
 	}
 
 	{ // Add a new one, should replace
 		newIdx := col.InsertObject(obj)
 		assert.Equal(t, idx, newIdx)
-		assert.True(t, col.SelectAt(newIdx, func(v Selector) {
-			assert.Equal(t, "Roman", v.StringAt("name"))
+		assert.NoError(t, col.UpdateAt(newIdx, func(txn *Txn) error {
+			name, ok := txn.String("name").Get()
+			assert.True(t, ok)
+			assert.Equal(t, "Roman", name)
+			return nil
 		}))
 	}
 
@@ -220,19 +232,36 @@ func TestCollection(t *testing.T) {
 			return nil
 		})
 
-		assert.True(t, col.SelectAt(idx, func(v Selector) {
-			assert.Equal(t, int64(1000), v.IntAt("wallet"))
-			assert.Equal(t, true, v.BoolAt("rich"))
+		assert.NoError(t, col.UpdateAt(idx, func(txn *Txn) error {
+			wallet, _ := txn.Float64("wallet").Get()
+			isRich := txn.Bool("rich").Get()
+
+			assert.Equal(t, 1000.0, wallet)
+			assert.True(t, isRich)
+			return nil
 		}))
 	}
+}
 
-	{ // Drop the colun
-		col.DropColumn("rich")
-		col.Query(func(txn *Txn) error {
-			assert.Equal(t, 0, txn.With("rich").Count())
-			return nil
-		})
+func TestDropColumn(t *testing.T) {
+	obj := Object{
+		"wallet": 5000,
 	}
+
+	col := NewCollection()
+	col.CreateColumnsOf(obj)
+	assert.NoError(t, col.CreateIndex("rich", "wallet", func(r Reader) bool {
+		return r.Float() > 100
+	}))
+
+	assert.Equal(t, uint32(0), col.InsertObject(obj))
+	assert.Equal(t, uint32(1), col.InsertObject(obj))
+
+	col.DropColumn("rich")
+	col.Query(func(txn *Txn) error {
+		assert.Equal(t, 0, txn.With("rich").Count())
+		return nil
+	})
 }
 
 func TestInsertObject(t *testing.T) {
@@ -242,10 +271,10 @@ func TestInsertObject(t *testing.T) {
 	col.InsertObject(Object{"name": "B"})
 
 	assert.Equal(t, 2, col.Count())
-	assert.NoError(t, col.Query(func(txn *Txn) error {
-		assert.True(t, txn.SelectAt(0, func(v Selector) {
-			assert.Equal(t, "A", v.StringAt("name"))
-		}))
+	assert.NoError(t, col.UpdateAt(0, func(txn *Txn) error {
+		name, ok := txn.String("name").Get()
+		assert.True(t, ok)
+		assert.Equal(t, "A", name)
 		return nil
 	}))
 }
@@ -417,8 +446,9 @@ func TestConcurrentPointReads(t *testing.T) {
 	// Reader
 	go func() {
 		for i := 0; i < 10000; i++ {
-			col.SelectAt(99, func(v Selector) {
-				_ = v.StringAt("name")
+			col.UpdateAt(99, func(txn *Txn) error {
+				_, _ = txn.String("name").Get()
+				return nil
 			})
 			atomic.AddInt64(&ops, 1)
 			runtime.Gosched()
@@ -469,10 +499,12 @@ func TestInsertWithTTL(t *testing.T) {
 	})
 	assert.Equal(t, uint32(0), idx)
 	assert.NoError(t, err)
-
-	c.SelectAt(idx, func(v Selector) {
-		assert.NotZero(t, v.IntAt(expireColumn))
-	})
+	assert.NoError(t, c.UpdateAt(idx, func(txn *Txn) error {
+		expire, ok := txn.Int64(expireColumn).Get()
+		assert.True(t, ok)
+		assert.NotZero(t, expire)
+		return nil
+	}))
 }
 
 func TestCreateColumnsOfInvalidKind(t *testing.T) {

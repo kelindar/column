@@ -267,9 +267,11 @@ func TestWriteTo(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, input.Count(), output.Count())
 
-	output.SelectAt(0, func(v Selector) {
-		assert.Equal(t, "Roman", v.StringAt("name"))
-	})
+	assert.NoError(t, output.UpdateAt(0, func(txn *Txn) error {
+		name, _ := txn.Enum("name").Get()
+		assert.Equal(t, "Roman", name)
+		return nil
+	}))
 }
 
 func TestCollectionCodec(t *testing.T) {
