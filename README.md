@@ -38,6 +38,7 @@ The general idea is to leverage cache-friendly ways of organizing data in [struc
 - [Expiring Values](#expiring-values)
 - [Transaction Commit and Rollback](#transaction-commit-and-rollback)
 - [Streaming Changes](#streaming-changes)
+- [Snapshot and Restore](#snapshot-and-restore)
 - [Complete Example](#complete-example)
 - [Benchmarks](#benchmarks)
 - [Contributing](#contributing)
@@ -155,16 +156,17 @@ players.Query(func(txn *Txn) error {
 
 ## Iterating over Results
 
-In all of the previous examples, we've only been doing `Count()` operation which counts the number of elements in the result set. In this section we'll look how we can iterate over the result set. In short, there's 2 main methods that allow us to do it:
+In all of the previous examples, we've only been doing `Count()` operation which counts the number of elements in the result set. In this section we'll look how we can iterate over the result set.
 
-1.  `Range()` method which takes in a column name as an argument and allows faster get/set of the values for that column.
-2.  `Select()` method which doesn't pre-select any specific column, so it's usually a bit slower and it also does not allow any updates.
+As before, a transaction needs to be started using the `Query()` method on the collection. After which, we can call the `txn.Range()` method which allows us to iterate over the result set in the transaction. Note that it can be chained right after `With..()` methods, as expected.
 
-Let's first examine the `Range()` method. In the example below we select all of the rogues from our collection and print out their name by using the `Range()` method and providing "name" column to it. The callback containing the `Cursor` allows us to quickly get the value of the column by calling `String()` method to retrieve a string value. It also contains methods such as `Int()`, `Uint()`, `Float()` or more generic `Value()` to pull data of different types.
+In order to access the results of the iteration, prior to calling `Range()` method, we need to **first load column reader(s)** we are going to need, using methods such as `txn.String()`, `txn.Float64()`, etc. These prepare read/write buffers necessary to perform efficient lookups while iterating.
+
+In the example below we select all of the rogues from our collection and print out their name by using the `Range()` method and accessing the "name" column using a column reader which is created by calling `txn.String("name")` method.
 
 ```go
 players.Query(func(txn *Txn) error {
-	names := txn.String("name")
+	names := txn.String("name") // Create a column reader
 
 	return txn.With("rogue").Range(func(i uint32) {
 		name, _ := names.Get()
@@ -173,7 +175,7 @@ players.Query(func(txn *Txn) error {
 })
 ```
 
-Now, what if you need two columns? The range only allows you to quickly select a single column, but you can still retrieve other columns by their name during the iteration. This can be accomplished by corresponding `StringAt()`, `FloatAt()`, `IntAt()`, `UintAt()` or `ValueAt()` methods as shown below.
+Similarly, if you need to access more columns, you can simply create the appropriate column reader(s) and use them as shown in the example before.
 
 ```go
 players.Query(func(txn *Txn) error {
@@ -190,30 +192,9 @@ players.Query(func(txn *Txn) error {
 })
 ```
 
-On the other hand, `Select()` allows you to do a read-only selection which provides a `Selector` cursor. This cursor does not allow any updates, deletes or inserts and is also not pre-select any particular column. In the example below we print out names of all of the rogues using a selector.
-
-```go
-players.Query(func(txn *Txn) error {
-	txn.With("rogue").Select(func(v column.Selector) bool {
-		println("rogue name ", v.StringAt("name")) // Prints the name
-		return true
-	})
-	return nil
-})
-```
-
-Now, what if you need to quickly delete all some of the data in the collection? In this case `DeleteAll()` or `DeleteIf()` methods come in handy. These methods are very fast (especially `DeleteAll()`) and allow you to quickly delete the appropriate results, transactionally. In the example below we delete all of the rogues from the collection by simply selecting them in the transaction and calling the `DeleteAll()` method.
-
-```go
-players.Query(func(txn *Txn) error {
-	txn.With("rogue").DeleteAll()
-	return nil
-})
-```
-
 ## Updating Values
 
-In order to update certain items in the collection, you can simply call `Range()` method and the corresponding `Cursor`'s `Set..()` or `Set..At()` methods that allow to update a value of a certain column atomically. The updates won't be directly reflected given that the store supports transactions and only when transaction is commited, then the update will be applied to the collection. This allows for isolation and rollbacks.
+In order to update certain items in the collection, you can simply call `Range()` method and use column accessor's `Set()` or `Add()` methods to update a value of a certain column atomically. The updates won't be instantly reflected given that our store supports transactions. Only when transaction is commited, then the update will be applied to the collection, allowing for isolation and rollbacks.
 
 In the example below we're selecting all of the rogues and updating both their balance and age to certain values. The transaction returns `nil`, hence it will be automatically committed when `Query()` method returns.
 
@@ -229,7 +210,7 @@ players.Query(func(txn *Txn) error {
 })
 ```
 
-In certain cases, you might want to atomically increment or decrement numerical values. In order to accomplish this you can use the provided `Add..()` or `Add..At()` operations of the `Cursor` or `Selector`. Note that the indexes will also be updated accordingly and the predicates re-evaluated with the most up-to-date values. In the below example we're incrementing the balance of all our rogues by _500_ atomically.
+In certain cases, you might want to atomically increment or decrement numerical values. In order to accomplish this you can use the provided `Add()` operation. Note that the indexes will also be updated accordingly and the predicates re-evaluated with the most up-to-date values. In the below example we're incrementing the balance of all our rogues by _500_ atomically.
 
 ```go
 players.Query(func(txn *Txn) error {
@@ -349,6 +330,34 @@ go func() {
 }()
 ```
 
+## Snapshot and Restore
+
+The collection can also be saved in a single binary format while the transactions are running. This can allow you to periodically schedule backups or make sure all of the data is persisted when your application terminates.
+
+In order to take a snapshot, you must first create a valid `io.Writer` destination and then call the `Snapshot()` method on the collection in order to create a snapshot, as demonstrated in the example below.
+
+```go
+dst, err := os.Create("snapshot.bin")
+if err != nil {
+	panic(err)
+}
+
+// Write a snapshot into the dst
+err := players.Snapshot(dst)
+```
+
+Conversely, in order to restore an existing snapshot, you need to first open an `io.Reader` and then call the `Restore()` method on the collection. Note that the collection and its schema must be already initialized, as our snapshots do not carry this information within themselves.
+
+```go
+src, err := os.Open("snapshot.bin")
+if err != nil {
+	panic(err)
+}
+
+// Restore from an existing snapshot
+err := players.Restore(src)
+```
+
 ## Complete Example
 
 ```go
@@ -409,46 +418,49 @@ The benchmarks below were ran on a collection of **100,000 items** containing a 
 
 ```
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkCollection/insert-8            2104     526103 ns/op     1218 B/op      0 allocs/op
-BenchmarkCollection/fetch-8         25516224      47.49 ns/op        0 B/op      0 allocs/op
-BenchmarkCollection/scan-8              1790     662321 ns/op     1053 B/op      0 allocs/op
-BenchmarkCollection/count-8           750022       1541 ns/op        2 B/op      0 allocs/op
-BenchmarkCollection/range-8            10000     106408 ns/op      163 B/op      0 allocs/op
-BenchmarkCollection/update-at-8      3053438      409.4 ns/op        0 B/op      0 allocs/op
-BenchmarkCollection/update-all-8         774    1548279 ns/op    13937 B/op      0 allocs/op
-BenchmarkCollection/delete-at-8      6451591      173.6 ns/op        0 B/op      0 allocs/op
-BenchmarkCollection/delete-all-8     1318351      901.1 ns/op        1 B/op      0 allocs/op
+BenchmarkCollection/insert-8            2523     469481 ns/op    24356 B/op    500 allocs/op
+BenchmarkCollection/select-at-8     22194190      54.23 ns/op        0 B/op      0 allocs/op
+BenchmarkCollection/scan-8              2068     568953 ns/op      122 B/op      0 allocs/op
+BenchmarkCollection/count-8           571449       2057 ns/op        0 B/op      0 allocs/op
+BenchmarkCollection/range-8            28660      41695 ns/op        3 B/op      0 allocs/op
+BenchmarkCollection/update-at-8      5911978      202.8 ns/op        0 B/op      0 allocs/op
+BenchmarkCollection/update-all-8        1280     946272 ns/op     3726 B/op      0 allocs/op
+BenchmarkCollection/delete-at-8      6405852      188.9 ns/op        0 B/op      0 allocs/op
+BenchmarkCollection/delete-all-8     2073188      562.6 ns/op        0 B/op      0 allocs/op
 ```
 
 When testing for larger collections, I added a small example (see `examples` folder) and ran it with **20 million rows** inserted, each entry has **12 columns and 4 indexes** that need to be calculated, and a few queries and scans around them.
 
 ```
 running insert of 20000000 rows...
--> insert took 27.8103257s
+-> insert took 20.4538183s
+
+running snapshot of 20000000 rows...
+-> snapshot took 2.57960038s
 
 running full scan of age >= 30...
 -> result = 10200000
--> full scan took 55.142806ms
+-> full scan took 61.611822ms
 
 running full scan of class == "rogue"...
 -> result = 7160000
--> full scan took 82.8865ms
+-> full scan took 81.389954ms
 
 running indexed query of human mages...
 -> result = 1360000
--> indexed query took 544.578µs
+-> indexed query took 608.51µs
 
 running indexed query of human female mages...
 -> result = 640000
--> indexed query took 721.409µs
+-> indexed query took 794.49µs
 
 running update of balance of everyone...
 -> updated 20000000 rows
--> update took 247.224012ms
+-> update took 214.182216ms
 
 running update of age of mages...
 -> updated 6040000 rows
--> update took 85.669422ms
+-> update took 81.292378ms
 ```
 
 ## Contributing
