@@ -145,7 +145,7 @@ func (c *columnEnum) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	})
 }
 
-// enumReader represens a read-only accessor for enum strings
+// enumReader represents a read-only accessor for enum strings
 type enumReader struct {
 	cursor *uint32
 	reader *columnEnum
@@ -286,7 +286,7 @@ func (c *columnString) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	})
 }
 
-// stringReader represens a read-only accessor for strings
+// stringReader represents a read-only accessor for strings
 type stringReader struct {
 	cursor *uint32
 	reader *columnString

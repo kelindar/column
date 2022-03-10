@@ -151,7 +151,7 @@ func (c *float32Column) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	})
 }
 
-// float32Reader represens a read-only accessor for float32
+// float32Reader represents a read-only accessor for float32
 type float32Reader struct {
 	cursor *uint32
 	reader *float32Column
@@ -345,7 +345,7 @@ func (c *float64Column) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	})
 }
 
-// float64Reader represens a read-only accessor for float64
+// float64Reader represents a read-only accessor for float64
 type float64Reader struct {
 	cursor *uint32
 	reader *float64Column
@@ -539,7 +539,7 @@ func (c *intColumn) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	})
 }
 
-// intReader represens a read-only accessor for int
+// intReader represents a read-only accessor for int
 type intReader struct {
 	cursor *uint32
 	reader *intColumn
@@ -733,7 +733,7 @@ func (c *int16Column) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	})
 }
 
-// int16Reader represens a read-only accessor for int16
+// int16Reader represents a read-only accessor for int16
 type int16Reader struct {
 	cursor *uint32
 	reader *int16Column
@@ -927,7 +927,7 @@ func (c *int32Column) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	})
 }
 
-// int32Reader represens a read-only accessor for int32
+// int32Reader represents a read-only accessor for int32
 type int32Reader struct {
 	cursor *uint32
 	reader *int32Column
@@ -1121,7 +1121,7 @@ func (c *int64Column) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	})
 }
 
-// int64Reader represens a read-only accessor for int64
+// int64Reader represents a read-only accessor for int64
 type int64Reader struct {
 	cursor *uint32
 	reader *int64Column
@@ -1315,7 +1315,7 @@ func (c *uintColumn) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	})
 }
 
-// uintReader represens a read-only accessor for uint
+// uintReader represents a read-only accessor for uint
 type uintReader struct {
 	cursor *uint32
 	reader *uintColumn
@@ -1509,7 +1509,7 @@ func (c *uint16Column) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	})
 }
 
-// uint16Reader represens a read-only accessor for uint16
+// uint16Reader represents a read-only accessor for uint16
 type uint16Reader struct {
 	cursor *uint32
 	reader *uint16Column
@@ -1703,7 +1703,7 @@ func (c *uint32Column) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	})
 }
 
-// uint32Reader represens a read-only accessor for uint32
+// uint32Reader represents a read-only accessor for uint32
 type uint32Reader struct {
 	cursor *uint32
 	reader *uint32Column
@@ -1897,7 +1897,7 @@ func (c *uint64Column) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	})
 }
 
-// uint64Reader represens a read-only accessor for uint64
+// uint64Reader represents a read-only accessor for uint64
 type uint64Reader struct {
 	cursor *uint32
 	reader *uint64Column

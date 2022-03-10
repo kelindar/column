@@ -118,7 +118,7 @@ func (txn *Txn) bufferFor(columnName string) *commit.Buffer {
 // common operation.
 type columnCache struct {
 	name string  // The column name
-	col  *column // The columns and its computed
+	col  *column // The loaded column
 }
 
 // columnAt loads and caches the column for the transaction
@@ -320,12 +320,12 @@ func (txn *Txn) InsertObjectWithTTL(object Object, ttl time.Duration) (uint32, e
 	return txn.insertObject(object, time.Now().Add(ttl).UnixNano())
 }
 
-// Insert executes a mutable cursor trasactionally at a new offset.
+// Insert executes a mutable cursor transactionally at a new offset.
 func (txn *Txn) Insert(fn func(Row) error) (uint32, error) {
 	return txn.insert(fn, 0)
 }
 
-// InsertWithTTL executes a mutable cursor trasactionally at a new offset and sets the expiration time
+// InsertWithTTL executes a mutable cursor transactionally at a new offset and sets the expiration time
 // based on the specified time-to-live and returns the allocated index.
 func (txn *Txn) InsertWithTTL(ttl time.Duration, fn func(Row) error) (uint32, error) {
 	return txn.insert(fn, time.Now().Add(ttl).UnixNano())

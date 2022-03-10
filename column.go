@@ -141,12 +141,12 @@ func (c *column) IsIndex() bool {
 	return ok
 }
 
-// Is checks whether a column type supports certain numerical operations.
+// IsNumeric checks whether a column type supports certain numerical operations.
 func (c *column) IsNumeric() bool {
 	return (c.kind & typeNumeric) == typeNumeric
 }
 
-// Is checks whether a column type supports certain string operations.
+// IsTextual checks whether a column type supports certain string operations.
 func (c *column) IsTextual() bool {
 	return (c.kind & typeTextual) == typeTextual
 }
@@ -238,7 +238,7 @@ func (c *columnBool) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	dst.PutBitmap(commit.PutTrue, chunk, c.data)
 }
 
-// boolReader represens a read-only accessor for boolean values
+// boolReader represents a read-only accessor for boolean values
 type boolReader struct {
 	cursor *uint32
 	reader Column
@@ -273,7 +273,7 @@ func (s boolWriter) Set(value bool) {
 	s.writer.PutBool(*s.cursor, value)
 }
 
-// String returns a string column accessor
+// Bool returns a bool column accessor
 func (txn *Txn) Bool(columnName string) boolWriter {
 	return boolWriter{
 		boolReader: boolReaderFor(txn, columnName),
@@ -283,7 +283,7 @@ func (txn *Txn) Bool(columnName string) boolWriter {
 
 // --------------------------- Accessor ----------------------------
 
-// anyReader represens a read-only accessor for any value
+// anyReader represents a read-only accessor for any value
 type anyReader struct {
 	cursor *uint32
 	reader Column
