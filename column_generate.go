@@ -154,7 +154,7 @@ func (c *numberColumn) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	})
 }
 
-// numberReader represens a read-only accessor for number
+// numberReader represents a read-only accessor for number
 type numberReader struct {
 	cursor *uint32
 	reader *numberColumn

@@ -138,7 +138,7 @@ func (c *Collection) InsertObjectWithTTL(obj Object, ttl time.Duration) (index u
 	return
 }
 
-// Insert executes a mutable cursor trasactionally at a new offset.
+// Insert executes a mutable cursor transactionally at a new offset.
 func (c *Collection) Insert(fn func(Row) error) (index uint32, err error) {
 	err = c.Query(func(txn *Txn) (innerErr error) {
 		index, innerErr = txn.Insert(fn)
@@ -147,7 +147,7 @@ func (c *Collection) Insert(fn func(Row) error) (index uint32, err error) {
 	return
 }
 
-// InsertWithTTL executes a mutable cursor trasactionally at a new offset and sets the expiration time
+// InsertWithTTL executes a mutable cursor transactionally at a new offset and sets the expiration time
 // based on the specified time-to-live and returns the allocated index.
 func (c *Collection) InsertWithTTL(ttl time.Duration, fn func(Row) error) (index uint32, err error) {
 	err = c.Query(func(txn *Txn) (innerErr error) {
