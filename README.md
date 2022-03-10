@@ -237,7 +237,7 @@ players.InsertObjectWithTTL(map[string]interface{}{
 }, 5 * time.Second) // The time-to-live of 5 seconds
 ```
 
-On an interestig node, since `expire` column which is automatically added to each collection is an actual normal column, you can query and even update it. In the example below we query and conditionally update the expiration column. The example loads a time, adds one hour and updates it, but in practice if you want to do it you should use `Add()` method which can perform this atomically.
+On an interesting note, since `expire` column which is automatically added to each collection is an actual normal column, you can query and even update it. In the example below we query and conditionally update the expiration column. The example loads a time, adds one hour and updates it, but in practice if you want to do it you should use `Add()` method which can perform this atomically.
 
 ```go
 players.Query(func(txn *column.Txn) error {
