@@ -113,6 +113,19 @@ func BenchmarkCollection(b *testing.B) {
 		assert.NotEmpty(b, name)
 	})
 
+	b.Run("sum", func(b *testing.B) {
+		testFlo := 0.0
+		b.ReportAllocs()
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			players.Query(func(txn *Txn) error {
+				testFlo = txn.SumFloat64("balance")
+				return nil
+			})
+		}
+		assert.NotEqual(b, float64(0), testFlo)
+	})
+
 	b.Run("update-at", func(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()

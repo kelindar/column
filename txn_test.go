@@ -6,6 +6,7 @@ package column
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -647,4 +648,38 @@ func TestSumBalance(t *testing.T) {
 		assert.Equal(t, 186440, sum)
 		return nil
 	})
+}
+
+func TestSumConcurrently(t *testing.T) {
+	c := NewCollection()
+	c.CreateColumn("int", ForInt())
+
+	var curTotal int64
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// Reader
+	go func(){
+		for j := 1; j <= 1000; j++ {
+			c.Query(func (txn *Txn) error {
+				assert.Equal(t, txn.SumInt64("int"), atomic.LoadInt64(&curTotal))
+				return nil
+			})
+		}
+		wg.Done()
+	}()
+
+	// Writer
+	go func(){
+		for i := 1; i <= 1000; i++ {
+			c.Insert(func (r Row) error {
+				r.SetInt("int", int(1))
+				return nil
+			})
+			atomic.AddInt64(&curTotal, 1)
+		}
+		wg.Done()
+	}()
+
+	wg.Wait()
 }

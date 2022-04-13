@@ -80,8 +80,8 @@ type Txn struct {
 	cursor  uint32           // The current cursor
 	setup   bool             // Whether the transaction was set up or not
 	owner   *Collection      // The target collection
-	index   bitmap.Bitmap    // The filtering index
-	dirty   bitmap.Bitmap    // The dirty chunks
+	index   bitmap.Bitmap	 // The filtering index
+	dirty   bitmap.Bitmap	 // The dirty chunks
 	updates []*commit.Buffer // The update buffers
 	columns []columnCache    // The column mapping
 	logger  commit.Logger    // The optional commit logger
@@ -274,6 +274,78 @@ func (txn *Txn) WithString(column string, predicate func(v string) bool) *Txn {
 		c.Column.(Textual).FilterString(chunk, index, predicate)
 	})
 	return txn
+}
+
+// SumInt64 returns the total of a numeric col with respect to a txn's
+// current index. Each value is converted into int64 before addition.
+func (txn *Txn) SumInt64(column string) int64 {
+	txn.initialize()
+	c, ok := txn.columnAt(column)
+	if !ok || !c.IsNumeric() {
+		txn.index.Clear()
+		return int64(0)
+	}
+
+	var total int64 = 0
+	var val int64 = 0
+	txn.rangeRead(func(offset uint32, index bitmap.Bitmap) {
+		txn.owner.lock.RLock()
+		index.Range(func(x uint32) {
+			txn.cursor = offset + x
+			val, _ = c.Column.(Numeric).LoadInt64(txn.cursor)
+			total += val
+		})
+		txn.owner.lock.RUnlock()
+	})
+	return total
+}
+
+// SumUint64 returns the total of a numeric col with respect to a txn's
+// current index. Each value is converted into uint64 before addition.
+func (txn *Txn) SumUint64(column string) uint64 {
+	txn.initialize()
+	c, ok := txn.columnAt(column)
+	if !ok || !c.IsNumeric() {
+		txn.index.Clear()
+		return uint64(0)
+	}
+
+	var total uint64 = 0
+	var val uint64 = 0
+	txn.rangeRead(func(offset uint32, index bitmap.Bitmap) {
+		txn.owner.lock.RLock()
+		index.Range(func(x uint32) {
+			txn.cursor = offset + x
+			val, _ = c.Column.(Numeric).LoadUint64(txn.cursor)
+			total += val
+		})
+		txn.owner.lock.RUnlock()
+	})
+	return total
+}
+
+// SumFloat64 returns the total of a numeric col with respect to a txn's
+// current index. Each value is converted into float64 before addition.
+func (txn *Txn) SumFloat64(column string) float64 {
+	txn.initialize()
+	c, ok := txn.columnAt(column)
+	if !ok || !c.IsNumeric() {
+		txn.index.Clear()
+		return float64(0)
+	}
+
+	var total float64 = 0
+	var val float64 = 0
+	txn.rangeRead(func(offset uint32, index bitmap.Bitmap) {
+		txn.owner.lock.RLock()
+		index.Range(func(x uint32) {
+			txn.cursor = offset + x
+			val, _ = c.Column.(Numeric).LoadFloat64(txn.cursor)
+			total += val
+		})
+		txn.owner.lock.RUnlock()
+	})
+	return total
 }
 
 // Count returns the number of objects matching the query
