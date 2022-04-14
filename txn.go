@@ -173,13 +173,19 @@ func (txn *Txn) Without(columns ...string) *Txn {
 
 // Union computes a union between the current query and the specified index.
 func (txn *Txn) Union(columns ...string) *Txn {
+	first := !txn.setup
 	txn.initialize()
 	for _, columnName := range columns {
 		if idx, ok := txn.columnAt(columnName); ok {
 			txn.rangeReadPair(idx, func(dst, src bitmap.Bitmap) {
-				dst.Or(src)
+				if first {
+					dst.And(src)
+				} else {
+					dst.Or(src)
+				}
 			})
 		}
+		first = false
 	}
 	return txn
 }
