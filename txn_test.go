@@ -592,3 +592,42 @@ func TestRow(t *testing.T) {
 
 	wg.Wait()
 }
+
+func TestUnion(t *testing.T) {
+	c := NewCollection()
+	c.CreateColumn("d_a", ForString())
+
+	c.CreateIndex("d_a_1", "d_a", func(r Reader) bool { return r.String() == "1" })
+	c.CreateIndex("d_a_2", "d_a", func(r Reader) bool { return r.String() == "2" })
+	c.CreateIndex("d_a_3", "d_a", func(r Reader) bool { return r.String() == "on99" })
+
+	c.InsertObject(map[string]interface{}{
+		"d_a": "1",
+	})
+	c.InsertObject(map[string]interface{}{
+		"d_a": "2",
+	})
+	c.InsertObject(map[string]interface{}{
+		"d_a": "on99",
+	})
+
+	c.Query(func(txn *Txn) error {
+		assert.Equal(t, 1, txn.Union("d_a_1").Count())
+		return nil
+	})
+
+	c.Query(func(txn *Txn) error {
+		assert.Equal(t, 2, txn.Union("d_a_1").Union("d_a_2").Count())
+		return nil
+	})
+
+	c.Query(func(txn *Txn) error {
+		assert.Equal(t, 2, txn.Union("d_a_2", "d_a_3").Count())
+		return nil
+	})
+
+	c.Query(func(txn *Txn) error {
+		assert.Equal(t, 3, txn.Union("d_a_1", "d_a_2").Union("d_a_3").Count())
+		return nil
+	})
+}
