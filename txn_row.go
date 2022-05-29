@@ -208,7 +208,7 @@ func (r Row) SetBool(columnName string, value bool) {
 }
 
 // Any loads a bool value at a particular column
-func (r Row) Any(columnName string) (interface{}, bool) {
+func (r Row) Any(columnName string) (any, bool) {
 	return anyReaderFor(r.txn, columnName).Get()
 }
 

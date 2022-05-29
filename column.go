@@ -34,11 +34,6 @@ func typeOf(column Column) (typ columnType) {
 	return
 }
 
-type segment[T any] struct {
-	fill bitmap.Bitmap // The fill-list
-	data []T           // The actual values
-}
-
 // --------------------------- Contracts ----------------------------
 
 // Column represents a column implementation
@@ -197,102 +192,6 @@ func (c *column) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
-// --------------------------- booleans ----------------------------
-
-// columnBool represents a boolean column
-type columnBool struct {
-	data bitmap.Bitmap
-}
-
-// makeBools creates a new boolean column
-func makeBools() Column {
-	return &columnBool{
-		data: make(bitmap.Bitmap, 0, 4),
-	}
-}
-
-// Grow grows the size of the column until we have enough to store
-func (c *columnBool) Grow(idx uint32) {
-	c.data.Grow(idx)
-}
-
-// Apply applies a set of operations to the column.
-func (c *columnBool) Apply(chunk commit.Chunk, r *commit.Reader) {
-	for r.Next() {
-		v := uint64(1) << (r.Offset & 0x3f)
-		switch r.Type {
-		case commit.PutTrue:
-			c.data[r.Offset>>6] |= v
-		case commit.PutFalse: // also "delete"
-			c.data[r.Offset>>6] &^= v
-		}
-	}
-}
-
-// Value retrieves a value at a specified index
-func (c *columnBool) Value(idx uint32) (interface{}, bool) {
-	value := c.data.Contains(idx)
-	return value, value
-}
-
-// Contains checks whether the column has a value at a specified index.
-func (c *columnBool) Contains(idx uint32) bool {
-	return c.data.Contains(idx)
-}
-
-// Index returns the fill list for the column
-func (c *columnBool) Index(chunk commit.Chunk) bitmap.Bitmap {
-	return chunk.OfBitmap(c.data)
-}
-
-// Snapshot writes the entire column into the specified destination buffer
-func (c *columnBool) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
-	dst.PutBitmap(commit.PutTrue, chunk, c.data)
-}
-
-// boolReader represents a read-only accessor for boolean values
-type boolReader struct {
-	cursor *uint32
-	reader Column
-}
-
-// Get loads the value at the current transaction cursor
-func (s boolReader) Get() bool {
-	return s.reader.Contains(*s.cursor)
-}
-
-// boolReaderFor creates a new reader
-func boolReaderFor(txn *Txn, columnName string) boolReader {
-	column, ok := txn.columnAt(columnName)
-	if !ok {
-		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
-	}
-
-	return boolReader{
-		cursor: &txn.cursor,
-		reader: column.Column,
-	}
-}
-
-// boolWriter represents read-write accessor for boolean values
-type boolWriter struct {
-	boolReader
-	writer *commit.Buffer
-}
-
-// Set sets the value at the current transaction cursor
-func (s boolWriter) Set(value bool) {
-	s.writer.PutBool(*s.cursor, value)
-}
-
-// Bool returns a bool column accessor
-func (txn *Txn) Bool(columnName string) boolWriter {
-	return boolWriter{
-		boolReader: boolReaderFor(txn, columnName),
-		writer:     txn.bufferFor(columnName),
-	}
-}
-
 // --------------------------- Accessor ----------------------------
 
 // anyReader represents a read-only accessor for any value
@@ -302,7 +201,7 @@ type anyReader struct {
 }
 
 // Get loads the value at the current transaction cursor
-func (s anyReader) Get() (interface{}, bool) {
+func (s anyReader) Get() (any, bool) {
 	return s.reader.Value(*s.cursor)
 }
 
@@ -326,7 +225,7 @@ type anyWriter struct {
 }
 
 // Set sets the value at the current transaction cursor
-func (s anyWriter) Set(value interface{}) {
+func (s anyWriter) Set(value any) {
 	s.writer.PutAny(commit.Put, *s.cursor, value)
 }
 
@@ -338,27 +237,39 @@ func (txn *Txn) Any(columnName string) anyWriter {
 	}
 }
 
-// --------------------------- funcs ----------------------------
+// --------------------------- segment list ----------------------------
 
-// resize calculates the new required capacity and a new index
-func resize(capacity int, v uint32) int {
-	const threshold = 256
-	if v < threshold {
-		v |= v >> 1
-		v |= v >> 2
-		v |= v >> 4
-		v |= v >> 8
-		v |= v >> 16
-		v++
-		return int(v)
-	}
+// Chunks represents a chunked array storage
+type chunks[T any] []struct {
+	fill bitmap.Bitmap // The fill-list
+	data []T           // The actual values
+}
 
-	if capacity < threshold {
-		capacity = threshold
-	}
+// chunkAt loads the fill and data list at a particular chunk
+func (s chunks[T]) chunkAt(chunk commit.Chunk) (bitmap.Bitmap, []T) {
+	fill := s[chunk].fill
+	data := s[chunk].data
+	return fill, data
+}
 
-	for 0 < capacity && capacity < int(v+1) {
-		capacity += (capacity + 3*threshold) / 4
+// Grow grows a segment list
+func (s *chunks[T]) Grow(idx uint32) {
+	chunk := int(commit.ChunkAt(idx))
+	for i := len(*s); i <= chunk; i++ {
+		*s = append(*s, struct {
+			fill bitmap.Bitmap
+			data []T
+		}{
+			fill: make(bitmap.Bitmap, chunkSize/64),
+			data: make([]T, chunkSize),
+		})
 	}
-	return capacity
+}
+
+// Index returns the fill list for the segment
+func (s chunks[T]) Index(chunk commit.Chunk) (fill bitmap.Bitmap) {
+	if int(chunk) < len(s) {
+		fill = s[chunk].fill
+	}
+	return
 }

@@ -25,7 +25,7 @@ func readNumber[T numericType](txn *Txn, columnName string) (value T, found bool
 
 // numericColumn represents a numeric column
 type numericColumn[T numericType] struct {
-	data  []segment[T]
+	chunks[T]
 	write func(*commit.Buffer, uint32, T)
 	apply func(*commit.Reader, bitmap.Bitmap, []T)
 }
@@ -36,36 +36,10 @@ func makeNumeric[T numericType](
 	apply func(*commit.Reader, bitmap.Bitmap, []T),
 ) *numericColumn[T] {
 	return &numericColumn[T]{
-		data:  make([]segment[T], 0, 4),
-		write: write,
-		apply: apply,
+		chunks: make(chunks[T], 0, 4),
+		write:  write,
+		apply:  apply,
 	}
-}
-
-// segmentAt loads the fill and data list at a particular chunk
-func (c *numericColumn[T]) segmentAt(chunk commit.Chunk) (bitmap.Bitmap, []T) {
-	fill := c.data[chunk].fill
-	data := c.data[chunk].data
-	return fill, data
-}
-
-// Grow grows the size of the column until we have enough to store
-func (c *numericColumn[T]) Grow(idx uint32) {
-	chunk := int(commit.ChunkAt(idx))
-	for i := len(c.data); i <= chunk; i++ {
-		c.data = append(c.data, segment[T]{
-			fill: make(bitmap.Bitmap, chunkSize/64),
-			data: make([]T, chunkSize),
-		})
-	}
-}
-
-// Index returns the fill list for the column
-func (c *numericColumn[T]) Index(chunk commit.Chunk) (fill bitmap.Bitmap) {
-	if int(chunk) < len(c.data) {
-		fill = c.data[chunk].fill
-	}
-	return
 }
 
 // --------------------------- Accessors ----------------------------
@@ -73,15 +47,15 @@ func (c *numericColumn[T]) Index(chunk commit.Chunk) (fill bitmap.Bitmap) {
 // Contains checks whether the column has a value at a specified index.
 func (c *numericColumn[T]) Contains(idx uint32) bool {
 	chunk := commit.ChunkAt(idx)
-	return c.data[chunk].fill.Contains(idx - chunk.Min())
+	return c.chunks[chunk].fill.Contains(idx - chunk.Min())
 }
 
 // load retrieves a float64 value at a specified index
 func (c *numericColumn[T]) load(idx uint32) (v T, ok bool) {
 	chunk := commit.ChunkAt(idx)
 	index := idx - chunk.Min()
-	if int(chunk) < len(c.data) && c.data[chunk].fill.Contains(index) {
-		v, ok = c.data[chunk].data[index], true
+	if int(chunk) < len(c.chunks) && c.chunks[chunk].fill.Contains(index) {
+		v, ok = c.chunks[chunk].data[index], true
 	}
 	return
 }
@@ -113,8 +87,8 @@ func (c *numericColumn[T]) LoadUint64(idx uint32) (uint64, bool) {
 
 // filterNumbers filters down the values based on the specified predicate.
 func filterNumbers[T, C numericType](column *numericColumn[T], chunk commit.Chunk, index bitmap.Bitmap, predicate func(C) bool) {
-	if int(chunk) < len(column.data) {
-		fill, data := column.segmentAt(chunk)
+	if int(chunk) < len(column.chunks) {
+		fill, data := column.chunkAt(chunk)
 		index.And(fill)
 		index.Filter(func(idx uint32) bool {
 			return predicate(C(data[idx]))
@@ -141,13 +115,13 @@ func (c *numericColumn[T]) FilterUint64(chunk commit.Chunk, index bitmap.Bitmap,
 
 // Apply applies a set of operations to the column.
 func (c *numericColumn[T]) Apply(chunk commit.Chunk, r *commit.Reader) {
-	fill, data := c.segmentAt(chunk)
+	fill, data := c.chunkAt(chunk)
 	c.apply(r, fill, data)
 }
 
 // Snapshot writes the entire column into the specified destination buffer
 func (c *numericColumn[T]) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
-	fill, data := c.segmentAt(chunk)
+	fill, data := c.chunkAt(chunk)
 	fill.Range(func(x uint32) {
 		c.write(dst, chunk.Min()+x, data[x])
 	})
