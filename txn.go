@@ -200,7 +200,8 @@ func (txn *Txn) WithValue(column string, predicate func(v interface{}) bool) *Tx
 		return txn
 	}
 
-	txn.rangeRead(func(offset uint32, index bitmap.Bitmap) {
+	txn.rangeRead(func(chunk commit.Chunk, index bitmap.Bitmap) {
+		offset := chunk.Min()
 		index.Filter(func(x uint32) (match bool) {
 			if v, ok := c.Value(offset + x); ok {
 				match = predicate(v)
@@ -221,8 +222,8 @@ func (txn *Txn) WithFloat(column string, predicate func(v float64) bool) *Txn {
 		return txn
 	}
 
-	txn.rangeRead(func(offset uint32, index bitmap.Bitmap) {
-		c.Column.(Numeric).FilterFloat64(offset, index, predicate)
+	txn.rangeRead(func(chunk commit.Chunk, index bitmap.Bitmap) {
+		c.Column.(Numeric).FilterFloat64(chunk, index, predicate)
 	})
 	return txn
 }
@@ -237,8 +238,8 @@ func (txn *Txn) WithInt(column string, predicate func(v int64) bool) *Txn {
 		return txn
 	}
 
-	txn.rangeRead(func(offset uint32, index bitmap.Bitmap) {
-		c.Column.(Numeric).FilterInt64(offset, index, predicate)
+	txn.rangeRead(func(chunk commit.Chunk, index bitmap.Bitmap) {
+		c.Column.(Numeric).FilterInt64(chunk, index, predicate)
 	})
 	return txn
 }
@@ -253,8 +254,8 @@ func (txn *Txn) WithUint(column string, predicate func(v uint64) bool) *Txn {
 		return txn
 	}
 
-	txn.rangeRead(func(offset uint32, index bitmap.Bitmap) {
-		c.Column.(Numeric).FilterUint64(offset, index, predicate)
+	txn.rangeRead(func(chunk commit.Chunk, index bitmap.Bitmap) {
+		c.Column.(Numeric).FilterUint64(chunk, index, predicate)
 	})
 	return txn
 }
@@ -269,8 +270,8 @@ func (txn *Txn) WithString(column string, predicate func(v string) bool) *Txn {
 		return txn
 	}
 
-	txn.rangeRead(func(offset uint32, index bitmap.Bitmap) {
-		c.Column.(Textual).FilterString(offset, index, predicate)
+	txn.rangeRead(func(chunk commit.Chunk, index bitmap.Bitmap) {
+		c.Column.(Textual).FilterString(chunk, index, predicate)
 	})
 	return txn
 }
@@ -381,7 +382,8 @@ func (txn *Txn) DeleteAll() {
 // transaction cursor is updated and can be used by various column accessors.
 func (txn *Txn) Range(fn func(idx uint32)) error {
 	txn.initialize()
-	txn.rangeRead(func(offset uint32, index bitmap.Bitmap) {
+	txn.rangeRead(func(chunk commit.Chunk, index bitmap.Bitmap) {
+		offset := chunk.Min()
 		index.Range(func(x uint32) {
 			txn.cursor = offset + x
 			fn(offset + x)
@@ -468,7 +470,7 @@ func (txn *Txn) commitUpdates(chunk commit.Chunk) (updated bool) {
 			// Range through all of the pending updates and apply them to the column
 			// and its associated computed columns.
 			for _, v := range columns {
-				v.Apply(r)
+				v.Apply(chunk, r)
 			}
 		})
 	}
@@ -494,7 +496,7 @@ func (txn *Txn) commitMarkers(chunk commit.Chunk, fill bitmap.Bitmap, buffer *co
 	// can remove unnecessary data.
 	txn.reader.Range(buffer, chunk, func(r *commit.Reader) {
 		txn.owner.cols.Range(func(column *column) {
-			column.Apply(r)
+			column.Apply(chunk, r)
 		})
 	})
 

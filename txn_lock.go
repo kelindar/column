@@ -48,13 +48,13 @@ func (txn *Txn) QueryAt(index uint32, f func(Row) error) (err error) {
 
 // rangeRead iterates over index, chunk by chunk and ensures that each
 // chunk is protected by an appropriate read lock.
-func (txn *Txn) rangeRead(f func(offset uint32, index bitmap.Bitmap)) {
+func (txn *Txn) rangeRead(f func(chunk commit.Chunk, index bitmap.Bitmap)) {
 	limit := commit.Chunk(len(txn.index) >> bitmapShift)
 	lock := txn.owner.slock
 
 	for chunk := commit.Chunk(0); chunk <= limit; chunk++ {
 		lock.RLock(uint(chunk))
-		f(chunk.Min(), chunk.OfBitmap(txn.index))
+		f(chunk, chunk.OfBitmap(txn.index))
 		lock.RUnlock(uint(chunk))
 	}
 }
@@ -65,16 +65,10 @@ func (txn *Txn) rangeReadPair(column *column, f func(a, b bitmap.Bitmap)) {
 	limit := commit.Chunk(len(txn.index) >> bitmapShift)
 	lock := txn.owner.slock
 
-	// To avoid a potential data race between the reading of the index bitmap
-	// and growing it (concurrent inserts), we need to acquire a read-lock.
-	txn.owner.lock.RLock()
-	other := *column.Index()
-	txn.owner.lock.RUnlock()
-
 	// Iterate through all of the chunks and acquire appropriate shard locks.
 	for chunk := commit.Chunk(0); chunk <= limit; chunk++ {
 		lock.RLock(uint(chunk))
-		f(chunk.OfBitmap(txn.index), chunk.OfBitmap(other))
+		f(chunk.OfBitmap(txn.index), column.Index(chunk))
 		lock.RUnlock(uint(chunk))
 	}
 }

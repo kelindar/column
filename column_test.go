@@ -60,7 +60,7 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 
 	// Assert the value
 	v, ok := column.Value(9)
-	assert.Equal(t, 1, column.Index().Count())
+	assert.Equal(t, 1, column.Index(0).Count())
 	assert.True(t, column.Contains(9))
 	assert.Equal(t, value, v)
 	assert.True(t, ok)
@@ -212,7 +212,7 @@ func applyChanges(column Column, updates ...Update) {
 
 	r := new(commit.Reader)
 	r.Seek(buf)
-	column.Apply(r)
+	column.Apply(0, r)
 }
 
 type Update struct {
@@ -308,7 +308,7 @@ func TestSnapshotBool(t *testing.T) {
 	rdr.Seek(buf)
 	output := ForBool()
 	output.Grow(8)
-	output.Apply(rdr)
+	output.Apply(0, rdr)
 	assert.Equal(t, input, output)
 }
 
@@ -333,7 +333,7 @@ func TestSnapshotIndex(t *testing.T) {
 	rdr.Seek(buf)
 	output := newIndex("test", "a", predicateFn)
 	output.Grow(8)
-	output.Apply(rdr)
+	output.Apply(0, rdr)
 	assert.Equal(t, input.Column.(*columnIndex).fill, output.Column.(*columnIndex).fill)
 }
 

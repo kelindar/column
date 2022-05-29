@@ -12,7 +12,7 @@ type Row struct {
 
 // Int loads a int value at a particular column
 func (r Row) Int(columnName string) (v int, ok bool) {
-	return intReaderFor(r.txn, columnName).Get()
+	return readNumber[int](r.txn, columnName)
 }
 
 // SetInt stores a int value at a particular column
@@ -27,7 +27,7 @@ func (r Row) AddInt(columnName string, value int) {
 
 // Int16 loads a int16 value at a particular column
 func (r Row) Int16(columnName string) (v int16, ok bool) {
-	return int16ReaderFor(r.txn, columnName).Get()
+	return readNumber[int16](r.txn, columnName)
 }
 
 // SetInt16 stores a int16 value at a particular column
@@ -42,7 +42,7 @@ func (r Row) AddInt16(columnName string, value int16) {
 
 // Int32 loads a int32 value at a particular column
 func (r Row) Int32(columnName string) (v int32, ok bool) {
-	return int32ReaderFor(r.txn, columnName).Get()
+	return readNumber[int32](r.txn, columnName)
 }
 
 // SetInt32 stores a int32 value at a particular column
@@ -57,7 +57,7 @@ func (r Row) AddInt32(columnName string, value int32) {
 
 // Int64 loads a int64 value at a particular column
 func (r Row) Int64(columnName string) (v int64, ok bool) {
-	return int64ReaderFor(r.txn, columnName).Get()
+	return readNumber[int64](r.txn, columnName)
 }
 
 // SetInt64 stores a int64 value at a particular column
@@ -72,7 +72,7 @@ func (r Row) AddInt64(columnName string, value int64) {
 
 // Uint loads a uint value at a particular column
 func (r Row) Uint(columnName string) (v uint, ok bool) {
-	return uintReaderFor(r.txn, columnName).Get()
+	return readNumber[uint](r.txn, columnName)
 }
 
 // SetUint stores a uint value at a particular column
@@ -87,7 +87,7 @@ func (r Row) AddUint(columnName string, value uint) {
 
 // Uint16 loads a uint16 value at a particular column
 func (r Row) Uint16(columnName string) (v uint16, ok bool) {
-	return uint16ReaderFor(r.txn, columnName).Get()
+	return readNumber[uint16](r.txn, columnName)
 }
 
 // SetUint16 stores a uint16 value at a particular column
@@ -102,7 +102,7 @@ func (r Row) AddUint16(columnName string, value uint16) {
 
 // Uint32 loads a uint32 value at a particular column
 func (r Row) Uint32(columnName string) (v uint32, ok bool) {
-	return uint32ReaderFor(r.txn, columnName).Get()
+	return readNumber[uint32](r.txn, columnName)
 }
 
 // SetUint32 stores a uint32 value at a particular column
@@ -117,7 +117,7 @@ func (r Row) AddUint32(columnName string, value uint32) {
 
 // Uint64 loads a uint64 value at a particular column
 func (r Row) Uint64(columnName string) (v uint64, ok bool) {
-	return uint64ReaderFor(r.txn, columnName).Get()
+	return readNumber[uint64](r.txn, columnName)
 }
 
 // SetUint64 stores a uint64 value at a particular column
@@ -132,7 +132,7 @@ func (r Row) AddUint64(columnName string, value uint64) {
 
 // Float32 loads a float32 value at a particular column
 func (r Row) Float32(columnName string) (v float32, ok bool) {
-	return float32ReaderFor(r.txn, columnName).Get()
+	return readNumber[float32](r.txn, columnName)
 }
 
 // SetFloat32 stores a float32 value at a particular column
@@ -146,8 +146,8 @@ func (r Row) AddFloat32(columnName string, value float32) {
 }
 
 // Float64 loads a float64 value at a particular column
-func (r Row) Float64(columnName string) (v float64, ok bool) {
-	return float64ReaderFor(r.txn, columnName).Get()
+func (r Row) Float64(columnName string) (float64, bool) {
+	return readNumber[float64](r.txn, columnName)
 }
 
 // SetFloat64 stores a float64 value at a particular column

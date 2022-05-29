@@ -631,3 +631,20 @@ func TestUnion(t *testing.T) {
 		return nil
 	})
 }
+
+func TestSumBalance(t *testing.T) {
+	players := loadPlayers(500)
+	assert.Equal(t, 500, players.Count())
+
+	players.Query(func(txn *Txn) error {
+		sum := int(txn.Float64("balance").Sum())
+		assert.Equal(t, 1212084, sum)
+		return nil
+	})
+
+	players.Query(func(txn *Txn) error {
+		sum := int(txn.With("old", "mage").Float64("balance").Sum())
+		assert.Equal(t, 186440, sum)
+		return nil
+	})
+}

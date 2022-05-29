@@ -1,7 +1,7 @@
 // Copyright (c) Roman Atachiants and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
-//go:generate genny -pkg=column -in=column_generate.go -out=column_numbers.go gen "number=float32,float64,int,int16,int32,int64,uint,uint16,uint32,uint64"
+//go:generate go run ./codegen/main.go
 
 package column
 
@@ -34,15 +34,20 @@ func typeOf(column Column) (typ columnType) {
 	return
 }
 
+type segment[T any] struct {
+	fill bitmap.Bitmap // The fill-list
+	data []T           // The actual values
+}
+
 // --------------------------- Contracts ----------------------------
 
 // Column represents a column implementation
 type Column interface {
 	Grow(idx uint32)
-	Apply(*commit.Reader)
+	Apply(commit.Chunk, *commit.Reader)
 	Value(idx uint32) (interface{}, bool)
 	Contains(idx uint32) bool
-	Index() *bitmap.Bitmap
+	Index(commit.Chunk) bitmap.Bitmap
 	Snapshot(chunk commit.Chunk, dst *commit.Buffer)
 }
 
@@ -52,16 +57,16 @@ type Numeric interface {
 	LoadFloat64(uint32) (float64, bool)
 	LoadUint64(uint32) (uint64, bool)
 	LoadInt64(uint32) (int64, bool)
-	FilterFloat64(uint32, bitmap.Bitmap, func(v float64) bool)
-	FilterUint64(uint32, bitmap.Bitmap, func(v uint64) bool)
-	FilterInt64(uint32, bitmap.Bitmap, func(v int64) bool)
+	FilterFloat64(commit.Chunk, bitmap.Bitmap, func(v float64) bool)
+	FilterUint64(commit.Chunk, bitmap.Bitmap, func(v uint64) bool)
+	FilterInt64(commit.Chunk, bitmap.Bitmap, func(v int64) bool)
 }
 
 // Textual represents a column that stores strings.
 type Textual interface {
 	Column
 	LoadString(uint32) (string, bool)
-	FilterString(uint32, bitmap.Bitmap, func(v string) bool)
+	FilterString(commit.Chunk, bitmap.Bitmap, func(v string) bool)
 }
 
 // --------------------------- Constructors ----------------------------
@@ -160,12 +165,19 @@ func (c *column) Grow(idx uint32) {
 }
 
 // Apply performs a series of operations on a column.
-func (c *column) Apply(r *commit.Reader) {
+func (c *column) Apply(chunk commit.Chunk, r *commit.Reader) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
 	r.Rewind()
-	c.Column.Apply(r)
+	c.Column.Apply(chunk, r)
+}
+
+// Index loads the appropriate column index for a given chunk
+func (c *column) Index(chunk commit.Chunk) bitmap.Bitmap {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	return c.Column.Index(chunk)
 }
 
 // Snapshot takes a snapshot of a column, skipping indexes
@@ -205,7 +217,7 @@ func (c *columnBool) Grow(idx uint32) {
 }
 
 // Apply applies a set of operations to the column.
-func (c *columnBool) Apply(r *commit.Reader) {
+func (c *columnBool) Apply(chunk commit.Chunk, r *commit.Reader) {
 	for r.Next() {
 		v := uint64(1) << (r.Offset & 0x3f)
 		switch r.Type {
@@ -229,8 +241,8 @@ func (c *columnBool) Contains(idx uint32) bool {
 }
 
 // Index returns the fill list for the column
-func (c *columnBool) Index() *bitmap.Bitmap {
-	return &c.data
+func (c *columnBool) Index(chunk commit.Chunk) bitmap.Bitmap {
+	return chunk.OfBitmap(c.data)
 }
 
 // Snapshot writes the entire column into the specified destination buffer
