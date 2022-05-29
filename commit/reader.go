@@ -104,6 +104,11 @@ func (r *Reader) Index() uint32 {
 	return uint32(r.Offset)
 }
 
+// IndexAtChunk returns the current index assuming chunk starts at 0.
+func (r *Reader) IndexAtChunk() uint32 {
+	return uint32(r.Offset) - ((uint32(r.Offset) >> chunkShift) << chunkShift)
+}
+
 // Int reads a int value of any size.
 func (r *Reader) Int() int {
 	return int(r.Uint())
@@ -198,17 +203,84 @@ func (r *Reader) SwapFloat64(v float64) {
 	binary.BigEndian.PutUint64(r.buffer[r.i0:r.i1], math.Float64bits(v))
 }
 
-// SwapNumber swaps a float64 value with a new one.
-func (r *Reader) SwapNumber(v interface{}) {
-	binary.BigEndian.PutUint64(r.buffer[r.i0:r.i1], math.Float64bits(v.(float64)))
-}
-
 // SwapBool swaps a boolean value with a new one.
 func (r *Reader) SwapBool(b bool) {
 	r.buffer[r.i0] = 0
 	if b {
 		r.buffer[r.i0] = 1
 	}
+}
+
+// --------------------------- Value Increment ----------------------------
+
+// AddToInt adds and swaps a int value with a new one.
+func (r *Reader) AddToInt(value int) int {
+	value += r.Int()
+	r.SwapInt(value)
+	return value
+}
+
+// AddToInt16 adds and swaps a int16 value with a new one.
+func (r *Reader) AddToInt16(value int16) int16 {
+	value += r.Int16()
+	r.SwapInt16(value)
+	return value
+}
+
+// AddToInt32 adds and swaps a int32 value with a new one.
+func (r *Reader) AddToInt32(value int32) int32 {
+	value += r.Int32()
+	r.SwapInt32(value)
+	return value
+}
+
+// AddToInt64 adds and swaps a int64 value with a new one.
+func (r *Reader) AddToInt64(value int64) int64 {
+	value += r.Int64()
+	r.SwapInt64(value)
+	return value
+}
+
+// AddToUint adds and swaps a uint value with a new one.
+func (r *Reader) AddToUint(value uint) uint {
+	value += r.Uint()
+	r.SwapUint(value)
+	return value
+}
+
+// AddToUint16 adds and swaps a uint16 value with a new one.
+func (r *Reader) AddToUint16(value uint16) uint16 {
+	value += r.Uint16()
+	r.SwapUint16(value)
+	return value
+}
+
+// AddToUint32 adds and swaps a uint32 value with a new one.
+func (r *Reader) AddToUint32(value uint32) uint32 {
+	value += r.Uint32()
+	r.SwapUint32(value)
+	return value
+}
+
+// AddToUint64 adds and swaps a uint64 value with a new one.
+func (r *Reader) AddToUint64(value uint64) uint64 {
+	value += r.Uint64()
+	r.SwapUint64(value)
+	return value
+}
+
+// AddToFloat32 adds and swaps a float32 value with a new one.
+func (r *Reader) AddToFloat32(value float32) float32 {
+	value += r.Float32()
+	r.SwapFloat32(value)
+	return value
+}
+
+// AddToFloat64 adds and swaps a float64 value with a new one.
+func (r *Reader) AddToFloat64(value float64) float64 {
+	value += r.Float64()
+	r.SwapFloat64(value)
+	return value
 }
 
 // --------------------------- Chunk Iterator ----------------------------

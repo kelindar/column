@@ -61,7 +61,7 @@ func (c *columnIndex) Column() string {
 }
 
 // Apply applies a set of operations to the column.
-func (c *columnIndex) Apply(r *commit.Reader) {
+func (c *columnIndex) Apply(chunk commit.Chunk, r *commit.Reader) {
 
 	// Index can only be updated based on the final stored value, so we can only work
 	// with put operations here. The trick is to update the final value after applying
@@ -94,8 +94,8 @@ func (c *columnIndex) Contains(idx uint32) bool {
 }
 
 // Index returns the fill list for the column
-func (c *columnIndex) Index() *bitmap.Bitmap {
-	return &c.fill
+func (c *columnIndex) Index(chunk commit.Chunk) bitmap.Bitmap {
+	return chunk.OfBitmap(c.fill)
 }
 
 // Snapshot writes the entire column into the specified destination buffer
@@ -118,29 +118,33 @@ func makeKey() Column {
 	return &columnKey{
 		seek: make(map[string]uint32, 64),
 		columnString: columnString{
-			fill: make(bitmap.Bitmap, 0, 4),
-			data: make([]string, 0, 64),
+			data: make([]segment[string], 0, 4),
 		},
 	}
 }
 
 // Apply applies a set of operations to the column.
-func (c *columnKey) Apply(r *commit.Reader) {
+func (c *columnKey) Apply(chunk commit.Chunk, r *commit.Reader) {
+	fill := c.data[chunk].fill
+	data := c.data[chunk].data
+	from := chunk.Min()
+
 	for r.Next() {
+		offset := r.Offset - int32(from)
 		switch r.Type {
 		case commit.Put:
 			value := string(r.Bytes())
 
-			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
-			c.data[r.Offset] = value
+			fill[offset>>6] |= 1 << (offset & 0x3f)
+			data[offset] = value
 			c.lock.Lock()
 			c.seek[value] = uint32(r.Offset)
 			c.lock.Unlock()
 
 		case commit.Delete:
-			c.fill.Remove(r.Index())
+			fill.Remove(uint32(offset))
 			c.lock.Lock()
-			delete(c.seek, string(c.data[r.Offset]))
+			delete(c.seek, string(data[offset]))
 			c.lock.Unlock()
 		}
 	}

@@ -173,8 +173,43 @@ func TestReadSwap(t *testing.T) {
 	r.SwapUint(400)
 	assert.Equal(t, uint(400), r.Uint())
 	assert.True(t, r.Next())
-	r.SwapNumber(float64(800))
-	assert.Equal(t, float64(800), r.Float64())
+}
+
+func TestAddTo(t *testing.T) {
+	buf := NewBuffer(0)
+	buf.PutAny(Put, 10, int16(100))
+	buf.PutAny(Put, 20, int32(100))
+	buf.PutAny(Put, 30, int64(100))
+	buf.PutAny(Put, 40, uint16(100))
+	buf.PutAny(Put, 50, uint32(100))
+	buf.PutAny(Put, 60, uint64(100))
+	buf.PutAny(Put, 70, float32(100))
+	buf.PutAny(Put, 80, float64(100))
+	buf.PutAny(Put, 90, int(100))
+	buf.PutAny(Put, 100, uint(100))
+
+	r := NewReader()
+	r.Seek(buf)
+	assert.True(t, r.Next())
+	assert.Equal(t, 150, int(r.AddToInt16(50)))
+	assert.True(t, r.Next())
+	assert.Equal(t, 150, int(r.AddToInt32(50)))
+	assert.True(t, r.Next())
+	assert.Equal(t, 150, int(r.AddToInt64(50)))
+	assert.True(t, r.Next())
+	assert.Equal(t, 150, int(r.AddToUint16(50)))
+	assert.True(t, r.Next())
+	assert.Equal(t, 150, int(r.AddToUint32(50)))
+	assert.True(t, r.Next())
+	assert.Equal(t, 150, int(r.AddToUint64(50)))
+	assert.True(t, r.Next())
+	assert.Equal(t, 150, int(r.AddToFloat32(50)))
+	assert.True(t, r.Next())
+	assert.Equal(t, 150, int(r.AddToFloat64(50)))
+	assert.True(t, r.Next())
+	assert.Equal(t, 150, int(r.AddToInt(50)))
+	assert.True(t, r.Next())
+	assert.Equal(t, 150, int(r.AddToUint(50)))
 }
 
 func TestWriteUnsupported(t *testing.T) {
@@ -242,4 +277,18 @@ func TestReadSize(t *testing.T) {
 	r := NewReader()
 	r.readFixed(buf.buffer[0])
 	assert.Equal(t, 0, r.i1-r.i0)
+}
+
+func TestIndexAtChunk(t *testing.T) {
+	buf := NewBuffer(0)
+	buf.PutFloat32(10000, 10)
+	buf.PutFloat32(20000, 10)
+	buf.PutFloat32(30000, 10)
+
+	r := NewReader()
+	r.Seek(buf)
+	assert.True(t, r.Next())
+	assert.Equal(t, uint32(10000), r.IndexAtChunk())
+	assert.True(t, r.Next())
+	assert.Equal(t, uint32(3616), r.IndexAtChunk())
 }

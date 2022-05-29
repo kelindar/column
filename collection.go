@@ -250,7 +250,7 @@ func (c *Collection) CreateIndex(indexName, columnName string, fn func(r Reader)
 	for chunk := commit.Chunk(0); int(chunk) < chunks; chunk++ {
 		if column.Snapshot(chunk, buffer) {
 			reader.Seek(buffer)
-			index.Apply(reader)
+			index.Apply(chunk, reader)
 		}
 	}
 
