@@ -19,51 +19,31 @@ var _ Textual = new(columnEnum)
 
 // columnEnum represents a string column
 type columnEnum struct {
-	fill bitmap.Bitmap // The fill-list
-	locs []uint32      // The list of locations
-	seek *intmap.Sync  // The hash->location table
-	data []string      // The string data
+	chunks[uint32]
+	seek *intmap.Sync // The hash->location table
+	data []string     // The string data
 }
 
 // makeEnum creates a new column
 func makeEnum() Column {
 	return &columnEnum{
-		fill: make(bitmap.Bitmap, 0, 4),
-		locs: make([]uint32, 0, 64),
-		seek: intmap.NewSync(64, .95),
-		data: make([]string, 0, 64),
+		chunks: make(chunks[uint32], 0, 4),
+		seek:   intmap.NewSync(64, .95),
+		data:   make([]string, 0, 64),
 	}
-}
-
-// Grow grows the size of the column until we have enough to store
-func (c *columnEnum) Grow(idx uint32) {
-	if idx < uint32(len(c.locs)) {
-		return
-	}
-
-	if idx < uint32(cap(c.locs)) {
-		c.fill.Grow(idx)
-		c.locs = c.locs[:idx+1]
-		return
-	}
-
-	c.fill.Grow(idx)
-	clone := make([]uint32, idx+1, resize(cap(c.locs), idx+1))
-	copy(clone, c.locs)
-	c.locs = clone
 }
 
 // Apply applies a set of operations to the column.
 func (c *columnEnum) Apply(chunk commit.Chunk, r *commit.Reader) {
+	fill, locs := c.chunkAt(chunk)
 	for r.Next() {
+		offset := r.IndexAtChunk()
 		switch r.Type {
 		case commit.Put:
-			// Set the value at the index
-			c.fill[r.Offset>>6] |= 1 << (r.Offset & 0x3f)
-			c.locs[r.Offset] = c.findOrAdd(r.Bytes())
-
+			fill[offset>>6] |= 1 << (offset & 0x3f)
+			locs[offset] = c.findOrAdd(r.Bytes())
 		case commit.Delete:
-			c.fill.Remove(r.Index())
+			fill.Remove(offset)
 			// TODO: remove unused strings, need some reference counting for that
 			// and can proably be done during vacuum() instead
 		}
@@ -92,8 +72,10 @@ func (c *columnEnum) Value(idx uint32) (v interface{}, ok bool) {
 
 // LoadString retrieves a value at a specified index
 func (c *columnEnum) LoadString(idx uint32) (v string, ok bool) {
-	if idx < uint32(len(c.locs)) && c.fill.Contains(idx) {
-		v, ok = c.readAt(c.locs[idx]), true
+	chunk := commit.ChunkAt(idx)
+	index := idx - chunk.Min()
+	if int(chunk) < len(c.chunks) && c.chunks[chunk].fill.Contains(index) {
+		v, ok = c.readAt(c.chunks[chunk].data[idx]), true
 	}
 	return
 }
@@ -101,8 +83,11 @@ func (c *columnEnum) LoadString(idx uint32) (v string, ok bool) {
 // FilterString filters down the values based on the specified predicate. The column for
 // this filter must be a string.
 func (c *columnEnum) FilterString(chunk commit.Chunk, index bitmap.Bitmap, predicate func(v string) bool) {
-	offset := chunk.Min()
+	if int(chunk) >= len(c.chunks) {
+		return
+	}
 
+	fill, locs := c.chunkAt(chunk)
 	cache := struct {
 		index uint32 // Last seen offset
 		value bool   // Last evaluated predicate
@@ -113,13 +98,12 @@ func (c *columnEnum) FilterString(chunk commit.Chunk, index bitmap.Bitmap, predi
 
 	// Do a quick ellimination of elements which are NOT contained in this column, this
 	// allows us not to check contains during the filter itself
-	index.And(c.fill[offset>>6 : int(offset>>6)+len(index)])
+	index.And(fill)
 
 	// Filters down the strings, if strings repeat we avoid reading every time by
 	// caching the last seen index/value combination.
 	index.Filter(func(idx uint32) bool {
-		idx = offset + idx
-		if at := c.locs[idx]; at != cache.index {
+		if at := locs[idx]; at != cache.index {
 			cache.index = at
 			cache.value = predicate(c.readAt(at))
 			return cache.value
@@ -132,18 +116,15 @@ func (c *columnEnum) FilterString(chunk commit.Chunk, index bitmap.Bitmap, predi
 
 // Contains checks whether the column has a value at a specified index.
 func (c *columnEnum) Contains(idx uint32) bool {
-	return c.fill.Contains(idx)
-}
-
-// Index returns the fill list for the column
-func (c *columnEnum) Index(chunk commit.Chunk) bitmap.Bitmap {
-	return chunk.OfBitmap(c.fill)
+	chunk := commit.ChunkAt(idx)
+	return c.chunks[chunk].fill.Contains(idx - chunk.Min())
 }
 
 // Snapshot writes the entire column into the specified destination buffer
 func (c *columnEnum) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
-	chunk.Range(c.fill, func(idx uint32) {
-		dst.PutString(commit.Put, idx, c.readAt(c.locs[idx]))
+	fill, locs := c.chunkAt(chunk)
+	fill.Range(func(idx uint32) {
+		dst.PutString(commit.Put, idx, c.readAt(locs[idx]))
 	})
 }
 
@@ -201,38 +182,19 @@ var _ Textual = new(columnString)
 
 // columnString represents a string column
 type columnString struct {
-	data []segment[string]
+	chunks[string]
 }
 
 // makeString creates a new string column
 func makeStrings() Column {
 	return &columnString{
-		data: make([]segment[string], 0, 4),
-	}
-}
-
-// segmentAt loads the fill and data list at a particular chunk
-func (c *columnString) segmentAt(chunk commit.Chunk) (bitmap.Bitmap, []string) {
-	fill := c.data[chunk].fill
-	data := c.data[chunk].data
-	return fill, data
-}
-
-// Grow grows the size of the column until we have enough to store
-func (c *columnString) Grow(idx uint32) {
-	chunk := int(commit.ChunkAt(idx))
-	for i := len(c.data); i <= chunk; i++ {
-		c.data = append(c.data, segment[string]{
-			fill: make(bitmap.Bitmap, chunkSize/64),
-			data: make([]string, chunkSize),
-		})
+		chunks: make(chunks[string], 0, 4),
 	}
 }
 
 // Apply applies a set of operations to the column.
 func (c *columnString) Apply(chunk commit.Chunk, r *commit.Reader) {
-	fill := c.data[chunk].fill
-	data := c.data[chunk].data
+	fill, data := c.chunkAt(chunk)
 	from := chunk.Min()
 
 	// Update the values of the column, for this one we can only process stores
@@ -253,8 +215,8 @@ func (c *columnString) Value(idx uint32) (v interface{}, ok bool) {
 	chunk := commit.ChunkAt(idx)
 	index := idx - chunk.Min()
 
-	if int(chunk) < len(c.data) && c.data[chunk].fill.Contains(index) {
-		v, ok = c.data[chunk].data[index], true
+	if int(chunk) < len(c.chunks) && c.chunks[chunk].fill.Contains(index) {
+		v, ok = c.chunks[chunk].data[index], true
 	}
 	return
 }
@@ -263,16 +225,8 @@ func (c *columnString) Value(idx uint32) (v interface{}, ok bool) {
 func (c *columnString) Contains(idx uint32) bool {
 	chunk := commit.ChunkAt(idx)
 	index := idx - chunk.Min()
-	return c.data[chunk].fill.Contains(index)
+	return c.chunks[chunk].fill.Contains(index)
 
-}
-
-// Index returns the fill list for the column
-func (c *columnString) Index(chunk commit.Chunk) (fill bitmap.Bitmap) {
-	if int(chunk) < len(c.data) {
-		fill = c.data[chunk].fill
-	}
-	return
 }
 
 // LoadString retrieves a value at a specified index
@@ -285,8 +239,8 @@ func (c *columnString) LoadString(idx uint32) (string, bool) {
 // FilterString filters down the values based on the specified predicate. The column for
 // this filter must be a string.
 func (c *columnString) FilterString(chunk commit.Chunk, index bitmap.Bitmap, predicate func(v string) bool) {
-	if int(chunk) < len(c.data) {
-		fill, data := c.segmentAt(chunk)
+	if int(chunk) < len(c.chunks) {
+		fill, data := c.chunkAt(chunk)
 		index.And(fill)
 		index.Filter(func(idx uint32) bool {
 			return predicate(data[idx])
@@ -296,8 +250,7 @@ func (c *columnString) FilterString(chunk commit.Chunk, index bitmap.Bitmap, pre
 
 // Snapshot writes the entire column into the specified destination buffer
 func (c *columnString) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
-	data := c.data[chunk].data
-	fill := c.data[chunk].fill
+	fill, data := c.chunkAt(chunk)
 	fill.Range(func(x uint32) {
 		dst.PutString(commit.Put, chunk.Min()+x, data[x])
 	})

@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	amount, runs := 1000000, 50
+	amount, runs := 10000000, 20
 	players := column.NewCollection(column.Options{
 		Capacity: amount,
 	})
@@ -143,10 +143,6 @@ func createCollection(out *column.Collection, amount int) *column.Collection {
 
 	// Load the data in
 	for i := 0; i < amount/len(data); i++ {
-		if i%200 == 0 {
-			fmt.Printf("-> inserted %v rows\n", out.Count())
-		}
-
 		out.Query(func(txn *column.Txn) error {
 			for _, p := range data {
 				txn.InsertObject(p)
