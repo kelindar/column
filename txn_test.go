@@ -654,7 +654,6 @@ func TestSumConcurrently(t *testing.T) {
 	c := NewCollection()
 	c.CreateColumn("int", ForInt64())
 
-	var curTotal int64
 	var wg sync.WaitGroup
 	wg.Add(2)
 
@@ -662,13 +661,13 @@ func TestSumConcurrently(t *testing.T) {
 	go func(){
 		for j := 1; j <= 1000; j++ {
 			var sum int64
-			var cnt int64
+			var sum2 int64
 			c.Query(func (txn *Txn) error {
 				sum = txn.Int64("int").Sum()
-				cnt = atomic.LoadInt64(&curTotal)
+				sum2 = txn.Int64("int").Sum()
 				return nil
 			})
-			assert.Equal(t, sum, cnt)
+			assert.Equal(t, sum, sum2)
 		}
 		wg.Done()
 	}()
@@ -680,7 +679,6 @@ func TestSumConcurrently(t *testing.T) {
 				r.SetInt64("int", int64(1))
 				return nil
 			})
-			atomic.AddInt64(&curTotal, 1)
 		}
 		wg.Done()
 	}()
