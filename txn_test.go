@@ -6,7 +6,6 @@ package column
 import (
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
