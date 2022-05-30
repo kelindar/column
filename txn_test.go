@@ -652,7 +652,7 @@ func TestSumBalance(t *testing.T) {
 
 func TestSumConcurrently(t *testing.T) {
 	c := NewCollection()
-	c.CreateColumn("int", ForInt())
+	c.CreateColumn("int", ForInt64())
 
 	var curTotal int64
 	var wg sync.WaitGroup
@@ -662,7 +662,7 @@ func TestSumConcurrently(t *testing.T) {
 	go func(){
 		for j := 1; j <= 1000; j++ {
 			c.Query(func (txn *Txn) error {
-				assert.Equal(t, txn.SumInt64("int"), atomic.LoadInt64(&curTotal))
+				assert.Equal(t, txn.Int64("int").Sum(), atomic.LoadInt64(&curTotal))
 				return nil
 			})
 		}
@@ -673,7 +673,7 @@ func TestSumConcurrently(t *testing.T) {
 	go func(){
 		for i := 1; i <= 1000; i++ {
 			c.Insert(func (r Row) error {
-				r.SetInt("int", int(1))
+				r.SetInt64("int", int64(1))
 				return nil
 			})
 			atomic.AddInt64(&curTotal, 1)

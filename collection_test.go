@@ -119,7 +119,7 @@ func BenchmarkCollection(b *testing.B) {
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
 			players.Query(func(txn *Txn) error {
-				testFlo = txn.SumFloat64("balance")
+				testFlo = txn.Float64("balance").Sum()
 				return nil
 			})
 		}
