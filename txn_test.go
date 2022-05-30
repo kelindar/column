@@ -661,10 +661,14 @@ func TestSumConcurrently(t *testing.T) {
 	// Reader
 	go func(){
 		for j := 1; j <= 1000; j++ {
+			var sum int64
+			var cnt int64
 			c.Query(func (txn *Txn) error {
-				assert.Equal(t, txn.Int64("int").Sum(), atomic.LoadInt64(&curTotal))
+				sum = txn.Int64("int").Sum()
+				cnt = atomic.LoadInt64(&curTotal)
 				return nil
 			})
+			assert.Equal(t, sum, cnt)
 		}
 		wg.Done()
 	}()
