@@ -192,6 +192,25 @@ players.Query(func(txn *Txn) error {
 })
 ```
 
+Taking the `Sum()` of a (numeric) column reader will take into account a transaction's current filtering index. 
+
+```go
+players.Query(func(txn *Txn) error {
+	totalAge := txn.With("rouge").Int64("age").Sum()
+	totalRouges := int64(txn.Count())
+
+	avgAge := totalAge / totalRouges
+
+	txn.WithInt("age", func(v float64) bool {
+		return v < avgAge
+	})
+	
+	// get total balance for 'all rouges younger than the average rouge'
+	balance := txn.Float64("balance").Sum()
+	return nil
+})
+```
+
 ## Updating Values
 
 In order to update certain items in the collection, you can simply call `Range()` method and use column accessor's `Set()` or `Add()` methods to update a value of a certain column atomically. The updates won't be instantly reflected given that our store supports transactions. Only when transaction is commited, then the update will be applied to the collection, allowing for isolation and rollbacks.
@@ -311,7 +330,7 @@ go func(){
 On a separate note, this change stream is guaranteed to be consistent and serialized. This means that you can also replicate those changes on another database and synchronize both. In fact, this library also provides `Replay()` method on the collection that allows to do just that. In the example below we create two collections `primary` and `replica` and asychronously replicating all of the commits from the `primary` to the `replica` using the `Replay()` method together with the change stream.
 
 ```go
-// Create a p rimary collection
+// Create a primary collection
 writer  := make(commit.Channel, 1024)
 primary := column.NewCollection(column.Options{
 	Writer: &writer,

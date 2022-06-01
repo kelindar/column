@@ -80,8 +80,8 @@ type Txn struct {
 	cursor  uint32           // The current cursor
 	setup   bool             // Whether the transaction was set up or not
 	owner   *Collection      // The target collection
-	index   bitmap.Bitmap    // The filtering index
-	dirty   bitmap.Bitmap    // The dirty chunks
+	index   bitmap.Bitmap	 // The filtering index
+	dirty   bitmap.Bitmap	 // The dirty chunks
 	updates []*commit.Buffer // The update buffers
 	columns []columnCache    // The column mapping
 	logger  commit.Logger    // The optional commit logger
