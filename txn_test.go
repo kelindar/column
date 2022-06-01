@@ -648,39 +648,3 @@ func TestSumBalance(t *testing.T) {
 		return nil
 	})
 }
-
-func TestSumConcurrently(t *testing.T) {
-	c := NewCollection()
-	c.CreateColumn("int", ForInt64())
-
-	var wg sync.WaitGroup
-	wg.Add(2)
-
-	// Reader
-	go func(){
-		for j := 1; j <= 1000; j++ {
-			var sum int64
-			var sum2 int64
-			c.Query(func (txn *Txn) error {
-				sum = txn.Int64("int").Sum()
-				sum2 = txn.Int64("int").Sum()
-				return nil
-			})
-			assert.Equal(t, sum, sum2)
-		}
-		wg.Done()
-	}()
-
-	// Writer
-	go func(){
-		for i := 1; i <= 1000; i++ {
-			c.Insert(func (r Row) error {
-				r.SetInt64("int", int64(1))
-				return nil
-			})
-		}
-		wg.Done()
-	}()
-
-	wg.Wait()
-}
