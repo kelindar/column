@@ -142,7 +142,6 @@ func (s numericReader[T]) Get() (T, bool) {
 
 // Sum computes the sum of the column values selected by the transaction
 func (s numericReader[T]) Sum() (r T) {
-	s.txn.initialize()
 	s.txn.Range(func(idx uint32) {
 		v, _ := s.Get()
 		r += v
