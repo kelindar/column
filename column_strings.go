@@ -75,7 +75,7 @@ func (c *columnEnum) LoadString(idx uint32) (v string, ok bool) {
 	chunk := commit.ChunkAt(idx)
 	index := idx - chunk.Min()
 	if int(chunk) < len(c.chunks) && c.chunks[chunk].fill.Contains(index) {
-		v, ok = c.readAt(c.chunks[chunk].data[idx]), true
+		v, ok = c.readAt(c.chunks[chunk].data[index]), true
 	}
 	return
 }
