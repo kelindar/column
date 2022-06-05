@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kelindar/column/commit"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -543,6 +545,39 @@ func TestFindFreeIndex(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, i, int(idx))
 	}
+}
+
+func TestReplica(t *testing.T) {
+	w := make(commit.Channel, 1024)
+	source := NewCollection(Options{
+		Writer: w,
+	})
+	source.CreateColumn("id", ForString())
+	source.CreateColumn("cnt", ForInt())
+
+	target := NewCollection()
+	target.CreateColumn("id", ForString())
+	target.CreateColumn("cnt", ForInt())
+
+	go func() {
+		for change := range w {
+			target.Replay(change)
+		}
+	}()
+
+	source.Insert(func (r Row) error {
+		r.SetAny("id", "bob")
+		r.SetInt("cnt", 2)
+		return nil
+	})
+
+	// give the replica stream a moment
+	time.Sleep(100 * time.Millisecond)
+
+	target.Query(func (txn *Txn) error {
+		assert.Equal(t, 1, txn.Count())
+		return nil
+	})
 }
 
 // --------------------------- Mocks & Fixtures ----------------------------
