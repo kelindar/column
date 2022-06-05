@@ -27,8 +27,8 @@ var _ Logger = new(Log)
 type Channel chan Commit
 
 // Append clones the commit and writes it into the logger
-func (w *Channel) Append(commit Commit) error {
-	*w <- commit.Clone()
+func (w Channel) Append(commit Commit) error {
+	w <- commit.Clone()
 	return nil
 }
 

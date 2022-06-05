@@ -306,9 +306,9 @@ players.Query(func(txn *column.Txn) error {
 
 ## Streaming Changes
 
-This library also supports streaming out all transaction commits consistently, as they happen. This allows you to implement your own change data capture (CDC) listeners, stream data into kafka or into a remote database for durability. In order to enable it, you can simply provide an implementation of a `commit.Writer` interface during the creation of the collection.
+This library also supports streaming out all transaction commits consistently, as they happen. This allows you to implement your own change data capture (CDC) listeners, stream data into kafka or into a remote database for durability. In order to enable it, you can simply provide an implementation of a `commit.Logger` interface during the creation of the collection.
 
-In the example below we take advantage of the `commit.Channel` implementation of a `commit.Writer` which simply publishes the commits into a go channel. Here we create a buffered channel and keep consuming the commits with a separate goroutine, allowing us to view transactions as they happen in the store.
+In the example below we take advantage of the `commit.Channel` implementation of a `commit.Logger` which simply publishes the commits into a go channel. Here we create a buffered channel and keep consuming the commits with a separate goroutine, allowing us to view transactions as they happen in the store.
 
 ```go
 // Create a new commit writer (simple channel) and a new collection
@@ -319,8 +319,8 @@ players := NewCollection(column.Options{
 
 // Read the changes from the channel
 go func(){
-	for commit := writer{
-		println("commit", commit.ID)
+	for commit := range writer {
+		fmt.Printf("commit %v\n", commit.ID)
 	}
 }()
 
