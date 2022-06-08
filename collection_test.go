@@ -21,15 +21,18 @@ import (
 
 /*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkCollection/insert-8         	    2451	    482358 ns/op	   24429 B/op	     500 allocs/op
-BenchmarkCollection/select-at-8      	23077500	        54.52 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/scan-8           	    2029	    593730 ns/op	     142 B/op	       0 allocs/op
-BenchmarkCollection/count-8          	  750106	      1675 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/range-8          	   28710	     41710 ns/op	       7 B/op	       0 allocs/op
-BenchmarkCollection/update-at-8      	 5986646	       202.9 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/update-all-8     	    1286	    956927 ns/op	    4186 B/op	       0 allocs/op
-BenchmarkCollection/delete-at-8      	 7158105	       227.3 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/delete-all-8     	 2115686	       604.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/insert-8         	    2797	    483532 ns/op	   24288 B/op	     500 allocs/op
+BenchmarkCollection/select-at-8      	21007226	        58.94 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/scan-8           	    1872	    539394 ns/op	     110 B/op	       0 allocs/op
+BenchmarkCollection/count-8          	  528410	      2395 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/range-8          	   24799	     44300 ns/op	       7 B/op	       0 allocs/op
+BenchmarkCollection/sum-8            	   88164	     13431 ns/op	       2 B/op	       0 allocs/op
+BenchmarkCollection/avg-8            	   31342	     37728 ns/op	       8 B/op	       0 allocs/op
+BenchmarkCollection/max-8            	   34090	     37313 ns/op	       6 B/op	       0 allocs/op
+BenchmarkCollection/update-at-8      	 6242148	       202.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/update-all-8     	    1062	    967519 ns/op	     238 B/op	       0 allocs/op
+BenchmarkCollection/delete-at-8      	 7042724	       184.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/delete-all-8     	 2043902	       562.5 ns/op	       0 B/op	       0 allocs/op
 */
 func BenchmarkCollection(b *testing.B) {
 	amount := 100000
@@ -116,16 +119,42 @@ func BenchmarkCollection(b *testing.B) {
 	})
 
 	b.Run("sum", func(b *testing.B) {
-		testFlo := 0.0
+		v := 0.0
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
 			players.Query(func(txn *Txn) error {
-				testFlo = txn.Float64("balance").Sum()
+				v = txn.Float64("balance").Sum()
 				return nil
 			})
 		}
-		assert.NotEqual(b, float64(0), testFlo)
+		assert.NotEqual(b, float64(0), v)
+	})
+
+	b.Run("avg", func(b *testing.B) {
+		v := 0.0
+		b.ReportAllocs()
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			players.Query(func(txn *Txn) error {
+				v = txn.With("human", "mage", "old").Float64("balance").Avg()
+				return nil
+			})
+		}
+		assert.NotEqual(b, float64(0), v)
+	})
+
+	b.Run("max", func(b *testing.B) {
+		v := 0.0
+		b.ReportAllocs()
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			players.Query(func(txn *Txn) error {
+				v, _ = txn.With("human", "mage", "old").Float64("balance").Max()
+				return nil
+			})
+		}
+		assert.NotEqual(b, float64(0), v)
 	})
 
 	b.Run("update-at", func(b *testing.B) {

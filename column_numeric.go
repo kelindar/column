@@ -5,14 +5,11 @@ import (
 
 	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
+	"github.com/kelindar/simd"
 )
 
-type numericType interface {
-	~int | ~int16 | ~int32 | ~int64 | ~uint | ~uint16 | ~uint32 | ~uint64 | ~float32 | ~float64
-}
-
 // readNumber is a helper function for point reads
-func readNumber[T numericType](txn *Txn, columnName string) (value T, found bool) {
+func readNumber[T simd.Number](txn *Txn, columnName string) (value T, found bool) {
 	if column, ok := txn.columnAt(columnName); ok {
 		if rdr, ok := column.Column.(*numericColumn[T]); ok {
 			value, found = rdr.load(txn.cursor)
@@ -24,14 +21,14 @@ func readNumber[T numericType](txn *Txn, columnName string) (value T, found bool
 // --------------------------- Generic Column ----------------------------
 
 // numericColumn represents a numeric column
-type numericColumn[T numericType] struct {
+type numericColumn[T simd.Number] struct {
 	chunks[T]
 	write func(*commit.Buffer, uint32, T)
 	apply func(*commit.Reader, bitmap.Bitmap, []T)
 }
 
-// makeNumeric creates a new vector for numericTypes
-func makeNumeric[T numericType](
+// makeNumeric creates a new vector for simd.Numbers
+func makeNumeric[T simd.Number](
 	write func(*commit.Buffer, uint32, T),
 	apply func(*commit.Reader, bitmap.Bitmap, []T),
 ) *numericColumn[T] {
@@ -86,7 +83,7 @@ func (c *numericColumn[T]) LoadUint64(idx uint32) (uint64, bool) {
 // --------------------------- Filtering ----------------------------
 
 // filterNumbers filters down the values based on the specified predicate.
-func filterNumbers[T, C numericType](column *numericColumn[T], chunk commit.Chunk, index bitmap.Bitmap, predicate func(C) bool) {
+func filterNumbers[T, C simd.Number](column *numericColumn[T], chunk commit.Chunk, index bitmap.Bitmap, predicate func(C) bool) {
 	if int(chunk) < len(column.chunks) {
 		fill, data := column.chunkAt(chunk)
 		index.And(fill)
@@ -129,8 +126,8 @@ func (c *numericColumn[T]) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 
 // --------------------------- Reader/Writer ----------------------------
 
-// numericReader represents a read-only accessor for numericTypes
-type numericReader[T numericType] struct {
+// numericReader represents a read-only accessor for simd.Numbers
+type numericReader[T simd.Number] struct {
 	reader *numericColumn[T]
 	txn    *Txn
 }
@@ -140,17 +137,60 @@ func (s numericReader[T]) Get() (T, bool) {
 	return s.reader.load(s.txn.cursor)
 }
 
-// Sum computes the sum of the column values selected by the transaction
-func (s numericReader[T]) Sum() (r T) {
-	s.txn.Range(func(idx uint32) {
-		v, _ := s.Get()
-		r += v
+// Sum computes a sum of the column values selected by this transaction
+func (s numericReader[T]) Sum() (sum T) {
+	s.txn.initialize()
+	s.txn.rangeRead(func(chunk commit.Chunk, index bitmap.Bitmap) {
+		if int(chunk) < len(s.reader.chunks) {
+			sum += bitmap.Sum(s.reader.chunks[chunk].data, index)
+		}
+	})
+	return sum
+}
+
+// Avg computes an arithmetic mean of the column values selected by this transaction
+func (s numericReader[T]) Avg() float64 {
+	sum, ct := T(0), 0
+	s.txn.initialize()
+	s.txn.rangeRead(func(chunk commit.Chunk, index bitmap.Bitmap) {
+		if int(chunk) < len(s.reader.chunks) {
+			sum += bitmap.Sum(s.reader.chunks[chunk].data, index)
+			ct += index.Count()
+		}
+	})
+	return float64(sum) / float64(ct)
+}
+
+// Min finds the smallest value from the column values selected by this transaction
+func (s numericReader[T]) Min() (min T, ok bool) {
+	s.txn.initialize()
+	s.txn.rangeRead(func(chunk commit.Chunk, index bitmap.Bitmap) {
+		if int(chunk) < len(s.reader.chunks) {
+			if v, hit := bitmap.Min(s.reader.chunks[chunk].data, index); hit && (v < min || !ok) {
+				min = v
+				ok = true
+			}
+		}
+	})
+	return
+}
+
+// Max finds the largest value from the column values selected by this transaction
+func (s numericReader[T]) Max() (max T, ok bool) {
+	s.txn.initialize()
+	s.txn.rangeRead(func(chunk commit.Chunk, index bitmap.Bitmap) {
+		if int(chunk) < len(s.reader.chunks) {
+			if v, hit := bitmap.Max(s.reader.chunks[chunk].data, index); hit && (v > max || !ok) {
+				max = v
+				ok = true
+			}
+		}
 	})
 	return
 }
 
 // numericReaderFor creates a new numeric reader
-func numericReaderFor[T numericType](txn *Txn, columnName string) numericReader[T] {
+func numericReaderFor[T simd.Number](txn *Txn, columnName string) numericReader[T] {
 	column, ok := txn.columnAt(columnName)
 	if !ok {
 		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
