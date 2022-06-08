@@ -3,11 +3,12 @@ module github.com/kelindar/column
 go 1.18
 
 require (
-	github.com/kelindar/bitmap v1.2.1
+	github.com/kelindar/bitmap v1.4.1
 	github.com/kelindar/intmap v1.1.0
 	github.com/kelindar/iostream v1.3.0
+	github.com/kelindar/simd v1.1.2
 	github.com/kelindar/smutex v1.0.0
-	github.com/klauspost/compress v1.15.5
+	github.com/klauspost/compress v1.15.6
 	github.com/stretchr/testify v1.7.1
 	github.com/zeebo/xxh3 v1.0.2
 )

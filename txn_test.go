@@ -648,3 +648,58 @@ func TestSumBalance(t *testing.T) {
 		return nil
 	})
 }
+
+func TestAvgBalance(t *testing.T) {
+	players := loadPlayers(500)
+	assert.Equal(t, 500, players.Count())
+
+	players.Query(func(txn *Txn) error {
+		sum := int(txn.Float64("balance").Avg())
+		assert.Equal(t, 2424, sum)
+		return nil
+	})
+
+	players.Query(func(txn *Txn) error {
+		sum := int(txn.With("old", "mage").Float64("balance").Avg())
+		assert.Equal(t, 2421, sum)
+		return nil
+	})
+}
+
+func TestMinBalance(t *testing.T) {
+	players := loadPlayers(500)
+	assert.Equal(t, 500, players.Count())
+
+	players.Query(func(txn *Txn) error {
+		min, ok := txn.Float64("balance").Min()
+		assert.Equal(t, float64(1010.06), min)
+		assert.True(t, ok)
+		return nil
+	})
+
+	players.Query(func(txn *Txn) error {
+		min, ok := txn.With("old", "mage", "human").Float64("balance").Min()
+		assert.Equal(t, float64(1023.76), min)
+		assert.True(t, ok)
+		return nil
+	})
+}
+
+func TestMaxBalance(t *testing.T) {
+	players := loadPlayers(500)
+	assert.Equal(t, 500, players.Count())
+
+	players.Query(func(txn *Txn) error {
+		max, ok := txn.Float64("balance").Max()
+		assert.Equal(t, float64(3982.14), max)
+		assert.True(t, ok)
+		return nil
+	})
+
+	players.Query(func(txn *Txn) error {
+		max, ok := txn.With("old", "mage", "human").Float64("balance").Max()
+		assert.Equal(t, float64(3978.83), max)
+		assert.True(t, ok)
+		return nil
+	})
+}

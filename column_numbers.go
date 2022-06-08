@@ -516,4 +516,3 @@ func (txn *Txn) Float64(columnName string) float64Writer {
 		writer:        txn.bufferFor(columnName),
 	}
 }
-
