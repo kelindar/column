@@ -93,20 +93,3 @@ func (txn *Txn) rangeWrite(fn func(commitID uint64, chunk commit.Chunk, fill bit
 		lock.Unlock(uint(chunk))
 	})
 }
-
-// readChunk acquires appropriate locks for a chunk and executes a read callback
-func (c *Collection) readChunk(chunk commit.Chunk, fn func(uint64, commit.Chunk, bitmap.Bitmap) error) (err error) {
-	lock := c.slock
-	lock.RLock(uint(chunk))
-
-	// Compute the fill
-	c.lock.RLock()
-	fill := chunk.OfBitmap(c.fill)
-	commitID := c.commits[chunk]
-	c.lock.RUnlock()
-
-	// Call the delegate
-	err = fn(commitID, chunk, fill)
-	lock.RUnlock(uint(chunk))
-	return
-}
