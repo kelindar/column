@@ -91,10 +91,18 @@ func NewCollection(opts ...Options) *Collection {
 func (c *Collection) next() uint32 {
 	c.lock.Lock()
 	idx := c.findFreeIndex(atomic.AddUint64(&c.count, 1))
-
 	c.fill.Set(idx)
 	c.lock.Unlock()
 	return idx
+}
+
+// free marks the index as free, atomically.
+func (c *Collection) free(idx uint32) {
+	c.lock.Lock()
+	c.fill.Remove(idx)
+	atomic.StoreUint64(&c.count, uint64(c.fill.Count()))
+	c.lock.Unlock()
+	return
 }
 
 // findFreeIndex finds a free index for insertion
@@ -142,16 +150,6 @@ func (c *Collection) InsertObjectWithTTL(obj Object, ttl time.Duration) (index u
 func (c *Collection) Insert(fn func(Row) error) (index uint32, err error) {
 	err = c.Query(func(txn *Txn) (innerErr error) {
 		index, innerErr = txn.Insert(fn)
-		return
-	})
-	return
-}
-
-// InsertWithTTL executes a mutable cursor transactionally at a new offset and sets the expiration time
-// based on the specified time-to-live and returns the allocated index.
-func (c *Collection) InsertWithTTL(ttl time.Duration, fn func(Row) error) (index uint32, err error) {
-	err = c.Query(func(txn *Txn) (innerErr error) {
-		index, innerErr = txn.InsertWithTTL(ttl, fn)
 		return
 	})
 	return
@@ -284,14 +282,6 @@ func (c *Collection) QueryAt(idx uint32, fn func(Row) error) error {
 	})
 }
 
-// QueryAt jumps at a particular key in the collection, sets the cursor to the
-// provided position and executes given callback fn.
-func (c *Collection) QueryKey(key string, fn func(Row) error) error {
-	return c.Query(func(txn *Txn) error {
-		return txn.QueryKey(key, fn)
-	})
-}
-
 // Query creates a transaction which allows for filtering and iteration over the
 // columns in this collection. It also allows for individual rows to be modified or
 // deleted during iteration (range), but the actual operations will be queued and
@@ -319,26 +309,34 @@ func (c *Collection) Close() error {
 	return nil
 }
 
-// vacuum cleans up the expired objects on a specified interval.
-func (c *Collection) vacuum(ctx context.Context, interval time.Duration) {
-	ticker := time.NewTicker(interval)
-	for {
-		select {
-		case <-ctx.Done():
-			ticker.Stop()
-			return
-		case <-ticker.C:
-			now := time.Now().UnixNano()
-			c.Query(func(txn *Txn) error {
-				expire := txn.Int64(expireColumn)
-				return txn.With(expireColumn).Range(func(idx uint32) {
-					if expirateAt, ok := expire.Get(); ok && expirateAt != 0 && now >= expirateAt {
-						txn.DeleteAt(idx)
-					}
-				})
-			})
-		}
-	}
+// --------------------------- Primary Key ----------------------------
+
+// InsertKey inserts a row given its corresponding primary key.
+func (c *Collection) InsertKey(key string, fn func(Row) error) error {
+	return c.Query(func(txn *Txn) error {
+		return txn.InsertKey(key, fn)
+	})
+}
+
+// UpsertKey inserts or updates a row given its corresponding primary key.
+func (c *Collection) UpsertKey(key string, fn func(Row) error) error {
+	return c.Query(func(txn *Txn) error {
+		return txn.UpsertKey(key, fn)
+	})
+}
+
+// QueryKey queries/updates a row given its corresponding primary key.
+func (c *Collection) QueryKey(key string, fn func(Row) error) error {
+	return c.Query(func(txn *Txn) error {
+		return txn.QueryKey(key, fn)
+	})
+}
+
+// DeleteKey deletes a row for a given primary key.
+func (c *Collection) DeleteKey(key string) error {
+	return c.Query(func(txn *Txn) error {
+		return txn.DeleteKey(key)
+	})
 }
 
 // --------------------------- column registry ---------------------------

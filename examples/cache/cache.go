@@ -34,7 +34,7 @@ func (c *Cache) Get(key string) (value string, found bool) {
 
 // Set updates or inserts a new value
 func (c *Cache) Set(key, value string) {
-	if err := c.store.QueryKey(key, func(r column.Row) error {
+	if err := c.store.UpsertKey(key, func(r column.Row) error {
 		r.SetString("val", value)
 		return nil
 	}); err != nil {

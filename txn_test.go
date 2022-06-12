@@ -465,13 +465,13 @@ func TestUpsertKey(t *testing.T) {
 	c := NewCollection()
 	c.CreateColumn("key", ForKey())
 	c.CreateColumn("val", ForString())
-	assert.NoError(t, c.QueryKey("1", func(r Row) error {
+	assert.NoError(t, c.UpsertKey("1", func(r Row) error {
 		r.SetString("val", "Roman")
 		return nil
 	}))
 
 	count := 0
-	assert.NoError(t, c.QueryKey("1", func(r Row) error {
+	assert.NoError(t, c.UpsertKey("1", func(r Row) error {
 		count++
 		return nil
 	}))
@@ -484,14 +484,111 @@ func TestUpsertKeyNoColumn(t *testing.T) {
 	c.CreateColumn("key", ForKey())
 
 	assert.Panics(t, func() {
-		c.QueryKey("1", func(r Row) error {
+		c.UpsertKey("1", func(r Row) error {
 			r.Enum("xxx")
 			return nil
 		})
 	})
 }
 
-func TestDuplicateKey(t *testing.T) {
+func TestDeleteKey(t *testing.T) {
+	c := NewCollection()
+	c.CreateColumn("key", ForKey())
+	c.CreateColumn("val", ForString())
+	assert.NoError(t, c.InsertKey("1", func(r Row) error {
+		r.SetString("val", "Roman")
+		return nil
+	}))
+
+	// Only one should succeed
+	assert.NoError(t, c.DeleteKey("1"))
+	assert.Error(t, c.DeleteKey("1"))
+	assert.Equal(t, 0, c.Count())
+}
+
+func TestInsertKey(t *testing.T) {
+	c := NewCollection()
+	c.CreateColumn("key", ForKey())
+
+	// Only one should succeed
+	assert.NoError(t, c.InsertKey("1", func(r Row) error {
+		return nil
+	}))
+	assert.Error(t, c.InsertKey("1", func(r Row) error {
+		return nil
+	}))
+	assert.Equal(t, 1, c.Count())
+}
+
+func TestQueryKey(t *testing.T) {
+	c := NewCollection()
+	c.CreateColumn("key", ForKey())
+	c.CreateColumn("val", ForString())
+
+	assert.Error(t, c.QueryKey("1", func(r Row) error {
+		return nil
+	}))
+
+	assert.NoError(t, c.InsertKey("1", func(r Row) error {
+		r.SetString("val", "Roman")
+		return nil
+	}))
+
+	assert.NoError(t, c.QueryKey("1", func(r Row) error {
+		return nil
+	}))
+}
+
+func TestChangeKey(t *testing.T) {
+	c := NewCollection()
+	c.CreateColumn("key", ForKey())
+
+	// Try to change the key from "1" to "2"
+	assert.NoError(t, c.InsertKey("1", func(r Row) error { return nil }))
+	assert.NoError(t, c.QueryKey("1", func(r Row) error {
+		r.SetKey("2")
+		return nil
+	}))
+
+	// Must now have "2"
+	assert.NoError(t, c.QueryKey("2", func(r Row) error { return nil }))
+	assert.Equal(t, 1, c.Count())
+}
+
+func TestRollbackInsert(t *testing.T) {
+	col := NewCollection()
+	assert.NoError(t, col.CreateColumn("name", ForString()))
+
+	// Insert successfully
+	idx0, err := col.Insert(func(r Row) error {
+		return nil
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, uint32(0), idx0)
+
+	// Insert with error
+	idx1, err := col.Insert(func(r Row) error {
+		return fmt.Errorf("error")
+	})
+	assert.Error(t, err)
+	assert.Equal(t, uint32(1), idx1)
+
+	// Should only have 1 element
+	assert.Equal(t, 1, col.Count())
+}
+
+func TestUnkeyedInsert(t *testing.T) {
+	col := NewCollection()
+	assert.NoError(t, col.CreateColumn("key", ForKey()))
+
+	// Insert should fail, as one should use InsertKey() method
+	_, err := col.Insert(func(r Row) error {
+		return nil
+	})
+	assert.Error(t, err)
+}
+
+func TestDuplicateKeyColumn(t *testing.T) {
 	c := NewCollection()
 	assert.NoError(t, c.CreateColumn("key1", ForKey()))
 	assert.Error(t, c.CreateColumn("key2", ForKey()))
@@ -513,8 +610,7 @@ func TestRowMethods(t *testing.T) {
 	c.CreateColumn("float32", ForFloat32())
 	c.CreateColumn("float64", ForFloat64())
 
-	c.Insert(func(r Row) error {
-		r.SetKey("key")
+	c.InsertKey("key", func(r Row) error {
 		r.SetBool("bool", true)
 		r.SetAny("name", "Roman")
 
@@ -575,9 +671,7 @@ func TestRow(t *testing.T) {
 	wg.Add(2)
 
 	go c.Query(func(txn *Txn) error {
-		txn.Insert(func(r Row) error {
-			name := txn.Key()
-			name.Set("Roman")
+		txn.InsertKey("Roman", func(r Row) error {
 			return nil
 		})
 		wg.Done()

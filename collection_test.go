@@ -338,11 +338,11 @@ func TestExpire(t *testing.T) {
 	// Insert an object
 	col.InsertObjectWithTTL(obj, time.Microsecond)
 	col.Query(func(txn *Txn) error {
-		expire := txn.Int64(expireColumn)
+		ttl := txn.TTL()
 		return txn.Range(func(idx uint32) {
-			value, _ := expire.Get()
-			expireAt := time.Unix(0, value)
-			expire.Set(expireAt.Add(1 * time.Microsecond).UnixNano())
+			remaining, ok := ttl.TTL()
+			assert.True(t, ok)
+			assert.NotZero(t, remaining)
 		})
 	})
 	assert.Equal(t, 1, col.Count())
@@ -353,6 +353,44 @@ func TestExpire(t *testing.T) {
 	// Wait a bit, should be cleaned up
 	time.Sleep(100 * time.Millisecond)
 	assert.Equal(t, 0, col.Count())
+}
+
+func TestExpireExtend(t *testing.T) {
+	col := loadPlayers(500)
+	assert.NoError(t, col.Query(func(txn *Txn) error {
+		ttl := txn.TTL()
+		return txn.Range(func(idx uint32) {
+
+			// When loaded, we should n ot have any expiration set
+			_, hasExpiration := ttl.ExpiresAt()
+			assert.False(t, hasExpiration)
+			_, hasRemaining := ttl.TTL()
+			assert.False(t, hasRemaining)
+
+			// Extend by 2 hours
+			ttl.Set(time.Hour)
+			ttl.Extend(time.Hour)
+		})
+	}))
+
+	// Now we should have expiration time set
+	assert.NoError(t, col.Query(func(txn *Txn) error {
+		ttl := txn.TTL()
+		return txn.Range(func(idx uint32) {
+			_, hasExpiration := ttl.ExpiresAt()
+			assert.True(t, hasExpiration)
+			_, hasRemaining := ttl.TTL()
+			assert.True(t, hasRemaining)
+		})
+	}))
+
+	// Reset back to zero
+	assert.NoError(t, col.Query(func(txn *Txn) error {
+		ttl := txn.TTL()
+		return txn.Range(func(idx uint32) {
+			ttl.Set(0) // Reset to zero
+		})
+	}))
 }
 
 func TestCreateIndex(t *testing.T) {
@@ -530,16 +568,20 @@ func TestInsertWithTTL(t *testing.T) {
 	c := NewCollection()
 	c.CreateColumn("name", ForString())
 
-	idx, err := c.InsertWithTTL(time.Hour, func(r Row) error {
-		r.SetString("name", "Roman")
+	idx, err := c.Insert(func(r Row) error {
+		if _, ok := r.TTL(); !ok {
+			r.SetTTL(time.Hour)
+			r.SetString("name", "Roman")
+		}
 		return nil
 	})
+
 	assert.Equal(t, uint32(0), idx)
 	assert.NoError(t, err)
 	assert.NoError(t, c.QueryAt(idx, func(r Row) error {
-		expire, ok := r.Int64(expireColumn)
+		ttl, ok := r.TTL()
 		assert.True(t, ok)
-		assert.NotZero(t, expire)
+		assert.NotZero(t, ttl)
 		return nil
 	}))
 }
@@ -594,7 +636,7 @@ func TestReplica(t *testing.T) {
 		}
 	}()
 
-	source.Insert(func (r Row) error {
+	source.Insert(func(r Row) error {
 		r.SetAny("id", "bob")
 		r.SetInt("cnt", 2)
 		return nil
@@ -603,7 +645,7 @@ func TestReplica(t *testing.T) {
 	// give the replica stream a moment
 	time.Sleep(100 * time.Millisecond)
 
-	target.Query(func (txn *Txn) error {
+	target.Query(func(txn *Txn) error {
 		assert.Equal(t, 1, txn.Count())
 		return nil
 	})
@@ -637,7 +679,7 @@ func newEmpty(capacity int) *Collection {
 	})
 
 	// Load the items into the collection
-	out.CreateColumn("serial", ForKey())
+	out.CreateColumn("serial", ForString())
 	out.CreateColumn("name", ForEnum())
 	out.CreateColumn("active", ForBool())
 	out.CreateColumn("class", ForEnum())
