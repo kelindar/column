@@ -17,6 +17,7 @@ This package contains a **high-performance, columnar, in-memory storage engine**
 - Optimized, cache-friendly **columnar data layout** that minimizes cache-misses.
 - Optimized for **zero heap allocation** during querying (see benchmarks below).
 - Optimized **batch updates/deletes**, an update during a transaction takes around `12ns`.
+- Support for **SIMD-enabled aggregate functions** such as "sum", "avg", "min" and "max".
 - Support for **SIMD-enabled filtering** (i.e. "where" clause) by leveraging [bitmap indexing](https://github.com/kelindar/bitmap).
 - Support for **columnar projection** (i.e. "select" clause) for fast retrieval.
 - Support for **computed indexes** that are dynamically calculated based on provided predicate.
@@ -24,6 +25,7 @@ This package contains a **high-performance, columnar, in-memory storage engine**
 - Support for **transaction isolation**, allowing you to create transactions and commit/rollback.
 - Support for **expiration** of rows based on time-to-live or expiration column.
 - Support for **atomic increment/decrement** of numerical values, transactionally.
+- Support for **primary keys** for use-cases where offset can't be used.
 - Support for **change data stream** that streams all commits consistently.
 - Support for **concurrent snapshotting** allowing to store the entire collection into a file.
 
@@ -37,6 +39,7 @@ The general idea is to leverage cache-friendly ways of organizing data in [struc
 - [Updating Values](#updating-values)
 - [Expiring Values](#expiring-values)
 - [Transaction Commit and Rollback](#transaction-commit-and-rollback)
+- [Using Primary Keys](#using-primary-keys)
 - [Streaming Changes](#streaming-changes)
 - [Snapshot and Restore](#snapshot-and-restore)
 - [Complete Example](#complete-example)
@@ -192,7 +195,7 @@ players.Query(func(txn *Txn) error {
 })
 ```
 
-Taking the `Sum()` of a (numeric) column reader will take into account a transaction's current filtering index. 
+Taking the `Sum()` of a (numeric) column reader will take into account a transaction's current filtering index.
 
 ```go
 players.Query(func(txn *Txn) error {
@@ -204,7 +207,7 @@ players.Query(func(txn *Txn) error {
 	txn.WithInt("age", func(v float64) bool {
 		return v < avgAge
 	})
-	
+
 	// get total balance for 'all rouges younger than the average rouge'
 	balance := txn.Float64("balance").Sum()
 	return nil
@@ -243,31 +246,26 @@ players.Query(func(txn *Txn) error {
 
 ## Expiring Values
 
-Sometimes, it is useful to automatically delete certain rows when you do not need them anymore. In order to do this, the library automatically adds an `expire` column to each new collection and starts a cleanup goroutine aynchronously that runs periodically and cleans up the expired objects. In order to set this, you can simply use `InsertWithTTL()` method on the collection that allows to insert an object with a time-to-live duration defined.
+Sometimes, it is useful to automatically delete certain rows when you do not need them anymore. In order to do this, the library automatically adds an `expire` column to each new collection and starts a cleanup goroutine aynchronously that runs periodically and cleans up the expired objects. In order to set this, you can simply use `Insert...()` method on the collection that allows to insert an object with a time-to-live duration defined.
 
 In the example below we are inserting an object to the collection and setting the time-to-live to _5 seconds_ from the current time. After this time, the object will be automatically evicted from the collection and its space can be reclaimed.
 
 ```go
-players.InsertObjectWithTTL(map[string]interface{}{
-	"name": "Merlin",
-	"class": "mage",
-	"age": 55,
-	"balance": 500,
-}, 5 * time.Second) // The time-to-live of 5 seconds
+players.Insert(func(r column.Row) error {
+	r.SetString("name", "Merlin")
+	r.SetString("class", "mage")
+	r.SetTTL(5 * time.Second) // time-to-live of 5 seconds
+	return nil
+})
 ```
 
-On an interesting note, since `expire` column which is automatically added to each collection is an actual normal column, you can query and even update it. In the example below we query and conditionally update the expiration column. The example loads a time, adds one hour and updates it, but in practice if you want to do it you should use `Add()` method which can perform this atomically.
+On an interesting note, since `expire` column which is automatically added to each collection is an actual normal column, you can query and even update it. In the example below we query and extend the time-to-live by 1 hour using the `Extend()` method.
 
 ```go
 players.Query(func(txn *column.Txn) error {
-	expire := txn.Int64("expire")
-
+	ttl := txn.TTL()
 	return txn.Range(func(i uint32) {
-		if v, ok := expire.Get(); ok && v > 0 {
-			oldExpire := time.Unix(0, v) // Convert expiration to time.Time
-			newExpire := expireAt.Add(1 * time.Hour).UnixNano()  // Add some time
-			expire.Set(newExpire)
-		}
+		ttl.Extend(1 * time.Hour) // Add some time
 	})
 })
 ```
@@ -301,6 +299,32 @@ players.Query(func(txn *column.Txn) error {
 
 	// Returns an error, transaction will be rolled back
 	return fmt.Errorf("bug")
+})
+```
+
+## Using Primary Keys
+
+In certain cases it is useful to access a specific row by its primary key instead of an index which is generated internally by the collection. For such use-cases, the library provides `Key` column type that enables a seamless lookup by a user-defined _primary key_. In the example below we create a collection with a primary key `name` using `CreateColumn()` method with a `ForKey()` column type. Then, we use `InsertKey()` method to insert a value.
+
+```go
+players := column.NewCollection()
+players.CreateColumn("name", column.ForKey())     // Create a "name" as a primary-key
+players.CreateColumn("class", column.ForString()) // .. and some other columns
+
+// Insert a player with "merlin" as its primary key
+players.InsertKey("merlin", func(r column.Row) error {
+	r.SetString("class", "mage")
+	return nil
+})
+```
+
+Similarly, you can use primary key to query that data directly, without knowing the exact offset. Do note that using primary keys will have an overhead, as it requires an additional step of looking up the offset using a hash table managed internally.
+
+```go
+// Query merlin's class
+players.QueryKey("merlin", func(r column.Row) error {
+	class, _ := r.String("class")
+	return nil
 })
 ```
 

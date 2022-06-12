@@ -5,6 +5,7 @@ package column
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -14,7 +15,8 @@ import (
 )
 
 var (
-	errNoKey = errors.New("column: collection does not have a key column")
+	errNoKey         = errors.New("column: collection does not have a key column")
+	errUnkeyedInsert = errors.New("column: use InsertKey or UpsertKey methods instead")
 )
 
 // --------------------------- Pool of Transactions ----------------------------
@@ -80,8 +82,8 @@ type Txn struct {
 	cursor  uint32           // The current cursor
 	setup   bool             // Whether the transaction was set up or not
 	owner   *Collection      // The target collection
-	index   bitmap.Bitmap	 // The filtering index
-	dirty   bitmap.Bitmap	 // The dirty chunks
+	index   bitmap.Bitmap    // The filtering index
+	dirty   bitmap.Bitmap    // The dirty chunks
 	updates []*commit.Buffer // The update buffers
 	columns []columnCache    // The column mapping
 	logger  commit.Logger    // The optional commit logger
@@ -282,23 +284,6 @@ func (txn *Txn) Count() int {
 	return int(txn.index.Count())
 }
 
-// QueryKey jumps at a particular key in the collection, sets the cursor to the
-// provided position and executes given callback fn.
-func (txn *Txn) QueryKey(key string, fn func(Row) error) error {
-	if txn.owner.pk == nil {
-		return errNoKey
-	}
-
-	if idx, ok := txn.owner.pk.OffsetOf(key); ok {
-		return txn.QueryAt(idx, fn)
-	}
-
-	// If not found, insert at a new index
-	idx, err := txn.insert(fn, 0)
-	txn.bufferFor(txn.owner.pk.name).PutString(commit.Put, idx, key)
-	return err
-}
-
 // DeleteAt attempts to delete an item at the specified index for this transaction. If the item
 // exists, it marks at as deleted and returns true, otherwise it returns false.
 func (txn *Txn) DeleteAt(index uint32) bool {
@@ -318,36 +303,30 @@ func (txn *Txn) deleteAt(idx uint32) {
 
 // InsertObject adds an object to a collection and returns the allocated index.
 func (txn *Txn) InsertObject(object Object) (uint32, error) {
-	return txn.insertObject(object, 0)
+	return txn.InsertObjectWithTTL(object, 0)
 }
 
 // InsertObjectWithTTL adds an object to a collection, sets the expiration time
 // based on the specified time-to-live and returns the allocated index.
 func (txn *Txn) InsertObjectWithTTL(object Object, ttl time.Duration) (uint32, error) {
-	return txn.insertObject(object, time.Now().Add(ttl).UnixNano())
-}
-
-// Insert executes a mutable cursor transactionally at a new offset.
-func (txn *Txn) Insert(fn func(Row) error) (uint32, error) {
-	return txn.insert(fn, 0)
-}
-
-// InsertWithTTL executes a mutable cursor transactionally at a new offset and sets the expiration time
-// based on the specified time-to-live and returns the allocated index.
-func (txn *Txn) InsertWithTTL(ttl time.Duration, fn func(Row) error) (uint32, error) {
-	return txn.insert(fn, time.Now().Add(ttl).UnixNano())
-}
-
-// insertObject inserts all of the keys of a map, if previously registered as columns.
-func (txn *Txn) insertObject(object Object, expireAt int64) (uint32, error) {
-	return txn.insert(func(Row) error {
+	return txn.Insert(func(r Row) error {
+		r.SetTTL(ttl)
 		for k, v := range object {
 			if _, ok := txn.columnAt(k); ok {
 				txn.bufferFor(k).PutAny(commit.Put, txn.cursor, v)
 			}
 		}
 		return nil
-	}, expireAt)
+	})
+}
+
+// Insert executes a mutable cursor transactionally at a new offset.
+func (txn *Txn) Insert(fn func(Row) error) (uint32, error) {
+	if txn.owner.pk != nil {
+		return 0, errUnkeyedInsert
+	}
+
+	return txn.insert(fn, 0)
 }
 
 // insert creates an insertion cursor for a given column and expiration time.
@@ -357,26 +336,16 @@ func (txn *Txn) insert(fn func(Row) error, expireAt int64) (uint32, error) {
 	idx := txn.owner.next()
 	txn.bufferFor(rowColumn).PutOperation(commit.Insert, idx)
 
-	// If no expiration was specified, simply insert
-	if expireAt == 0 {
-		return idx, txn.QueryAt(idx, fn)
+	// If there was an error during insertion, free the index so it can be re-used
+	if err := txn.QueryAt(idx, fn); err != nil {
+		txn.owner.free(idx)
+		return idx, err
 	}
 
-	// If expiration was specified, set it
-	return idx, txn.QueryAt(idx, func(r Row) error {
-		r.SetInt64(expireColumn, expireAt)
-		return fn(r)
-	})
+	return idx, nil
 }
 
-// DeleteAll marks all of the items currently selected by this transaction for deletion. The
-// actual delete will take place once the transaction is committed.
-func (txn *Txn) DeleteAll() {
-	txn.initialize()
-	txn.index.Range(func(x uint32) {
-		txn.deleteAt(x)
-	})
-}
+// --------------------------- Iteration ----------------------------
 
 // Range selects and iterates over result set. In each iteration step, the internal
 // transaction cursor is updated and can be used by various column accessors.
@@ -392,10 +361,86 @@ func (txn *Txn) Range(fn func(idx uint32)) error {
 	return nil
 }
 
+// DeleteAll marks all of the items currently selected by this transaction for deletion. The
+// actual delete will take place once the transaction is committed.
+func (txn *Txn) DeleteAll() {
+	txn.initialize()
+	txn.index.Range(func(x uint32) {
+		txn.deleteAt(x)
+	})
+}
+
+// --------------------------- Primary Key ----------------------------
+
+// InsertKey inserts a row given its corresponding primary key.
+func (txn *Txn) InsertKey(key string, fn func(Row) error) error {
+	if txn.owner.pk == nil {
+		return errNoKey
+	}
+
+	if idx, ok := txn.owner.pk.OffsetOf(key); ok {
+		return fmt.Errorf("column: key '%s' already exists at offset %d", key, idx)
+	}
+
+	// If not found, insert at a new index
+	idx, err := txn.insert(fn, 0)
+	txn.bufferFor(txn.owner.pk.name).PutString(commit.Put, idx, key)
+	return err
+}
+
+// UpsertKey inserts or updates a row given its corresponding primary key.
+func (txn *Txn) UpsertKey(key string, fn func(Row) error) error {
+	if txn.owner.pk == nil {
+		return errNoKey
+	}
+
+	if idx, ok := txn.owner.pk.OffsetOf(key); ok {
+		return txn.QueryAt(idx, fn)
+	}
+
+	// If not found, insert at a new index
+	idx, err := txn.insert(fn, 0)
+	txn.bufferFor(txn.owner.pk.name).PutString(commit.Put, idx, key)
+	return err
+}
+
+// QueryKey queries/updates a row given its corresponding primary key.
+func (txn *Txn) QueryKey(key string, fn func(Row) error) error {
+	if txn.owner.pk == nil {
+		return errNoKey
+	}
+
+	if idx, ok := txn.owner.pk.OffsetOf(key); ok {
+		return txn.QueryAt(idx, fn)
+	}
+
+	return fmt.Errorf("column: key '%s' was not found", key)
+}
+
+// DeleteKey deletes a row for a given primary key.
+func (txn *Txn) DeleteKey(key string) error {
+	if txn.owner.pk == nil {
+		return errNoKey
+	}
+
+	if idx, ok := txn.owner.pk.OffsetOf(key); ok {
+		txn.deleteAt(idx)
+		return nil
+	}
+
+	return fmt.Errorf("column: key '%s' was not found", key)
+}
+
+// --------------------------- Commit & Rollback ----------------------------
+
 // Rollback empties the pending update and delete queues and does not apply any of
 // the pending updates/deletes. This operation can be called several times for
 // a transaction in order to perform partial rollbacks.
 func (txn *Txn) rollback() {
+	txn.owner.lock.Lock()
+	atomic.StoreUint64(&txn.owner.count, uint64(txn.owner.fill.Count()))
+	txn.owner.lock.Unlock()
+
 	txn.reset()
 }
 
@@ -505,16 +550,6 @@ func (txn *Txn) commitMarkers(chunk commit.Chunk, fill bitmap.Bitmap, buffer *co
 	txn.owner.lock.Unlock()
 }
 
-// findMarkers finds a set of insert/deletes
-func (txn *Txn) findMarkers() (*commit.Buffer, bool) {
-	for _, u := range txn.updates {
-		if !u.IsEmpty() && u.Column == rowColumn {
-			return u, true
-		}
-	}
-	return nil, false
-}
-
 // commitCapacity grows all columns until they reach the max index
 func (txn *Txn) commitCapacity(last commit.Chunk) {
 	txn.owner.lock.Lock()
@@ -534,4 +569,16 @@ func (txn *Txn) commitCapacity(last commit.Chunk) {
 	txn.owner.cols.Range(func(column *column) {
 		column.Grow(max)
 	})
+}
+
+// --------------------------- Buffer Lookups ----------------------------
+
+// findMarkers finds a set of insert/deletes
+func (txn *Txn) findMarkers() (*commit.Buffer, bool) {
+	for _, u := range txn.updates {
+		if !u.IsEmpty() && u.Column == rowColumn {
+			return u, true
+		}
+	}
+	return nil, false
 }
