@@ -312,7 +312,7 @@ players.CreateColumn("name", column.ForKey())     // Create a "name" as a primar
 players.CreateColumn("class", column.ForString()) // .. and some other columns
 
 // Insert a player with "merlin" as its primary key
-c.InsertKey("merlin", func(r column.Row) error {
+players.InsertKey("merlin", func(r column.Row) error {
 	r.SetString("class", "mage")
 	return nil
 })
@@ -322,7 +322,7 @@ Similarly, you can use primary key to query that data directly, without knowing 
 
 ```go
 // Query merlin's class
-c.QueryKey("merlin", func(r column.Row) error {
+players.QueryKey("merlin", func(r column.Row) error {
 	class, _ := r.String("class")
 	return nil
 })
