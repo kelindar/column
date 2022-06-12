@@ -218,3 +218,15 @@ func (c *Collection) chunks() int {
 	max, _ := c.fill.Max()
 	return int(commit.ChunkAt(max) + 1)
 }
+
+// readChunk acquires appropriate locks for a chunk and executes a read callback.
+// This is used for snapshotting purposes only.
+func (c *Collection) readChunk(chunk commit.Chunk, fn func(uint64, commit.Chunk, bitmap.Bitmap) error) error {
+
+	// Lock both the chunk and the fill list
+	c.slock.RLock(uint(chunk))
+	c.lock.RLock()
+	defer c.slock.RUnlock(uint(chunk))
+	defer c.lock.RUnlock()
+	return fn(c.commits[chunk], chunk, chunk.OfBitmap(c.fill))
+}
