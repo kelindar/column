@@ -177,6 +177,11 @@ func (txn *Txn) Without(columns ...string) *Txn {
 func (txn *Txn) Union(columns ...string) *Txn {
 	first := !txn.setup
 	txn.initialize()
+
+	if !first && len(columns) > 1 {
+	    // txn index already altered, but 
+	}
+
 	for _, columnName := range columns {
 		if idx, ok := txn.columnAt(columnName); ok {
 			txn.rangeReadPair(idx, func(dst, src bitmap.Bitmap) {
@@ -189,6 +194,46 @@ func (txn *Txn) Union(columns ...string) *Txn {
 		}
 		first = false
 	}
+	return txn
+}
+
+// WithUnion computes a union between all given indexes, and then
+// applies the result to the txn index.
+func (txn *Txn) WithUnion(columns ...string) *Txn {
+	if !txn.setup || len(columns) == 1 {
+	    return txn.Union(columns...)
+	}
+
+	// allocate slice of column pointers :(
+	cols := make([]*column, 0)
+	for _, columnName := range columns {
+		if idx, ok := txn.columnAt(columnName); ok {
+			cols = append(cols, idx)
+		}
+	}
+
+	// adapted from rangeReadPair
+	limit := commit.Chunk(len(txn.index) >> bitmapShift)
+	lock := txn.owner.slock
+
+	// allocate temp bitmap for calcs
+	// var tmpMap bitmap.Bitmap
+	tmpMap := make(bitmap.Bitmap, 1)
+
+	for chunk := commit.Chunk(0); chunk <= limit; chunk++ {
+		lock.RLock(uint(chunk))
+
+		tmpMap[0] = 0
+		for _, orCol := range cols {
+		    tmpMap.Or(orCol.Index(chunk))
+		}
+
+		idxMap := chunk.OfBitmap(txn.index)
+		idxMap.And(tmpMap)
+
+		lock.RUnlock(uint(chunk))
+	}
+
 	return txn
 }
 

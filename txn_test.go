@@ -734,9 +734,9 @@ func TestMultiUnion(t *testing.T) {
 	c.CreateIndex("tester_1", "tester", func(r Reader) bool { return r.String() == "1" })
 	c.CreateIndex("tester_2", "tester", func(r Reader) bool { return r.String() == "2" })
 	c.CreateIndex("tester_3", "tester", func(r Reader) bool { return r.String() == "3" })
-	c.CreateIndex("testerB_1", "tester", func(r Reader) bool { return r.String() == "4" })
-	c.CreateIndex("testerB_2", "tester", func(r Reader) bool { return r.String() == "5" })
-	c.CreateIndex("testerB_3", "tester", func(r Reader) bool { return r.String() == "6" })
+	c.CreateIndex("testerB_4", "testerB", func(r Reader) bool { return r.String() == "4" })
+	c.CreateIndex("testerB_5", "testerB", func(r Reader) bool { return r.String() == "5" })
+	c.CreateIndex("testerB_6", "testerB", func(r Reader) bool { return r.String() == "6" })
 
 	c.InsertObject(map[string]interface{}{
 		"tester": "1",
@@ -753,8 +753,17 @@ func TestMultiUnion(t *testing.T) {
 
 	c.Query(func(txn *Txn) error {
 		// where tester in ['1', '2'] and testerB in ['4', '5']
+		txn = txn.WithUnion("tester_1", "tester_2")
+		txn = txn.Union("testerB_5", "testerB_6")
+
+		assert.Equal(t, 3, txn.Count())
+		return nil
+	})
+
+	c.Query(func(txn *Txn) error {
+		// where tester in ['1', '2'] and testerB in ['5', '6']
 		txn = txn.Union("tester_1", "tester_2")
-		txn = txn.Union("testerB_4", "testerB_5")
+		txn = txn.WithUnion("testerB_5", "testerB_6")
 
 		assert.Equal(t, 1, txn.Count())
 		return nil
