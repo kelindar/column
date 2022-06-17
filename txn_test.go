@@ -726,6 +726,107 @@ func TestUnion(t *testing.T) {
 	})
 }
 
+func TestWithUnion(t *testing.T) {
+	c := NewCollection()
+	c.CreateColumn("tester", ForString())
+	c.CreateColumn("testerB", ForString())
+
+	c.CreateIndex("tester_1", "tester", func(r Reader) bool { return r.String() == "1" })
+	c.CreateIndex("tester_2", "tester", func(r Reader) bool { return r.String() == "2" })
+	c.CreateIndex("tester_3", "tester", func(r Reader) bool { return r.String() == "3" })
+	c.CreateIndex("testerB_4", "testerB", func(r Reader) bool { return r.String() == "4" })
+	c.CreateIndex("testerB_5", "testerB", func(r Reader) bool { return r.String() == "5" })
+	c.CreateIndex("testerB_6", "testerB", func(r Reader) bool { return r.String() == "6" })
+
+	c.InsertObject(map[string]interface{}{
+		"tester": "1",
+		"testerB": "4",
+	})
+	c.InsertObject(map[string]interface{}{
+		"tester": "2",
+		"testerB": "5",
+	})
+	c.InsertObject(map[string]interface{}{
+		"tester": "3",
+		"testerB": "6",
+	})
+
+	// account for normal use-case
+	c.Query(func(txn *Txn) error {
+		txn.WithUnion("tester_1", "tester_2")
+		txn.Union("testerB_5", "testerB_6")
+
+		assert.Equal(t, 3, txn.Count())
+		return nil
+	})
+
+	// where tester in ['1', '2'] and testerB in ['5', '6']
+	c.Query(func(txn *Txn) error {
+		txn.Union("tester_1", "tester_2")
+		txn.WithUnion("testerB_5", "testerB_6")
+
+		assert.Equal(t, 1, txn.Count())
+		return nil
+	})
+
+	c.Query(func (txn *Txn) error {
+		txn.Without("tester_1", "testerB_5")
+		txn.WithUnion("tester_2", "tester_1", "tester_3")
+
+		assert.Equal(t, 1, txn.Count())
+		return nil
+	})
+}
+
+func TestWithUnionPlayers(t *testing.T) {
+	trueCount := 0
+	players := loadPlayers(100000)
+	
+	players.Query(func (txn *Txn) error {
+		ageCol := txn.Any("age")
+		raceCol := txn.Any("race")
+		classCol := txn.Any("class")
+
+		return txn.Range(func (i uint32) {
+			age, _ := ageCol.Get()
+			race, _ := raceCol.Get()
+			class, _ := classCol.Get()
+
+			if race == "dwarf" && (age.(float64) >= 30.0 || class == "mage") {
+				trueCount++
+			}
+		})
+	})
+
+	players.Query(func (txn *Txn) error {
+		txn.With("dwarf")
+		txn.WithUnion("mage", "old")
+
+		assert.Equal(t, trueCount, txn.Count())
+		return nil
+	})
+
+	players.Query(func (txn *Txn) error {
+		txn.With("dwarf", "mage", "old")
+		assert.True(t, txn.Count() < trueCount)
+		return nil
+	})
+
+	players.Query(func (txn *Txn) error {
+		txn.Union("dwarf", "mage", "old")
+		assert.True(t, txn.Count() > trueCount)
+		return nil
+	})
+
+	// dwarf & elf cancel out
+	players.Query(func (txn *Txn) error {
+		txn.With("dwarf")
+		txn.WithUnion("mage", "old", "elf")
+		assert.Equal(t, trueCount, txn.Count())
+		return nil
+	})
+}
+
 func TestSumBalance(t *testing.T) {
 	players := loadPlayers(500)
 	assert.Equal(t, 500, players.Count())
