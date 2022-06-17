@@ -752,7 +752,7 @@ func TestMultiUnion(t *testing.T) {
 	})
 
 	c.Query(func(txn *Txn) error {
-		// where tester in ['1', '2'] and testerB in ['4', '5']
+		// account for normal use-case
 		txn = txn.WithUnion("tester_1", "tester_2")
 		txn = txn.Union("testerB_5", "testerB_6")
 

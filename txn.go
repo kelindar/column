@@ -178,10 +178,6 @@ func (txn *Txn) Union(columns ...string) *Txn {
 	first := !txn.setup
 	txn.initialize()
 
-	if !first && len(columns) > 1 {
-	    // txn index already altered, but 
-	}
-
 	for _, columnName := range columns {
 		if idx, ok := txn.columnAt(columnName); ok {
 			txn.rangeReadPair(idx, func(dst, src bitmap.Bitmap) {
@@ -201,7 +197,7 @@ func (txn *Txn) Union(columns ...string) *Txn {
 // applies the result to the txn index.
 func (txn *Txn) WithUnion(columns ...string) *Txn {
 	if !txn.setup || len(columns) == 1 {
-	    return txn.Union(columns...)
+		return txn.Union(columns...)
 	}
 
 	// allocate slice of column pointers :(
@@ -216,7 +212,7 @@ func (txn *Txn) WithUnion(columns ...string) *Txn {
 	limit := commit.Chunk(len(txn.index) >> bitmapShift)
 	lock := txn.owner.slock
 
-	// allocate temp bitmap for calcs
+	// allocate temp bitmap for calcs :(
 	// var tmpMap bitmap.Bitmap
 	tmpMap := make(bitmap.Bitmap, 1)
 
@@ -225,7 +221,7 @@ func (txn *Txn) WithUnion(columns ...string) *Txn {
 
 		tmpMap[0] = 0
 		for _, orCol := range cols {
-		    tmpMap.Or(orCol.Index(chunk))
+			tmpMap.Or(orCol.Index(chunk))
 		}
 
 		idxMap := chunk.OfBitmap(txn.index)
