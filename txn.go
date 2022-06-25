@@ -209,7 +209,6 @@ func (txn *Txn) WithUnion(columns ...string) *Txn {
 	}
 
 	// allocate temp bitmap for calcs
-	// var tmpMap bitmap.Bitmap
 	tmpMap := make(bitmap.Bitmap, 1)
 
 	// adapted from rangeReadPair
