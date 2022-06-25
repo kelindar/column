@@ -200,7 +200,7 @@ func (txn *Txn) WithUnion(columns ...string) *Txn {
 		return txn.Union(columns...)
 	}
 
-	// allocate slice of column pointers :(
+	// allocate slice of column pointers
 	cols := make([]*column, 0)
 	for _, columnName := range columns {
 		if idx, ok := txn.columnAt(columnName); ok {
@@ -208,13 +208,13 @@ func (txn *Txn) WithUnion(columns ...string) *Txn {
 		}
 	}
 
+	// allocate temp bitmap for calcs
+	// var tmpMap bitmap.Bitmap
+	tmpMap := make(bitmap.Bitmap, 1)
+
 	// adapted from rangeReadPair
 	limit := commit.Chunk(len(txn.index) >> bitmapShift)
 	lock := txn.owner.slock
-
-	// allocate temp bitmap for calcs :(
-	// var tmpMap bitmap.Bitmap
-	tmpMap := make(bitmap.Bitmap, 1)
 
 	for chunk := commit.Chunk(0); chunk <= limit; chunk++ {
 		lock.RLock(uint(chunk))

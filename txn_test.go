@@ -726,7 +726,7 @@ func TestUnion(t *testing.T) {
 	})
 }
 
-func TestMultiUnion(t *testing.T) {
+func TestWithUnion(t *testing.T) {
 	c := NewCollection()
 	c.CreateColumn("tester", ForString())
 	c.CreateColumn("testerB", ForString())
@@ -753,8 +753,8 @@ func TestMultiUnion(t *testing.T) {
 
 	c.Query(func(txn *Txn) error {
 		// account for normal use-case
-		txn = txn.WithUnion("tester_1", "tester_2")
-		txn = txn.Union("testerB_5", "testerB_6")
+		txn.WithUnion("tester_1", "tester_2")
+		txn.Union("testerB_5", "testerB_6")
 
 		assert.Equal(t, 3, txn.Count())
 		return nil
@@ -762,10 +762,35 @@ func TestMultiUnion(t *testing.T) {
 
 	c.Query(func(txn *Txn) error {
 		// where tester in ['1', '2'] and testerB in ['5', '6']
-		txn = txn.Union("tester_1", "tester_2")
-		txn = txn.WithUnion("testerB_5", "testerB_6")
+		txn.Union("tester_1", "tester_2")
+		txn.WithUnion("testerB_5", "testerB_6")
 
 		assert.Equal(t, 1, txn.Count())
+		return nil
+	})
+}
+
+func TestWithUnionPlayers(t *testing.T) {
+	players := loadPlayers(500)
+
+	players.Query(func (txn *Txn) error {
+		txn.With("dwarf")
+		txn.WithUnion("mage", "old")
+
+		ageCol := txn.Any("age")
+		raceCol := txn.Any("race")
+		classCol := txn.Any("class")
+
+		txn.Range(func (i uint32) {
+			age, _ := ageCol.Get()
+			race, _ := raceCol.Get()
+			class, _ := classCol.Get()
+	    
+			assert.True(t, race == "dwarf")
+			assert.True(t, age.(float64) >= 30.0 || class == "mage")
+		})
+
+		assert.Equal(t, 88, txn.Count())
 		return nil
 	})
 }
