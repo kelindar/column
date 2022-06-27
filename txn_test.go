@@ -751,8 +751,8 @@ func TestWithUnion(t *testing.T) {
 		"testerB": "6",
 	})
 
+	// account for normal use-case
 	c.Query(func(txn *Txn) error {
-		// account for normal use-case
 		txn.WithUnion("tester_1", "tester_2")
 		txn.Union("testerB_5", "testerB_6")
 
@@ -760,10 +760,18 @@ func TestWithUnion(t *testing.T) {
 		return nil
 	})
 
+	// where tester in ['1', '2'] and testerB in ['5', '6']
 	c.Query(func(txn *Txn) error {
-		// where tester in ['1', '2'] and testerB in ['5', '6']
 		txn.Union("tester_1", "tester_2")
 		txn.WithUnion("testerB_5", "testerB_6")
+
+		assert.Equal(t, 1, txn.Count())
+		return nil
+	})
+
+	c.Query(func (txn *Txn) error {
+		txn.Without("tester_1", "testerB_5")
+		txn.WithUnion("tester_2", "tester_1", "tester_3")
 
 		assert.Equal(t, 1, txn.Count())
 		return nil
@@ -771,26 +779,50 @@ func TestWithUnion(t *testing.T) {
 }
 
 func TestWithUnionPlayers(t *testing.T) {
-	players := loadPlayers(500)
+	trueCount := 0
+	players := loadPlayers(100000)
+	
+	players.Query(func (txn *Txn) error {
+		ageCol := txn.Any("age")
+		raceCol := txn.Any("race")
+		classCol := txn.Any("class")
+
+		return txn.Range(func (i uint32) {
+			age, _ := ageCol.Get()
+			race, _ := raceCol.Get()
+			class, _ := classCol.Get()
+
+			if race == "dwarf" && (age.(float64) >= 30.0 || class == "mage") {
+				trueCount++
+			}
+		})
+	})
 
 	players.Query(func (txn *Txn) error {
 		txn.With("dwarf")
 		txn.WithUnion("mage", "old")
 
-		ageCol := txn.Any("age")
-		raceCol := txn.Any("race")
-		classCol := txn.Any("class")
+		assert.Equal(t, trueCount, txn.Count())
+		return nil
+	})
 
-		txn.Range(func (i uint32) {
-			age, _ := ageCol.Get()
-			race, _ := raceCol.Get()
-			class, _ := classCol.Get()
-	    
-			assert.True(t, race == "dwarf")
-			assert.True(t, age.(float64) >= 30.0 || class == "mage")
-		})
+	players.Query(func (txn *Txn) error {
+		txn.With("dwarf", "mage", "old")
+		assert.True(t, txn.Count() < trueCount)
+		return nil
+	})
 
-		assert.Equal(t, 88, txn.Count())
+	players.Query(func (txn *Txn) error {
+		txn.Union("dwarf", "mage", "old")
+		assert.True(t, txn.Count() > trueCount)
+		return nil
+	})
+
+	// dwarf & elf cancel out
+	players.Query(func (txn *Txn) error {
+		txn.With("dwarf")
+		txn.WithUnion("mage", "old", "elf")
+		assert.Equal(t, trueCount, txn.Count())
 		return nil
 	})
 }

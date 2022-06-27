@@ -208,21 +208,28 @@ func (txn *Txn) WithUnion(columns ...string) *Txn {
 		}
 	}
 
-	// allocate temp bitmap for calcs
-	tmpMap := make(bitmap.Bitmap, 1)
+	// allocate temp bitmaps for calculations
+	tmpMap := make(bitmap.Bitmap, 256)
 
 	// adapted from rangeReadPair
 	limit := commit.Chunk(len(txn.index) >> bitmapShift)
 	lock := txn.owner.slock
 
+	// range & lock over each available chunk
 	for chunk := commit.Chunk(0); chunk <= limit; chunk++ {
 		lock.RLock(uint(chunk))
 
-		tmpMap[0] = 0
+		// reset entire bitmap
+		for i, _ := range tmpMap {
+			tmpMap[i] = 0
+		}
+
+		// for each columm, tmpMap =| colMap
 		for _, orCol := range cols {
 			tmpMap.Or(orCol.Index(chunk))
 		}
 
+		// indexMap =& tmpMap
 		idxMap := chunk.OfBitmap(txn.index)
 		idxMap.And(tmpMap)
 
