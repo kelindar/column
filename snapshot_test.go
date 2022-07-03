@@ -198,13 +198,6 @@ func TestSnapshot(t *testing.T) {
 	output := newEmpty(amount)
 	assert.NoError(t, output.Restore(buffer))
 	assert.Equal(t, amount, output.Count())
-
-	// Double restore returns no error, but does not double apply
-	buffer2 := bytes.NewBuffer(nil)
-	assert.NoError(t, input.Snapshot(buffer2))
-	assert.NotZero(t, buffer2.Len())
-	assert.Nil(t, output.Restore(buffer2))
-	assert.Equal(t, amount, output.Count())
 }
 
 func TestSnapshotFailures(t *testing.T) {
@@ -243,6 +236,54 @@ func TestSnapshotFailedAppendCommit(t *testing.T) {
 		return nil
 	})
 	assert.NoError(t, err)
+}
+
+func TestSnapshotDoubleApply(t *testing.T) {
+	amount := 500
+	input := loadPlayers(amount)
+	var startVal float64
+
+	// Op 1
+	input.QueryAt(0, func (r Row) error {
+		bal, _ := r.Float64("age")
+		startVal = bal
+		
+		r.AddFloat64("age", 1.0)
+		return nil
+	})
+	
+
+	// Save snapshot with Op 1
+	buffer := bytes.NewBuffer(nil)
+	assert.NoError(t, input.Snapshot(buffer))
+
+	// Op 2
+	input.QueryAt(0, func (r Row) error {
+		r.AddFloat64("age", 1.0)
+		return nil
+	})
+
+	// Save snapshot with Op 2
+	buffer2 := bytes.NewBuffer(nil)
+	assert.NoError(t, input.Snapshot(buffer2))
+
+	// Apply Snapshot 1, check for op 1
+	output := newEmpty(amount)
+	assert.NoError(t, output.Restore(buffer))
+	output.QueryAt(0, func (r Row) error {
+		bal, _ := r.Float64("age")
+		assert.Equal(t, startVal+1.0, bal)
+		return nil 
+	})
+
+	// Apply Snapshot 2, check for op 2
+	// Verify that only second delete is applied, not both
+	assert.NoError(t, output.Restore(buffer2))
+	output.QueryAt(0, func (r Row) error {
+		bal, _ := r.Float64("age")
+		assert.Equal(t, startVal+2.0, bal)
+		return nil 
+	})
 }
 
 // --------------------------- State Codec ----------------------------
