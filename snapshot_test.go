@@ -198,6 +198,13 @@ func TestSnapshot(t *testing.T) {
 	output := newEmpty(amount)
 	assert.NoError(t, output.Restore(buffer))
 	assert.Equal(t, amount, output.Count())
+
+	// Double restore returns no error, but does not double apply
+	buffer2 := bytes.NewBuffer(nil)
+	assert.NoError(t, input.Snapshot(buffer2))
+	assert.NotZero(t, buffer2.Len())
+	assert.Nil(t, output.Restore(buffer2))
+	assert.Equal(t, amount, output.Count())
 }
 
 func TestSnapshotFailures(t *testing.T) {
