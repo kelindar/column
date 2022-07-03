@@ -514,9 +514,11 @@ func (txn *Txn) commitUpdates(chunk commit.Chunk) (updated bool) {
 
 			// Range through all of the pending updates and apply them to the column
 			// and its associated computed columns.
+			// txn.owner.lock.Lock()
 			for _, v := range columns {
 				v.Apply(chunk, r)
 			}
+			// txn.owner.lock.Unlock()
 		})
 	}
 	return updated

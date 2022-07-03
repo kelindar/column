@@ -171,7 +171,7 @@ func runReplication(t *testing.T, updates, inserts, concurrency int) {
 // --------------------------- Snapshotting ----------------------------
 
 func TestSnapshot(t *testing.T) {
-	amount := 50000
+	amount := 1000000
 	buffer := bytes.NewBuffer(nil)
 	input := loadPlayers(amount)
 
@@ -181,6 +181,8 @@ func TestSnapshot(t *testing.T) {
 		for i := 0; i < amount; i++ {
 			assert.NoError(t, input.QueryAt(uint32(i), func(r Row) error {
 				r.SetEnum("name", "Roman")
+				r.SetAny("age", 15.0)
+				r.SetEnum("guild", "Ecce")
 				return nil
 			}))
 			wg.Done()
