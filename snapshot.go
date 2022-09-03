@@ -225,8 +225,8 @@ func (c *Collection) readChunk(chunk commit.Chunk, fn func(uint64, commit.Chunk,
 
 	// Lock both the chunk and the fill list
 	c.slock.RLock(uint(chunk))
-	c.lock.RLock()
+	c.lock.Lock()
 	defer c.slock.RUnlock(uint(chunk))
-	defer c.lock.RUnlock()
+	defer c.lock.Unlock()
 	return fn(c.commits[chunk], chunk, chunk.OfBitmap(c.fill))
 }
