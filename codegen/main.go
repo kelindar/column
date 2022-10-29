@@ -21,6 +21,7 @@ func main() {
 	}
 
 	dst, err := os.OpenFile("column_numbers.go", os.O_RDWR|os.O_CREATE, os.ModePerm)
+	defer dst.Close()
 	if err != nil {
 		panic(err)
 	}

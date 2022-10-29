@@ -26,19 +26,24 @@ func readNumber[T simd.Number](txn *Txn, columnName string) (value T, found bool
 // numericColumn represents a numeric column
 type numericColumn[T simd.Number] struct {
 	chunks[T]
+	option[T]
 	write func(*commit.Buffer, uint32, T)
-	apply func(*commit.Reader, bitmap.Bitmap, []T)
+	apply func(*commit.Reader, bitmap.Bitmap, []T, option[T])
 }
 
 // makeNumeric creates a new vector for simd.Numbers
 func makeNumeric[T simd.Number](
 	write func(*commit.Buffer, uint32, T),
-	apply func(*commit.Reader, bitmap.Bitmap, []T),
+	apply func(*commit.Reader, bitmap.Bitmap, []T, option[T]),
+	opts ...func(*option[T]),
 ) *numericColumn[T] {
 	return &numericColumn[T]{
 		chunks: make(chunks[T], 0, 4),
 		write:  write,
 		apply:  apply,
+		option: configure(opts, option[T]{
+			Merge: func(value, delta T) T { return value + delta },
+		}),
 	}
 }
 
@@ -116,7 +121,7 @@ func (c *numericColumn[T]) FilterUint64(chunk commit.Chunk, index bitmap.Bitmap,
 // Apply applies a set of operations to the column.
 func (c *numericColumn[T]) Apply(chunk commit.Chunk, r *commit.Reader) {
 	fill, data := c.chunkAt(chunk)
-	c.apply(r, fill, data)
+	c.apply(r, fill, data, c.option)
 }
 
 // Snapshot writes the entire column into the specified destination buffer

@@ -10,7 +10,6 @@ import (
 
 	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
-	"github.com/kelindar/column/pkg/opt"
 	"github.com/kelindar/intmap"
 	"github.com/zeebo/xxh3"
 )
@@ -156,14 +155,16 @@ var _ Textual = new(columnString)
 // columnString represents a string column
 type columnString struct {
 	chunks[string]
-	opt.String
+	option[string]
 }
 
 // makeString creates a new string column
-func makeStrings(opts ...func(*opt.String)) Column {
+func makeStrings(opts ...func(*option[string])) Column {
 	return &columnString{
 		chunks: make(chunks[string], 0, 4),
-		String: opt.Configure(opts...),
+		option: configure(opts, option[string]{
+			Merge: func(_, delta string) string { return delta },
+		}),
 	}
 }
 

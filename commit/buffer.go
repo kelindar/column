@@ -31,9 +31,8 @@ const (
 	PutFalse OpType = 0 // PutFalse is a combination of Put+False for boolean values
 	PutTrue  OpType = 2 // PutTrue is a combination of Put+True for boolean values
 	Put      OpType = 2 // Put stores a value regardless of a previous value
-	Add      OpType = 3 // Add increments the current stored value by the amount
-	Merge    OpType = 4 // Applies a merge function
-	Skip     OpType = 5 // Skips the value
+	Merge    OpType = 3 // Applies a merge function
+	Skip     OpType = 4 // Skips the value
 )
 
 // --------------------------- Delta log ----------------------------

@@ -70,7 +70,7 @@ func (s ttlWriter) Set(ttl time.Duration) {
 
 // Extend extends time-to-live of the row current transaction cursor by a specified amount
 func (s ttlWriter) Extend(delta time.Duration) {
-	s.rw.Add(int64(delta.Nanoseconds()))
+	s.rw.Merge(int64(delta.Nanoseconds()))
 }
 
 // readTTL converts expiration to a TTL

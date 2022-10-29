@@ -246,7 +246,7 @@ func TestSnapshotDoubleApply(t *testing.T) {
 		bal, _ := r.Float64("age")
 		startVal = bal
 
-		r.AddFloat64("age", 1.0)
+		r.MergeFloat64("age", 1.0)
 		return nil
 	})
 
@@ -256,7 +256,7 @@ func TestSnapshotDoubleApply(t *testing.T) {
 
 	// Op 2
 	input.QueryAt(0, func(r Row) error {
-		r.AddFloat64("age", 1.0)
+		r.MergeFloat64("age", 1.0)
 		return nil
 	})
 

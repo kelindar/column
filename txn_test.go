@@ -147,7 +147,7 @@ func TestIndexInvalid(t *testing.T) {
 		players.Query(func(txn *Txn) error {
 			invalid := txn.Float64("invalid-column")
 			return txn.Range(func(index uint32) {
-				invalid.Add(1)
+				invalid.Merge(1)
 			})
 		})
 	})
@@ -297,8 +297,8 @@ func TestIndexWithAtomicAdd(t *testing.T) {
 		balance := txn.Float64("balance")
 		for i := 0; i < 30; i++ {
 			txn.Range(func(index uint32) {
-				balance.Add(50.0)
-				balance.Add(50.0)
+				balance.Merge(50.0)
+				balance.Merge(50.0)
 			})
 		}
 		return nil
@@ -628,16 +628,16 @@ func TestRowMethods(t *testing.T) {
 		r.SetFloat64("float64", 1)
 
 		// Increment
-		r.AddInt("int", 1)
-		r.AddInt16("int16", 1)
-		r.AddInt32("int32", 1)
-		r.AddInt64("int64", 1)
-		r.AddUint("uint", 1)
-		r.AddUint16("uint16", 1)
-		r.AddUint32("uint32", 1)
-		r.AddUint64("uint64", 1)
-		r.AddFloat32("float32", 1)
-		r.AddFloat64("float64", 1)
+		r.MergeInt("int", 1)
+		r.MergeInt16("int16", 1)
+		r.MergeInt32("int32", 1)
+		r.MergeInt64("int64", 1)
+		r.MergeUint("uint", 1)
+		r.MergeUint16("uint16", 1)
+		r.MergeUint32("uint32", 1)
+		r.MergeUint64("uint64", 1)
+		r.MergeFloat32("float32", 1)
+		r.MergeFloat64("float64", 1)
 		return nil
 	})
 

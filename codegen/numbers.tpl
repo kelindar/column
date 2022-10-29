@@ -12,21 +12,19 @@ import (
 // --------------------------- {{.Name}} ----------------------------
 
 // make{{.Name}}s creates a new vector for {{.Type}}s
-func make{{.Name}}s() Column {
+func make{{.Name}}s(opts ...func(*option[{{.Type}}])) Column {
 	return makeNumeric(
-		func(buffer *commit.Buffer, idx uint32, value {{.Type}}) {
-			buffer.Put{{.Name}}(commit.Put, idx, value)
-		},
-		func(r *commit.Reader, fill bitmap.Bitmap, data []{{.Type}}) {
+		func(buffer *commit.Buffer, idx uint32, value {{.Type}}) { buffer.Put{{.Name}}(commit.Put, idx, value) },
+		func(r *commit.Reader, fill bitmap.Bitmap, data []{{.Type}}, opts option[{{.Type}}]) {
 			for r.Next() {
 				offset := r.IndexAtChunk()
 				switch r.Type {
 				case commit.Put:
 					fill[offset>>6] |= 1 << (offset & 0x3f)
 					data[offset] = r.{{.Name}}()
-				case commit.Add:
+				case commit.Merge:
 					fill[offset>>6] |= 1 << (offset & 0x3f)
-					data[offset] = r.Swap{{.Name}}(data[offset] + r.{{.Name}}())
+					data[offset] = r.Swap{{.Name}}(opts.Merge(data[offset], r.{{.Name}}()))
 				case commit.Delete:
 					fill.Remove(offset)
 				}
@@ -46,9 +44,9 @@ func (s {{.Type}}Writer) Set(value {{.Type}}) {
 	s.writer.Put{{.Name}}(commit.Put, s.txn.cursor, value)
 }
 
-// Add atomically adds a delta to the value at the current transaction cursor
-func (s {{.Type}}Writer) Add(delta {{.Type}}) {
-	s.writer.Put{{.Name}}(commit.Add, s.txn.cursor, delta)
+// Merge atomically merges a delta to the value at the current transaction cursor
+func (s {{.Type}}Writer) Merge(delta {{.Type}}) {
+	s.writer.Put{{.Name}}(commit.Merge, s.txn.cursor, delta)
 }
 
 // {{.Name}} returns a read-write accessor for {{.Type}} column
