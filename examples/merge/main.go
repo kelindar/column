@@ -55,7 +55,7 @@ func main() {
 		return nil
 	})
 
-	// Update 100 times
+	// Update several times
 	for i := 0; i < 20; i++ {
 
 		// Move the location by applying a same velocity vector
