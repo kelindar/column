@@ -84,7 +84,7 @@ for _, v := range loadFromJson("players.json") {
 While the previous example demonstrated how to insert many objects, it was doing it one by one and is rather inefficient. This is due to the fact that each `InsertObject()` call directly on the collection initiates a separate transacion and there's a small performance cost associated with it. If you want to do a bulk insert and insert many values, faster, that can be done by calling `Insert()` on a transaction, as demonstrated in the example below. Note that the only difference is instantiating a transaction by calling the `Query()` method and calling the `txn.Insert()` method on the transaction instead the one on the collection.
 
 ```go
-players.Query(func(txn *Txn) error {
+players.Query(func(txn *column.Txn) error {
 	for _, v := range loadFromJson("players.json") {
 		txn.InsertObject(v)
 	}
@@ -129,7 +129,7 @@ First, let's try to merge two queries by applying a `Union()` operation with the
 
 ```go
 // How many rogues and mages?
-players.Query(func(txn *Txn) error {
+players.Query(func(txn *column.Txn) error {
 	txn.With("rogue").Union("mage").Count()
 	return nil
 })
@@ -139,7 +139,7 @@ Next, let's count everyone who isn't a rogue, for that we can use a `Without()` 
 
 ```go
 // How many rogues and mages?
-players.Query(func(txn *Txn) error {
+players.Query(func(txn *column.Txn) error {
 	txn.Without("rogue").Count()
 	return nil
 })
@@ -149,7 +149,7 @@ Now, you can combine all of the methods and keep building more complex queries. 
 
 ```go
 // How many rogues that are over 30 years old?
-players.Query(func(txn *Txn) error {
+players.Query(func(txn *column.Txn) error {
 	txn.With("rogue").WithFloat("age", func(v float64) bool {
 		return v >= 30
 	}).Count()
@@ -168,7 +168,7 @@ In order to access the results of the iteration, prior to calling `Range()` meth
 In the example below we select all of the rogues from our collection and print out their name by using the `Range()` method and accessing the "name" column using a column reader which is created by calling `txn.String("name")` method.
 
 ```go
-players.Query(func(txn *Txn) error {
+players.Query(func(txn *column.Txn) error {
 	names := txn.String("name") // Create a column reader
 
 	return txn.With("rogue").Range(func(i uint32) {
@@ -181,7 +181,7 @@ players.Query(func(txn *Txn) error {
 Similarly, if you need to access more columns, you can simply create the appropriate column reader(s) and use them as shown in the example before.
 
 ```go
-players.Query(func(txn *Txn) error {
+players.Query(func(txn *column.Txn) error {
 	names := txn.String("name")
 	ages  := txn.Int64("age")
 
@@ -198,7 +198,7 @@ players.Query(func(txn *Txn) error {
 Taking the `Sum()` of a (numeric) column reader will take into account a transaction's current filtering index.
 
 ```go
-players.Query(func(txn *Txn) error {
+players.Query(func(txn *column.Txn) error {
 	totalAge := txn.With("rouge").Int64("age").Sum()
 	totalRouges := int64(txn.Count())
 
@@ -221,7 +221,7 @@ In order to update certain items in the collection, you can simply call `Range()
 In the example below we're selecting all of the rogues and updating both their balance and age to certain values. The transaction returns `nil`, hence it will be automatically committed when `Query()` method returns.
 
 ```go
-players.Query(func(txn *Txn) error {
+players.Query(func(txn *column.Txn) error {
 	balance := txn.Float64("balance")
 	age     := txn.Int64("age")
 
@@ -235,7 +235,7 @@ players.Query(func(txn *Txn) error {
 In certain cases, you might want to atomically increment or decrement numerical values. In order to accomplish this you can use the provided `Merge()` operation. Note that the indexes will also be updated accordingly and the predicates re-evaluated with the most up-to-date values. In the below example we're incrementing the balance of all our rogues by _500_ atomically.
 
 ```go
-players.Query(func(txn *Txn) error {
+players.Query(func(txn *column.Txn) error {
 	balance := txn.Float64("balance")
 
 	return txn.With("rogue").Range(func(i uint32) {
@@ -256,17 +256,17 @@ concat := func(value, delta string) string {
 }
 
 // Create a column with a specified merge function
-db := NewCollection()
+db := column.NewCollection()
 db.CreateColumn("alphabet", column.ForString(column.WithMerge(concat)))
 
 // Insert letter "A"
-db.Insert(func(r Row) error {
+db.Insert(func(r column.Row) error {
 	r.SetString("alphabet", "A") // now contains "A"
 	return nil
 })
 
 // Insert letter "B"
-db.QueryAt(0, func(r Row) error {
+db.QueryAt(0, func(r column.Row) error {
 	r.MergeString("alphabet", "B") // now contains "A, B"
 	return nil
 })
