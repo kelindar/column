@@ -22,8 +22,8 @@ import (
 
 /*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkSave/write-to-8         	       8	 131800350 ns/op	 981.98 MB/s	 6539521 B/op	    1950 allocs/op
-BenchmarkSave/read-from-8        	      13	  79411685 ns/op	1629.80 MB/s	135661336 B/op	    4610 allocs/op
+BenchmarkSave/write-state-8		10	 108239410 ns/op	1250.99 MB/s	41891580 B/op	     817 allocs/op
+BenchmarkSave/read-state-8		22	  55612727 ns/op	2434.82 MB/s	140954620 B/op	    3247 allocs/op
 */
 func BenchmarkSave(b *testing.B) {
 	b.Run("write-state", func(b *testing.B) {
@@ -242,21 +242,20 @@ func TestSnapshotDoubleApply(t *testing.T) {
 	var startVal float64
 
 	// Op 1
-	input.QueryAt(0, func (r Row) error {
+	input.QueryAt(0, func(r Row) error {
 		bal, _ := r.Float64("age")
 		startVal = bal
-		
+
 		r.AddFloat64("age", 1.0)
 		return nil
 	})
-	
 
 	// Save snapshot with Op 1
 	buffer := bytes.NewBuffer(nil)
 	assert.NoError(t, input.Snapshot(buffer))
 
 	// Op 2
-	input.QueryAt(0, func (r Row) error {
+	input.QueryAt(0, func(r Row) error {
 		r.AddFloat64("age", 1.0)
 		return nil
 	})
@@ -268,19 +267,19 @@ func TestSnapshotDoubleApply(t *testing.T) {
 	// Apply Snapshot 1, check for op 1
 	output := newEmpty(amount)
 	assert.NoError(t, output.Restore(buffer))
-	output.QueryAt(0, func (r Row) error {
+	output.QueryAt(0, func(r Row) error {
 		bal, _ := r.Float64("age")
 		assert.Equal(t, startVal+1.0, bal)
-		return nil 
+		return nil
 	})
 
 	// Apply Snapshot 2, check for op 2
 	// Verify that only second delete is applied, not both
 	assert.NoError(t, output.Restore(buffer2))
-	output.QueryAt(0, func (r Row) error {
+	output.QueryAt(0, func(r Row) error {
 		bal, _ := r.Float64("age")
 		assert.Equal(t, startVal+2.0, bal)
-		return nil 
+		return nil
 	})
 }
 

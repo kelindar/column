@@ -15,7 +15,7 @@ func TestQueue(t *testing.T) {
 	buf := NewBuffer(0)
 	buf.Reset("test")
 	for i := uint32(0); i < 10; i++ {
-		buf.PutUint64(i, 2*uint64(i))
+		buf.PutUint64(Put, i, 2*uint64(i))
 	}
 
 	i := 0
@@ -38,7 +38,7 @@ func TestRandom(t *testing.T) {
 
 	buf := NewBuffer(0)
 	for i := uint32(0); i < 1000; i++ {
-		buf.PutUint32(seq[i], uint32(rand.Int31()))
+		buf.PutUint32(Put, seq[i], uint32(rand.Int31()))
 	}
 
 	i := 0
@@ -60,7 +60,7 @@ func TestRange(t *testing.T) {
 
 	buf := NewBuffer(0)
 	for i := uint32(0); i < count; i++ {
-		buf.PutUint32(seq[i], uint32(rand.Int31()))
+		buf.PutUint32(Put, seq[i], uint32(rand.Int31()))
 	}
 
 	r := NewReader()
@@ -175,43 +175,6 @@ func TestReadSwap(t *testing.T) {
 	assert.True(t, r.Next())
 }
 
-func TestAddTo(t *testing.T) {
-	buf := NewBuffer(0)
-	buf.PutAny(Put, 10, int16(100))
-	buf.PutAny(Put, 20, int32(100))
-	buf.PutAny(Put, 30, int64(100))
-	buf.PutAny(Put, 40, uint16(100))
-	buf.PutAny(Put, 50, uint32(100))
-	buf.PutAny(Put, 60, uint64(100))
-	buf.PutAny(Put, 70, float32(100))
-	buf.PutAny(Put, 80, float64(100))
-	buf.PutAny(Put, 90, int(100))
-	buf.PutAny(Put, 100, uint(100))
-
-	r := NewReader()
-	r.Seek(buf)
-	assert.True(t, r.Next())
-	assert.Equal(t, 150, int(r.AddToInt16(50)))
-	assert.True(t, r.Next())
-	assert.Equal(t, 150, int(r.AddToInt32(50)))
-	assert.True(t, r.Next())
-	assert.Equal(t, 150, int(r.AddToInt64(50)))
-	assert.True(t, r.Next())
-	assert.Equal(t, 150, int(r.AddToUint16(50)))
-	assert.True(t, r.Next())
-	assert.Equal(t, 150, int(r.AddToUint32(50)))
-	assert.True(t, r.Next())
-	assert.Equal(t, 150, int(r.AddToUint64(50)))
-	assert.True(t, r.Next())
-	assert.Equal(t, 150, int(r.AddToFloat32(50)))
-	assert.True(t, r.Next())
-	assert.Equal(t, 150, int(r.AddToFloat64(50)))
-	assert.True(t, r.Next())
-	assert.Equal(t, 150, int(r.AddToInt(50)))
-	assert.True(t, r.Next())
-	assert.Equal(t, 150, int(r.AddToUint(50)))
-}
-
 func TestWriteUnsupported(t *testing.T) {
 	assert.Panics(t, func() {
 		buf := NewBuffer(0)
@@ -221,7 +184,7 @@ func TestWriteUnsupported(t *testing.T) {
 
 func TestReaderIface(t *testing.T) {
 	buf := NewBuffer(0)
-	buf.PutFloat64(777, float64(1))
+	buf.PutFloat64(Put, 777, float64(1))
 
 	r := NewReader()
 	r.Seek(buf)
@@ -232,9 +195,9 @@ func TestReaderIface(t *testing.T) {
 
 func TestReadIntMixedSize(t *testing.T) {
 	buf := NewBuffer(0)
-	buf.PutInt16(0, 10)
-	buf.PutInt32(1, 20)
-	buf.PutInt64(2, 30)
+	buf.PutInt16(Put, 0, 10)
+	buf.PutInt32(Put, 1, 20)
+	buf.PutInt64(Put, 2, 30)
 	buf.PutString(Put, 3, "hello")
 
 	r := NewReader()
@@ -253,8 +216,8 @@ func TestReadIntMixedSize(t *testing.T) {
 
 func TestReadFloatMixedSize(t *testing.T) {
 	buf := NewBuffer(0)
-	buf.PutFloat32(0, 10)
-	buf.PutFloat64(1, 20)
+	buf.PutFloat32(Put, 0, 10)
+	buf.PutFloat64(Put, 1, 20)
 	buf.PutString(Put, 3, "hello")
 
 	r := NewReader()
@@ -281,9 +244,9 @@ func TestReadSize(t *testing.T) {
 
 func TestIndexAtChunk(t *testing.T) {
 	buf := NewBuffer(0)
-	buf.PutFloat32(10000, 10)
-	buf.PutFloat32(20000, 10)
-	buf.PutFloat32(30000, 10)
+	buf.PutFloat32(Put, 10000, 10)
+	buf.PutFloat32(Put, 20000, 10)
+	buf.PutFloat32(Put, 30000, 10)
 
 	r := NewReader()
 	r.Seek(buf)
@@ -291,4 +254,43 @@ func TestIndexAtChunk(t *testing.T) {
 	assert.Equal(t, uint32(10000), r.IndexAtChunk())
 	assert.True(t, r.Next())
 	assert.Equal(t, uint32(3616), r.IndexAtChunk())
+}
+
+func TestSwapOpChange(t *testing.T) {
+	buf := NewBuffer(0)
+	buf.AddInt32(10, int32(1))
+	assert.Equal(t, []byte{0x23, 0x0, 0x0, 0x0, 0x1, 0xa}, buf.buffer)
+
+	// Swap the value, this should also change the type
+	r := NewReader()
+	r.Seek(buf)
+	assert.True(t, r.Next())
+	assert.Equal(t, Add, r.Type)
+	r.SwapInt32(int32(2))
+	assert.Equal(t, int32(2), r.Int32())
+
+	// Once swapped, op type should be changed to "Put"
+	r.Seek(buf)
+	assert.Equal(t, []byte{0x22, 0x0, 0x0, 0x0, 0x2, 0xa}, buf.buffer)
+	assert.True(t, r.Next())
+	assert.Equal(t, Put, r.Type)
+}
+
+func TestMergeString(t *testing.T) {
+	buf := NewBuffer(0)
+	buf.PutString(Merge, 10, "A")
+	assert.Equal(t, []byte{0x54, 0x0, 0x1, 0x41, 0xa}, buf.buffer)
+
+	// Swap the value, this should also change the type
+	r := NewReader()
+	r.Seek(buf)
+	assert.True(t, r.Next())
+	assert.Equal(t, Merge, r.Type)
+	r.SwapString("B")
+
+	// Once swapped, op type should be changed to "Put"
+	r.Seek(buf)
+	assert.Equal(t, []byte{0x55, 0x0, 0x1, 0x41, 0xa, 0x52, 0x0, 0x1, 0x42, 0x0}, buf.buffer)
+	assert.True(t, r.Next())
+	assert.Equal(t, Skip, r.Type)
 }

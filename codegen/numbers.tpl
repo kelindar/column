@@ -15,7 +15,7 @@ import (
 func make{{.Name}}s() Column {
 	return makeNumeric(
 		func(buffer *commit.Buffer, idx uint32, value {{.Type}}) {
-			buffer.Put{{.Name}}(idx, value)
+			buffer.Put{{.Name}}(commit.Put, idx, value)
 		},
 		func(r *commit.Reader, fill bitmap.Bitmap, data []{{.Type}}) {
 			for r.Next() {
@@ -26,7 +26,7 @@ func make{{.Name}}s() Column {
 					data[offset] = r.{{.Name}}()
 				case commit.Add:
 					fill[offset>>6] |= 1 << (offset & 0x3f)
-					data[offset] = r.AddTo{{.Name}}(data[offset])
+					data[offset] = r.Swap{{.Name}}(data[offset] + r.{{.Name}}())
 				case commit.Delete:
 					fill.Remove(offset)
 				}
@@ -43,12 +43,12 @@ type {{.Type}}Writer struct {
 
 // Set sets the value at the current transaction cursor
 func (s {{.Type}}Writer) Set(value {{.Type}}) {
-	s.writer.Put{{.Name}}(s.txn.cursor, value)
+	s.writer.Put{{.Name}}(commit.Put, s.txn.cursor, value)
 }
 
 // Add atomically adds a delta to the value at the current transaction cursor
 func (s {{.Type}}Writer) Add(delta {{.Type}}) {
-	s.writer.Add{{.Name}}(s.txn.cursor, delta)
+	s.writer.Put{{.Name}}(commit.Add, s.txn.cursor, delta)
 }
 
 // {{.Name}} returns a read-write accessor for {{.Type}} column

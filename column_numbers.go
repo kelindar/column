@@ -8,13 +8,14 @@ import (
 	"github.com/kelindar/column/commit"
 )
 
+
 // --------------------------- Int ----------------------------
 
 // makeInts creates a new vector for ints
 func makeInts() Column {
 	return makeNumeric(
 		func(buffer *commit.Buffer, idx uint32, value int) {
-			buffer.PutInt(idx, value)
+			buffer.PutInt(commit.Put, idx, value)
 		},
 		func(r *commit.Reader, fill bitmap.Bitmap, data []int) {
 			for r.Next() {
@@ -25,7 +26,7 @@ func makeInts() Column {
 					data[offset] = r.Int()
 				case commit.Add:
 					fill[offset>>6] |= 1 << (offset & 0x3f)
-					data[offset] = r.AddToInt(data[offset])
+					data[offset] = r.SwapInt(data[offset] + r.Int())
 				case commit.Delete:
 					fill.Remove(offset)
 				}
@@ -42,12 +43,12 @@ type intWriter struct {
 
 // Set sets the value at the current transaction cursor
 func (s intWriter) Set(value int) {
-	s.writer.PutInt(s.txn.cursor, value)
+	s.writer.PutInt(commit.Put, s.txn.cursor, value)
 }
 
 // Add atomically adds a delta to the value at the current transaction cursor
 func (s intWriter) Add(delta int) {
-	s.writer.AddInt(s.txn.cursor, delta)
+	s.writer.PutInt(commit.Add, s.txn.cursor, delta)
 }
 
 // Int returns a read-write accessor for int column
@@ -65,7 +66,7 @@ func (txn *Txn) Int(columnName string) intWriter {
 func makeInt16s() Column {
 	return makeNumeric(
 		func(buffer *commit.Buffer, idx uint32, value int16) {
-			buffer.PutInt16(idx, value)
+			buffer.PutInt16(commit.Put, idx, value)
 		},
 		func(r *commit.Reader, fill bitmap.Bitmap, data []int16) {
 			for r.Next() {
@@ -76,7 +77,7 @@ func makeInt16s() Column {
 					data[offset] = r.Int16()
 				case commit.Add:
 					fill[offset>>6] |= 1 << (offset & 0x3f)
-					data[offset] = r.AddToInt16(data[offset])
+					data[offset] = r.SwapInt16(data[offset] + r.Int16())
 				case commit.Delete:
 					fill.Remove(offset)
 				}
@@ -93,12 +94,12 @@ type int16Writer struct {
 
 // Set sets the value at the current transaction cursor
 func (s int16Writer) Set(value int16) {
-	s.writer.PutInt16(s.txn.cursor, value)
+	s.writer.PutInt16(commit.Put, s.txn.cursor, value)
 }
 
 // Add atomically adds a delta to the value at the current transaction cursor
 func (s int16Writer) Add(delta int16) {
-	s.writer.AddInt16(s.txn.cursor, delta)
+	s.writer.PutInt16(commit.Add, s.txn.cursor, delta)
 }
 
 // Int16 returns a read-write accessor for int16 column
@@ -116,7 +117,7 @@ func (txn *Txn) Int16(columnName string) int16Writer {
 func makeInt32s() Column {
 	return makeNumeric(
 		func(buffer *commit.Buffer, idx uint32, value int32) {
-			buffer.PutInt32(idx, value)
+			buffer.PutInt32(commit.Put, idx, value)
 		},
 		func(r *commit.Reader, fill bitmap.Bitmap, data []int32) {
 			for r.Next() {
@@ -127,7 +128,7 @@ func makeInt32s() Column {
 					data[offset] = r.Int32()
 				case commit.Add:
 					fill[offset>>6] |= 1 << (offset & 0x3f)
-					data[offset] = r.AddToInt32(data[offset])
+					data[offset] = r.SwapInt32(data[offset] + r.Int32())
 				case commit.Delete:
 					fill.Remove(offset)
 				}
@@ -144,12 +145,12 @@ type int32Writer struct {
 
 // Set sets the value at the current transaction cursor
 func (s int32Writer) Set(value int32) {
-	s.writer.PutInt32(s.txn.cursor, value)
+	s.writer.PutInt32(commit.Put, s.txn.cursor, value)
 }
 
 // Add atomically adds a delta to the value at the current transaction cursor
 func (s int32Writer) Add(delta int32) {
-	s.writer.AddInt32(s.txn.cursor, delta)
+	s.writer.PutInt32(commit.Add, s.txn.cursor, delta)
 }
 
 // Int32 returns a read-write accessor for int32 column
@@ -167,7 +168,7 @@ func (txn *Txn) Int32(columnName string) int32Writer {
 func makeInt64s() Column {
 	return makeNumeric(
 		func(buffer *commit.Buffer, idx uint32, value int64) {
-			buffer.PutInt64(idx, value)
+			buffer.PutInt64(commit.Put, idx, value)
 		},
 		func(r *commit.Reader, fill bitmap.Bitmap, data []int64) {
 			for r.Next() {
@@ -178,7 +179,7 @@ func makeInt64s() Column {
 					data[offset] = r.Int64()
 				case commit.Add:
 					fill[offset>>6] |= 1 << (offset & 0x3f)
-					data[offset] = r.AddToInt64(data[offset])
+					data[offset] = r.SwapInt64(data[offset] + r.Int64())
 				case commit.Delete:
 					fill.Remove(offset)
 				}
@@ -195,12 +196,12 @@ type int64Writer struct {
 
 // Set sets the value at the current transaction cursor
 func (s int64Writer) Set(value int64) {
-	s.writer.PutInt64(s.txn.cursor, value)
+	s.writer.PutInt64(commit.Put, s.txn.cursor, value)
 }
 
 // Add atomically adds a delta to the value at the current transaction cursor
 func (s int64Writer) Add(delta int64) {
-	s.writer.AddInt64(s.txn.cursor, delta)
+	s.writer.PutInt64(commit.Add, s.txn.cursor, delta)
 }
 
 // Int64 returns a read-write accessor for int64 column
@@ -218,7 +219,7 @@ func (txn *Txn) Int64(columnName string) int64Writer {
 func makeUints() Column {
 	return makeNumeric(
 		func(buffer *commit.Buffer, idx uint32, value uint) {
-			buffer.PutUint(idx, value)
+			buffer.PutUint(commit.Put, idx, value)
 		},
 		func(r *commit.Reader, fill bitmap.Bitmap, data []uint) {
 			for r.Next() {
@@ -229,7 +230,7 @@ func makeUints() Column {
 					data[offset] = r.Uint()
 				case commit.Add:
 					fill[offset>>6] |= 1 << (offset & 0x3f)
-					data[offset] = r.AddToUint(data[offset])
+					data[offset] = r.SwapUint(data[offset] + r.Uint())
 				case commit.Delete:
 					fill.Remove(offset)
 				}
@@ -246,12 +247,12 @@ type uintWriter struct {
 
 // Set sets the value at the current transaction cursor
 func (s uintWriter) Set(value uint) {
-	s.writer.PutUint(s.txn.cursor, value)
+	s.writer.PutUint(commit.Put, s.txn.cursor, value)
 }
 
 // Add atomically adds a delta to the value at the current transaction cursor
 func (s uintWriter) Add(delta uint) {
-	s.writer.AddUint(s.txn.cursor, delta)
+	s.writer.PutUint(commit.Add, s.txn.cursor, delta)
 }
 
 // Uint returns a read-write accessor for uint column
@@ -269,7 +270,7 @@ func (txn *Txn) Uint(columnName string) uintWriter {
 func makeUint16s() Column {
 	return makeNumeric(
 		func(buffer *commit.Buffer, idx uint32, value uint16) {
-			buffer.PutUint16(idx, value)
+			buffer.PutUint16(commit.Put, idx, value)
 		},
 		func(r *commit.Reader, fill bitmap.Bitmap, data []uint16) {
 			for r.Next() {
@@ -280,7 +281,7 @@ func makeUint16s() Column {
 					data[offset] = r.Uint16()
 				case commit.Add:
 					fill[offset>>6] |= 1 << (offset & 0x3f)
-					data[offset] = r.AddToUint16(data[offset])
+					data[offset] = r.SwapUint16(data[offset] + r.Uint16())
 				case commit.Delete:
 					fill.Remove(offset)
 				}
@@ -297,12 +298,12 @@ type uint16Writer struct {
 
 // Set sets the value at the current transaction cursor
 func (s uint16Writer) Set(value uint16) {
-	s.writer.PutUint16(s.txn.cursor, value)
+	s.writer.PutUint16(commit.Put, s.txn.cursor, value)
 }
 
 // Add atomically adds a delta to the value at the current transaction cursor
 func (s uint16Writer) Add(delta uint16) {
-	s.writer.AddUint16(s.txn.cursor, delta)
+	s.writer.PutUint16(commit.Add, s.txn.cursor, delta)
 }
 
 // Uint16 returns a read-write accessor for uint16 column
@@ -320,7 +321,7 @@ func (txn *Txn) Uint16(columnName string) uint16Writer {
 func makeUint32s() Column {
 	return makeNumeric(
 		func(buffer *commit.Buffer, idx uint32, value uint32) {
-			buffer.PutUint32(idx, value)
+			buffer.PutUint32(commit.Put, idx, value)
 		},
 		func(r *commit.Reader, fill bitmap.Bitmap, data []uint32) {
 			for r.Next() {
@@ -331,7 +332,7 @@ func makeUint32s() Column {
 					data[offset] = r.Uint32()
 				case commit.Add:
 					fill[offset>>6] |= 1 << (offset & 0x3f)
-					data[offset] = r.AddToUint32(data[offset])
+					data[offset] = r.SwapUint32(data[offset] + r.Uint32())
 				case commit.Delete:
 					fill.Remove(offset)
 				}
@@ -348,12 +349,12 @@ type uint32Writer struct {
 
 // Set sets the value at the current transaction cursor
 func (s uint32Writer) Set(value uint32) {
-	s.writer.PutUint32(s.txn.cursor, value)
+	s.writer.PutUint32(commit.Put, s.txn.cursor, value)
 }
 
 // Add atomically adds a delta to the value at the current transaction cursor
 func (s uint32Writer) Add(delta uint32) {
-	s.writer.AddUint32(s.txn.cursor, delta)
+	s.writer.PutUint32(commit.Add, s.txn.cursor, delta)
 }
 
 // Uint32 returns a read-write accessor for uint32 column
@@ -371,7 +372,7 @@ func (txn *Txn) Uint32(columnName string) uint32Writer {
 func makeUint64s() Column {
 	return makeNumeric(
 		func(buffer *commit.Buffer, idx uint32, value uint64) {
-			buffer.PutUint64(idx, value)
+			buffer.PutUint64(commit.Put, idx, value)
 		},
 		func(r *commit.Reader, fill bitmap.Bitmap, data []uint64) {
 			for r.Next() {
@@ -382,7 +383,7 @@ func makeUint64s() Column {
 					data[offset] = r.Uint64()
 				case commit.Add:
 					fill[offset>>6] |= 1 << (offset & 0x3f)
-					data[offset] = r.AddToUint64(data[offset])
+					data[offset] = r.SwapUint64(data[offset] + r.Uint64())
 				case commit.Delete:
 					fill.Remove(offset)
 				}
@@ -399,12 +400,12 @@ type uint64Writer struct {
 
 // Set sets the value at the current transaction cursor
 func (s uint64Writer) Set(value uint64) {
-	s.writer.PutUint64(s.txn.cursor, value)
+	s.writer.PutUint64(commit.Put, s.txn.cursor, value)
 }
 
 // Add atomically adds a delta to the value at the current transaction cursor
 func (s uint64Writer) Add(delta uint64) {
-	s.writer.AddUint64(s.txn.cursor, delta)
+	s.writer.PutUint64(commit.Add, s.txn.cursor, delta)
 }
 
 // Uint64 returns a read-write accessor for uint64 column
@@ -422,7 +423,7 @@ func (txn *Txn) Uint64(columnName string) uint64Writer {
 func makeFloat32s() Column {
 	return makeNumeric(
 		func(buffer *commit.Buffer, idx uint32, value float32) {
-			buffer.PutFloat32(idx, value)
+			buffer.PutFloat32(commit.Put, idx, value)
 		},
 		func(r *commit.Reader, fill bitmap.Bitmap, data []float32) {
 			for r.Next() {
@@ -433,7 +434,7 @@ func makeFloat32s() Column {
 					data[offset] = r.Float32()
 				case commit.Add:
 					fill[offset>>6] |= 1 << (offset & 0x3f)
-					data[offset] = r.AddToFloat32(data[offset])
+					data[offset] = r.SwapFloat32(data[offset] + r.Float32())
 				case commit.Delete:
 					fill.Remove(offset)
 				}
@@ -450,12 +451,12 @@ type float32Writer struct {
 
 // Set sets the value at the current transaction cursor
 func (s float32Writer) Set(value float32) {
-	s.writer.PutFloat32(s.txn.cursor, value)
+	s.writer.PutFloat32(commit.Put, s.txn.cursor, value)
 }
 
 // Add atomically adds a delta to the value at the current transaction cursor
 func (s float32Writer) Add(delta float32) {
-	s.writer.AddFloat32(s.txn.cursor, delta)
+	s.writer.PutFloat32(commit.Add, s.txn.cursor, delta)
 }
 
 // Float32 returns a read-write accessor for float32 column
@@ -473,7 +474,7 @@ func (txn *Txn) Float32(columnName string) float32Writer {
 func makeFloat64s() Column {
 	return makeNumeric(
 		func(buffer *commit.Buffer, idx uint32, value float64) {
-			buffer.PutFloat64(idx, value)
+			buffer.PutFloat64(commit.Put, idx, value)
 		},
 		func(r *commit.Reader, fill bitmap.Bitmap, data []float64) {
 			for r.Next() {
@@ -484,7 +485,7 @@ func makeFloat64s() Column {
 					data[offset] = r.Float64()
 				case commit.Add:
 					fill[offset>>6] |= 1 << (offset & 0x3f)
-					data[offset] = r.AddToFloat64(data[offset])
+					data[offset] = r.SwapFloat64(data[offset] + r.Float64())
 				case commit.Delete:
 					fill.Remove(offset)
 				}
@@ -501,12 +502,12 @@ type float64Writer struct {
 
 // Set sets the value at the current transaction cursor
 func (s float64Writer) Set(value float64) {
-	s.writer.PutFloat64(s.txn.cursor, value)
+	s.writer.PutFloat64(commit.Put, s.txn.cursor, value)
 }
 
 // Add atomically adds a delta to the value at the current transaction cursor
 func (s float64Writer) Add(delta float64) {
-	s.writer.AddFloat64(s.txn.cursor, delta)
+	s.writer.PutFloat64(commit.Add, s.txn.cursor, delta)
 }
 
 // Float64 returns a read-write accessor for float64 column
@@ -516,3 +517,4 @@ func (txn *Txn) Float64(columnName string) float64Writer {
 		writer:        txn.bufferFor(columnName),
 	}
 }
+

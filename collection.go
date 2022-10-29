@@ -404,7 +404,7 @@ func (c *columns) Load(columnName string) (*column, bool) {
 	return nil, false
 }
 
-// LoadWithIndex loads a column by its name along with their computed indices.
+// LoadWithIndex loads a column by its name along with the triggers.
 func (c *columns) LoadWithIndex(columnName string) ([]*column, bool) {
 	cols := c.cols.Load().([]columnEntry)
 	for _, v := range cols {

@@ -32,6 +32,8 @@ const (
 	PutTrue  OpType = 2 // PutTrue is a combination of Put+True for boolean values
 	Put      OpType = 2 // Put stores a value regardless of a previous value
 	Add      OpType = 3 // Add increments the current stored value by the amount
+	Merge    OpType = 4 // Applies a merge function
+	Skip     OpType = 5 // Skips the value
 )
 
 // --------------------------- Delta log ----------------------------
@@ -102,33 +104,33 @@ func (b *Buffer) RangeChunks(fn func(chunk Chunk)) {
 func (b *Buffer) PutAny(op OpType, idx uint32, value interface{}) {
 	switch v := value.(type) {
 	case uint64:
-		b.PutUint64(idx, v)
+		b.PutUint64(op, idx, v)
 	case uint32:
-		b.PutUint32(idx, v)
+		b.PutUint32(op, idx, v)
 	case uint16:
-		b.PutUint16(idx, v)
+		b.PutUint16(op, idx, v)
 	case uint8:
-		b.PutUint16(idx, uint16(v))
+		b.PutUint16(op, idx, uint16(v))
 	case int64:
-		b.PutInt64(idx, v)
+		b.PutInt64(op, idx, v)
 	case int32:
-		b.PutInt32(idx, v)
+		b.PutInt32(op, idx, v)
 	case int16:
-		b.PutInt16(idx, v)
+		b.PutInt16(op, idx, v)
 	case int8:
-		b.PutInt16(idx, int16(v))
+		b.PutInt16(op, idx, int16(v))
 	case string:
 		b.PutString(op, idx, v)
 	case []byte:
 		b.PutBytes(op, idx, v)
 	case float32:
-		b.PutFloat32(idx, v)
+		b.PutFloat32(op, idx, v)
 	case float64:
-		b.PutFloat64(idx, v)
+		b.PutFloat64(op, idx, v)
 	case int:
-		b.PutInt64(idx, int64(v))
+		b.PutInt64(op, idx, int64(v))
 	case uint:
-		b.PutUint64(idx, uint64(v))
+		b.PutUint64(op, idx, uint64(v))
 	case bool:
 		b.PutBool(idx, v)
 	case nil:
@@ -141,58 +143,58 @@ func (b *Buffer) PutAny(op OpType, idx uint32, value interface{}) {
 // --------------------------- Numbers ----------------------------
 
 // PutUint64 appends an uint64 value.
-func (b *Buffer) PutUint64(idx uint32, value uint64) {
-	b.writeUint64(Put, idx, value)
+func (b *Buffer) PutUint64(op OpType, idx uint32, value uint64) {
+	b.writeUint64(op, idx, value)
 }
 
 // PutUint32 appends an uint32 value.
-func (b *Buffer) PutUint32(idx uint32, value uint32) {
-	b.writeUint32(Put, idx, value)
+func (b *Buffer) PutUint32(op OpType, idx uint32, value uint32) {
+	b.writeUint32(op, idx, value)
 }
 
 // PutUint16 appends an uint16 value.
-func (b *Buffer) PutUint16(idx uint32, value uint16) {
-	b.writeUint16(Put, idx, value)
+func (b *Buffer) PutUint16(op OpType, idx uint32, value uint16) {
+	b.writeUint16(op, idx, value)
 }
 
 // PutUint appends a uint64 value.
-func (b *Buffer) PutUint(idx uint32, value uint) {
-	b.writeUint64(Put, idx, uint64(value))
+func (b *Buffer) PutUint(op OpType, idx uint32, value uint) {
+	b.writeUint64(op, idx, uint64(value))
 }
 
 // PutInt64 appends an int64 value.
-func (b *Buffer) PutInt64(idx uint32, value int64) {
-	b.writeUint64(Put, idx, uint64(value))
+func (b *Buffer) PutInt64(op OpType, idx uint32, value int64) {
+	b.writeUint64(op, idx, uint64(value))
 }
 
 // PutInt32 appends an int32 value.
-func (b *Buffer) PutInt32(idx uint32, value int32) {
-	b.writeUint32(Put, idx, uint32(value))
+func (b *Buffer) PutInt32(op OpType, idx uint32, value int32) {
+	b.writeUint32(op, idx, uint32(value))
 }
 
 // PutInt16 appends an int16 value.
-func (b *Buffer) PutInt16(idx uint32, value int16) {
-	b.writeUint16(Put, idx, uint16(value))
+func (b *Buffer) PutInt16(op OpType, idx uint32, value int16) {
+	b.writeUint16(op, idx, uint16(value))
 }
 
 // PutInt appends a int64 value.
-func (b *Buffer) PutInt(idx uint32, value int) {
-	b.writeUint64(Put, idx, uint64(value))
+func (b *Buffer) PutInt(op OpType, idx uint32, value int) {
+	b.writeUint64(op, idx, uint64(value))
 }
 
 // PutFloat64 appends a float64 value.
-func (b *Buffer) PutFloat64(idx uint32, value float64) {
-	b.writeUint64(Put, idx, math.Float64bits(value))
+func (b *Buffer) PutFloat64(op OpType, idx uint32, value float64) {
+	b.writeUint64(op, idx, math.Float64bits(value))
 }
 
 // PutFloat32 appends an int32 value.
-func (b *Buffer) PutFloat32(idx uint32, value float32) {
-	b.writeUint32(Put, idx, math.Float32bits(value))
+func (b *Buffer) PutFloat32(op OpType, idx uint32, value float32) {
+	b.writeUint32(op, idx, math.Float32bits(value))
 }
 
 // PutNumber appends a float64 value.
-func (b *Buffer) PutNumber(idx uint32, value float64) {
-	b.writeUint64(Put, idx, math.Float64bits(value))
+func (b *Buffer) PutNumber(op OpType, idx uint32, value float64) {
+	b.writeUint64(op, idx, math.Float64bits(value))
 }
 
 // --------------------------- Additions ----------------------------

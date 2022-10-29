@@ -10,6 +10,7 @@ import (
 
 	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
+	"github.com/kelindar/column/pkg/opt"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -537,6 +538,34 @@ func TestDuplicatePK(t *testing.T) {
 
 	// Must have one value
 	assert.Equal(t, 1, col.Count())
+}
+
+func TestMergeString(t *testing.T) {
+	col := NewCollection()
+	col.CreateColumn("letters", ForString(opt.WithStringMerge(func(value, delta string) string {
+		if len(value) > 0 {
+			value += ", "
+		}
+		return value + delta
+	})))
+
+	idx, _ := col.Insert(func(r Row) error {
+		r.SetString("letters", "a")
+		return nil
+	})
+
+	col.QueryAt(idx, func(r Row) error {
+		r.MergeString("letters", "b")
+		return nil
+	})
+
+	// Check if key is correct
+	col.QueryAt(idx, func(r Row) error {
+		value, ok := r.String("letters")
+		assert.True(t, ok)
+		assert.Equal(t, "a, b", value)
+		return nil
+	})
 }
 
 func invoke(any interface{}, name string, args ...interface{}) []reflect.Value {

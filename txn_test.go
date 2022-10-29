@@ -8,6 +8,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/kelindar/column/commit"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -456,7 +457,7 @@ func TestUpdateAtNoChanges(t *testing.T) {
 	}))
 
 	assert.NoError(t, c.QueryAt(0, func(r Row) error {
-		r.txn.bufferFor("xxx").PutInt(123, 123)
+		r.txn.bufferFor("xxx").PutInt(commit.Put, 123, 123)
 		return nil
 	}))
 }

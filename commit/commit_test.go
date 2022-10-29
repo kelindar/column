@@ -178,14 +178,14 @@ func TestCommitCodec(t *testing.T) {
 func newInterleaved(columnName string) *Buffer {
 	buf := NewBuffer(10)
 	buf.Reset(columnName)
-	buf.PutInt64(20, 1)
-	buf.PutInt64(21, 2)
-	buf.PutInt64(20000, 3)
-	buf.PutInt64(40, 4)
-	buf.PutInt64(41, 5)
-	buf.PutInt64(40000, 6)
-	buf.PutInt64(60, 7)
-	buf.PutInt64(61, 8)
+	buf.PutInt64(Put, 20, 1)
+	buf.PutInt64(Put, 21, 2)
+	buf.PutInt64(Put, 20000, 3)
+	buf.PutInt64(Put, 40, 4)
+	buf.PutInt64(Put, 41, 5)
+	buf.PutInt64(Put, 40000, 6)
+	buf.PutInt64(Put, 60, 7)
+	buf.PutInt64(Put, 61, 8)
 	return buf
 }
 

@@ -177,7 +177,7 @@ func (r Row) SetKey(key string) {
 
 // String loads a string value at a particular column
 func (r Row) String(columnName string) (v string, ok bool) {
-	return stringReaderFor(r.txn, columnName).Get()
+	return textReaderFor[*columnString](r.txn, columnName).Get()
 }
 
 // SetString stores a string value at a particular column
@@ -185,9 +185,14 @@ func (r Row) SetString(columnName string, value string) {
 	r.txn.String(columnName).Set(value)
 }
 
+// MergeString merges a string value at a particular column
+func (r Row) MergeString(columnName string, value string) {
+	r.txn.String(columnName).Merge(value)
+}
+
 // Enum loads a string value at a particular column
 func (r Row) Enum(columnName string) (v string, ok bool) {
-	return enumReaderFor(r.txn, columnName).Get()
+	return textReaderFor[*columnEnum](r.txn, columnName).Get()
 }
 
 // SetEnum stores a string value at a particular column
