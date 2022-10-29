@@ -24,7 +24,7 @@ This package contains a **high-performance, columnar, in-memory storage engine**
 - Support for **concurrent updates** using sharded latches to keep things fast.
 - Support for **transaction isolation**, allowing you to create transactions and commit/rollback.
 - Support for **expiration** of rows based on time-to-live or expiration column.
-- Support for **atomic increment/decrement** of numerical values, transactionally.
+- Support for **atomic merging** of any values, transactionally.
 - Support for **primary keys** for use-cases where offset can't be used.
 - Support for **change data stream** that streams all commits consistently.
 - Support for **concurrent snapshotting** allowing to store the entire collection into a file.
@@ -232,15 +232,43 @@ players.Query(func(txn *Txn) error {
 })
 ```
 
-In certain cases, you might want to atomically increment or decrement numerical values. In order to accomplish this you can use the provided `Add()` operation. Note that the indexes will also be updated accordingly and the predicates re-evaluated with the most up-to-date values. In the below example we're incrementing the balance of all our rogues by _500_ atomically.
+In certain cases, you might want to atomically increment or decrement numerical values. In order to accomplish this you can use the provided `Merge()` operation. Note that the indexes will also be updated accordingly and the predicates re-evaluated with the most up-to-date values. In the below example we're incrementing the balance of all our rogues by _500_ atomically.
 
 ```go
 players.Query(func(txn *Txn) error {
 	balance := txn.Float64("balance")
 
 	return txn.With("rogue").Range(func(i uint32) {
-		balance.Add(500.0) // Increment the "balance" by 500
+		balance.Merge(500.0) // Increment the "balance" by 500
 	})
+})
+```
+
+While atomic increment/decrement for numerical values is relatively straightforward, this `Merge()` operation can be specified using `WithMerge()` option and also used for other data types, such as strings. In the example below we are creating a merge function that concatenates two strings together and when `MergeString()` is called, the new string gets appended automatically.
+
+```go
+// A merging function that simply concatenates 2 strings together
+concat := func(value, delta string) string {
+	if len(value) > 0 {
+		value += ", "
+	}
+	return value + delta
+}
+
+// Create a column with a specified merge function
+db := NewCollection()
+db.CreateColumn("alphabet", column.ForString(column.WithMerge(concat)))
+
+// Insert letter "A"
+db.Insert(func(r Row) error {
+	r.SetString("alphabet", "A") // now contains "A"
+	return nil
+})
+
+// Insert letter "B"
+db.QueryAt(0, func(r Row) error {
+	r.MergeString("alphabet", "B") // now contains "A, B"
+	return nil
 })
 ```
 
