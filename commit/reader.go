@@ -11,6 +11,7 @@ import (
 
 // Reader represnts a commit log reader (iterator).
 type Reader struct {
+	*Buffer
 	head   int    // The read position
 	i0, i1 int    // The value start and end
 	Type   OpType // The current operation type
@@ -26,6 +27,7 @@ func NewReader() *Reader {
 
 // Seek resets the reader so it can be reused.
 func (r *Reader) Seek(b *Buffer) {
+	r.Buffer = b
 	r.use(b.buffer)
 }
 
@@ -154,133 +156,102 @@ func (r *Reader) Bool() bool {
 // --------------------------- Value Swap ----------------------------
 
 // SwapInt16 swaps a uint16 value with a new one.
-func (r *Reader) SwapInt16(v int16) {
+func (r *Reader) SwapInt16(v int16) int16 {
 	binary.BigEndian.PutUint16(r.buffer[r.i0:r.i1], uint16(v))
+	r.writeSwapped()
+	return v
 }
 
 // SwapInt32 swaps a uint32 value with a new one.
-func (r *Reader) SwapInt32(v int32) {
+func (r *Reader) SwapInt32(v int32) int32 {
 	binary.BigEndian.PutUint32(r.buffer[r.i0:r.i1], uint32(v))
+	r.writeSwapped()
+	return v
 }
 
 // SwapInt64 swaps a uint64 value with a new one.
-func (r *Reader) SwapInt64(v int64) {
+func (r *Reader) SwapInt64(v int64) int64 {
 	binary.BigEndian.PutUint64(r.buffer[r.i0:r.i1], uint64(v))
+	r.writeSwapped()
+	return v
 }
 
 // SwapInt swaps a uint64 value with a new one.
-func (r *Reader) SwapInt(v int) {
+func (r *Reader) SwapInt(v int) int {
 	binary.BigEndian.PutUint64(r.buffer[r.i0:r.i1], uint64(v))
+	r.writeSwapped()
+	return v
 }
 
 // SwapUint16 swaps a uint16 value with a new one.
-func (r *Reader) SwapUint16(v uint16) {
+func (r *Reader) SwapUint16(v uint16) uint16 {
 	binary.BigEndian.PutUint16(r.buffer[r.i0:r.i1], v)
+	r.writeSwapped()
+	return v
 }
 
 // SwapUint32 swaps a uint32 value with a new one.
-func (r *Reader) SwapUint32(v uint32) {
+func (r *Reader) SwapUint32(v uint32) uint32 {
 	binary.BigEndian.PutUint32(r.buffer[r.i0:r.i1], v)
+	r.writeSwapped()
+	return v
 }
 
 // SwapUint64 swaps a uint64 value with a new one.
-func (r *Reader) SwapUint64(v uint64) {
+func (r *Reader) SwapUint64(v uint64) uint64 {
 	binary.BigEndian.PutUint64(r.buffer[r.i0:r.i1], v)
+	r.writeSwapped()
+	return v
 }
 
 // SwapUint swaps a uint64 value with a new one.
-func (r *Reader) SwapUint(v uint) {
+func (r *Reader) SwapUint(v uint) uint {
 	binary.BigEndian.PutUint64(r.buffer[r.i0:r.i1], uint64(v))
+	r.writeSwapped()
+	return v
 }
 
 // SwapFloat32 swaps a float32 value with a new one.
-func (r *Reader) SwapFloat32(v float32) {
+func (r *Reader) SwapFloat32(v float32) float32 {
 	binary.BigEndian.PutUint32(r.buffer[r.i0:r.i1], math.Float32bits(v))
+	r.writeSwapped()
+	return v
 }
 
 // SwapFloat64 swaps a float64 value with a new one.
-func (r *Reader) SwapFloat64(v float64) {
+func (r *Reader) SwapFloat64(v float64) float64 {
 	binary.BigEndian.PutUint64(r.buffer[r.i0:r.i1], math.Float64bits(v))
+	r.writeSwapped()
+	return v
 }
 
 // SwapBool swaps a boolean value with a new one.
-func (r *Reader) SwapBool(b bool) {
+func (r *Reader) SwapBool(b bool) bool {
 	r.buffer[r.i0] = 0
 	if b {
 		r.buffer[r.i0] = 1
 	}
+	r.writeSwapped()
+	return b
 }
 
-// --------------------------- Value Increment ----------------------------
-
-// AddToInt adds and swaps a int value with a new one.
-func (r *Reader) AddToInt(value int) int {
-	value += r.Int()
-	r.SwapInt(value)
-	return value
+// SwapString swaps a string value with a new one.
+func (r *Reader) SwapString(v string) string {
+	r.writeSkipped()
+	r.PutString(Put, r.Index(), v)
+	return v
 }
 
-// AddToInt16 adds and swaps a int16 value with a new one.
-func (r *Reader) AddToInt16(value int16) int16 {
-	value += r.Int16()
-	r.SwapInt16(value)
-	return value
+// writeSwapped marks the current value to be a store
+func (r *Reader) writeSwapped() {
+	r.buffer[r.i0-1] &= 0xf0
+	r.buffer[r.i0-1] |= byte(Put)
 }
 
-// AddToInt32 adds and swaps a int32 value with a new one.
-func (r *Reader) AddToInt32(value int32) int32 {
-	value += r.Int32()
-	r.SwapInt32(value)
-	return value
-}
-
-// AddToInt64 adds and swaps a int64 value with a new one.
-func (r *Reader) AddToInt64(value int64) int64 {
-	value += r.Int64()
-	r.SwapInt64(value)
-	return value
-}
-
-// AddToUint adds and swaps a uint value with a new one.
-func (r *Reader) AddToUint(value uint) uint {
-	value += r.Uint()
-	r.SwapUint(value)
-	return value
-}
-
-// AddToUint16 adds and swaps a uint16 value with a new one.
-func (r *Reader) AddToUint16(value uint16) uint16 {
-	value += r.Uint16()
-	r.SwapUint16(value)
-	return value
-}
-
-// AddToUint32 adds and swaps a uint32 value with a new one.
-func (r *Reader) AddToUint32(value uint32) uint32 {
-	value += r.Uint32()
-	r.SwapUint32(value)
-	return value
-}
-
-// AddToUint64 adds and swaps a uint64 value with a new one.
-func (r *Reader) AddToUint64(value uint64) uint64 {
-	value += r.Uint64()
-	r.SwapUint64(value)
-	return value
-}
-
-// AddToFloat32 adds and swaps a float32 value with a new one.
-func (r *Reader) AddToFloat32(value float32) float32 {
-	value += r.Float32()
-	r.SwapFloat32(value)
-	return value
-}
-
-// AddToFloat64 adds and swaps a float64 value with a new one.
-func (r *Reader) AddToFloat64(value float64) float64 {
-	value += r.Float64()
-	r.SwapFloat64(value)
-	return value
+// writeSkipped marks the current value to be skipped
+func (r *Reader) writeSkipped() {
+	r.buffer[r.i0-3] &= 0xf0
+	r.buffer[r.i0-3] |= byte(Skip)
 }
 
 // --------------------------- Chunk Iterator ----------------------------
@@ -302,6 +273,7 @@ func (r *Reader) Range(buf *Buffer, chunk Chunk, fn func(*Reader)) {
 
 		// Set the reader to the subset buffer and call the delegate
 		r.use(buffer)
+		r.Buffer = buf
 		r.Offset = int32(c.Value)
 		r.start = int32(c.Value)
 		fn(r)
@@ -402,7 +374,7 @@ func (r *Reader) readFixed(v byte) {
 	r.i0 = r.head
 	r.head += size
 	r.i1 = r.head
-	r.Type = OpType(v & 0xf)
+	r.Type = OpType(v & 0x0f)
 }
 
 // readString reads the operation type and the value at the current position.
@@ -412,5 +384,5 @@ func (r *Reader) readString(v byte) {
 	r.i0 = r.head
 	r.head += size
 	r.i1 = r.head
-	r.Type = OpType(v & 0xf)
+	r.Type = OpType(v & 0x0f)
 }

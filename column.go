@@ -12,6 +12,7 @@ import (
 
 	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
+	"github.com/kelindar/simd"
 )
 
 // columnType represents a type of a column.
@@ -113,6 +114,33 @@ func ForKind(kind reflect.Kind) (Column, error) {
 		return makeStrings(), nil
 	default:
 		return nil, fmt.Errorf("column: unsupported column kind (%v)", kind)
+	}
+}
+
+// --------------------------- Generic Options ----------------------------
+
+type optionType interface {
+	simd.Number | ~string
+}
+
+// optInt represents options for variouos columns.
+type option[T optionType] struct {
+	Merge func(value, delta T) T
+}
+
+// configure applies options
+func configure[T optionType](opts []func(*option[T]), dst option[T]) option[T] {
+	for _, fn := range opts {
+		fn(&dst)
+	}
+	return dst
+}
+
+// WithMerge sets an optional merge function that allows you to merge a delta value to
+// an existing value, atomically. The operation is performed transactionally.
+func WithMerge[T optionType](fn func(value, delta T) T) func(*option[T]) {
+	return func(v *option[T]) {
+		v.Merge = fn
 	}
 }
 

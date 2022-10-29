@@ -96,7 +96,7 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 		applyChanges(column,
 			Update{Type: commit.Put, Index: 1, Value: value},
 			Update{Type: commit.Put, Index: 2, Value: value},
-			Update{Type: commit.Add, Index: 1, Value: value},
+			Update{Type: commit.Merge, Index: 1, Value: value},
 		)
 
 		assert.True(t, column.Contains(1))
@@ -163,7 +163,7 @@ func testColumn(t *testing.T, column Column, value interface{}) {
 		applyChanges(column,
 			Update{Type: commit.Put, Index: 1, Value: value},
 			Update{Type: commit.Put, Index: 2, Value: value},
-			Update{Type: commit.Add, Index: 1, Value: value},
+			Update{Type: commit.Merge, Index: 1, Value: value},
 		)
 
 		assert.True(t, column.Contains(1))
@@ -537,6 +537,38 @@ func TestDuplicatePK(t *testing.T) {
 
 	// Must have one value
 	assert.Equal(t, 1, col.Count())
+}
+
+func TestMergeString(t *testing.T) {
+	col := NewCollection()
+	col.CreateColumn("name", ForString())
+	col.CreateColumn("letters", ForString(WithMerge(func(value, delta string) string {
+		if len(value) > 0 {
+			value += ", "
+		}
+		return value + delta
+	})))
+
+	idx, _ := col.Insert(func(r Row) error {
+		r.SetString("name", "Roman")
+		r.SetString("letters", "a")
+		return nil
+	})
+
+	col.QueryAt(idx, func(r Row) error {
+		r.MergeString("name", "Merlin")
+		r.MergeString("letters", "b")
+		return nil
+	})
+
+	// Letters must be appended, name overwritten
+	col.QueryAt(idx, func(r Row) error {
+		name, _ := r.String("name")
+		assert.Equal(t, "Merlin", name)
+		letters, _ := r.String("letters")
+		assert.Equal(t, "a, b", letters)
+		return nil
+	})
 }
 
 func invoke(any interface{}, name string, args ...interface{}) []reflect.Value {

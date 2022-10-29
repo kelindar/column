@@ -65,7 +65,7 @@ func (c *columnIndex) Apply(chunk commit.Chunk, r *commit.Reader) {
 	// on the actual column.
 	for r.Next() {
 		switch r.Type {
-		case commit.Put, commit.Add:
+		case commit.Put, commit.Merge:
 			if c.rule(r) {
 				c.fill.Set(uint32(r.Offset))
 			} else {

@@ -20,9 +20,9 @@ func (r Row) SetInt(columnName string, value int) {
 	r.txn.Int(columnName).Set(value)
 }
 
-// AddInt adds delta to a int value at a particular column
-func (r Row) AddInt(columnName string, value int) {
-	r.txn.Int(columnName).Add(value)
+// MergeInt atomically merges a delta into int value at a particular column
+func (r Row) MergeInt(columnName string, value int) {
+	r.txn.Int(columnName).Merge(value)
 }
 
 // Int16 loads a int16 value at a particular column
@@ -35,9 +35,9 @@ func (r Row) SetInt16(columnName string, value int16) {
 	r.txn.Int16(columnName).Set(value)
 }
 
-// AddInt16 adds delta to a int16 value at a particular column
-func (r Row) AddInt16(columnName string, value int16) {
-	r.txn.Int16(columnName).Add(value)
+// MergeInt16 atomically merges a delta into int16 value at a particular column
+func (r Row) MergeInt16(columnName string, value int16) {
+	r.txn.Int16(columnName).Merge(value)
 }
 
 // Int32 loads a int32 value at a particular column
@@ -50,9 +50,9 @@ func (r Row) SetInt32(columnName string, value int32) {
 	r.txn.Int32(columnName).Set(value)
 }
 
-// AddInt32 adds delta to a int32 value at a particular column
-func (r Row) AddInt32(columnName string, value int32) {
-	r.txn.Int32(columnName).Add(value)
+// MergeInt32 atomically merges a delta into int32 value at a particular column
+func (r Row) MergeInt32(columnName string, value int32) {
+	r.txn.Int32(columnName).Merge(value)
 }
 
 // Int64 loads a int64 value at a particular column
@@ -65,9 +65,9 @@ func (r Row) SetInt64(columnName string, value int64) {
 	r.txn.Int64(columnName).Set(value)
 }
 
-// AddInt64 adds delta to a int64 value at a particular column
-func (r Row) AddInt64(columnName string, value int64) {
-	r.txn.Int64(columnName).Add(value)
+// MergeInt64 atomically merges a delta into int64 value at a particular column
+func (r Row) MergeInt64(columnName string, value int64) {
+	r.txn.Int64(columnName).Merge(value)
 }
 
 // Uint loads a uint value at a particular column
@@ -80,9 +80,9 @@ func (r Row) SetUint(columnName string, value uint) {
 	r.txn.Uint(columnName).Set(value)
 }
 
-// AddUint adds delta to a uint value at a particular column
-func (r Row) AddUint(columnName string, value uint) {
-	r.txn.Uint(columnName).Add(value)
+// MergeUint atomically merges a delta into uint value at a particular column
+func (r Row) MergeUint(columnName string, value uint) {
+	r.txn.Uint(columnName).Merge(value)
 }
 
 // Uint16 loads a uint16 value at a particular column
@@ -95,9 +95,9 @@ func (r Row) SetUint16(columnName string, value uint16) {
 	r.txn.Uint16(columnName).Set(value)
 }
 
-// AddUint16 adds delta to a uint16 value at a particular column
-func (r Row) AddUint16(columnName string, value uint16) {
-	r.txn.Uint16(columnName).Add(value)
+// MergeUint16 atomically merges a delta into uint16 value at a particular column
+func (r Row) MergeUint16(columnName string, value uint16) {
+	r.txn.Uint16(columnName).Merge(value)
 }
 
 // Uint32 loads a uint32 value at a particular column
@@ -110,9 +110,9 @@ func (r Row) SetUint32(columnName string, value uint32) {
 	r.txn.Uint32(columnName).Set(value)
 }
 
-// AddUint32 adds delta to a uint32 value at a particular column
-func (r Row) AddUint32(columnName string, value uint32) {
-	r.txn.Uint32(columnName).Add(value)
+// MergeUint32 atomically merges a delta into uint32 value at a particular column
+func (r Row) MergeUint32(columnName string, value uint32) {
+	r.txn.Uint32(columnName).Merge(value)
 }
 
 // Uint64 loads a uint64 value at a particular column
@@ -125,9 +125,9 @@ func (r Row) SetUint64(columnName string, value uint64) {
 	r.txn.Uint64(columnName).Set(value)
 }
 
-// AddUint64 adds delta to a uint64 value at a particular column
-func (r Row) AddUint64(columnName string, value uint64) {
-	r.txn.Uint64(columnName).Add(value)
+// MergeUint64 atomically merges a delta into uint64 value at a particular column
+func (r Row) MergeUint64(columnName string, value uint64) {
+	r.txn.Uint64(columnName).Merge(value)
 }
 
 // Float32 loads a float32 value at a particular column
@@ -140,9 +140,9 @@ func (r Row) SetFloat32(columnName string, value float32) {
 	r.txn.Float32(columnName).Set(value)
 }
 
-// AddFloat32 adds delta to a float32 value at a particular column
-func (r Row) AddFloat32(columnName string, value float32) {
-	r.txn.Float32(columnName).Add(value)
+// MergeFloat32 atomically merges a delta into float32 value at a particular column
+func (r Row) MergeFloat32(columnName string, value float32) {
+	r.txn.Float32(columnName).Merge(value)
 }
 
 // Float64 loads a float64 value at a particular column
@@ -155,9 +155,9 @@ func (r Row) SetFloat64(columnName string, value float64) {
 	r.txn.Float64(columnName).Set(value)
 }
 
-// AddFloat64 adds delta to a float64 value at a particular column
-func (r Row) AddFloat64(columnName string, value float64) {
-	r.txn.Float64(columnName).Add(value)
+// MergeFloat64 atomically merges a delta into float64 value at a particular column
+func (r Row) MergeFloat64(columnName string, value float64) {
+	r.txn.Float64(columnName).Merge(value)
 }
 
 // --------------------------- Strings ----------------------------
@@ -177,7 +177,7 @@ func (r Row) SetKey(key string) {
 
 // String loads a string value at a particular column
 func (r Row) String(columnName string) (v string, ok bool) {
-	return stringReaderFor(r.txn, columnName).Get()
+	return textReaderFor[*columnString](r.txn, columnName).Get()
 }
 
 // SetString stores a string value at a particular column
@@ -185,9 +185,14 @@ func (r Row) SetString(columnName string, value string) {
 	r.txn.String(columnName).Set(value)
 }
 
+// MergeString merges a string value at a particular column
+func (r Row) MergeString(columnName string, value string) {
+	r.txn.String(columnName).Merge(value)
+}
+
 // Enum loads a string value at a particular column
 func (r Row) Enum(columnName string) (v string, ok bool) {
-	return enumReaderFor(r.txn, columnName).Get()
+	return textReaderFor[*columnEnum](r.txn, columnName).Get()
 }
 
 // SetEnum stores a string value at a particular column
