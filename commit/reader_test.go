@@ -258,7 +258,7 @@ func TestIndexAtChunk(t *testing.T) {
 
 func TestSwapOpChange(t *testing.T) {
 	buf := NewBuffer(0)
-	buf.AddInt32(10, int32(1))
+	buf.PutInt32(Add, 10, int32(1))
 	assert.Equal(t, []byte{0x23, 0x0, 0x0, 0x0, 0x1, 0xa}, buf.buffer)
 
 	// Swap the value, this should also change the type

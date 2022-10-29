@@ -197,63 +197,6 @@ func (b *Buffer) PutNumber(op OpType, idx uint32, value float64) {
 	b.writeUint64(op, idx, math.Float64bits(value))
 }
 
-// --------------------------- Additions ----------------------------
-
-// AddUint64 appends an addition of uint64 value.
-func (b *Buffer) AddUint64(idx uint32, value uint64) {
-	b.writeUint64(Add, idx, value)
-}
-
-// AddUint32 appends an addition of uint32 value.
-func (b *Buffer) AddUint32(idx uint32, value uint32) {
-	b.writeUint32(Add, idx, value)
-}
-
-// AddUint16 appends an addition of uint16 value.
-func (b *Buffer) AddUint16(idx uint32, value uint16) {
-	b.writeUint16(Add, idx, value)
-}
-
-// AddUint appends an addition of uint64 value.
-func (b *Buffer) AddUint(idx uint32, value uint) {
-	b.writeUint64(Add, idx, uint64(value))
-}
-
-// AddInt64 appends an addition of int64 value.
-func (b *Buffer) AddInt64(idx uint32, value int64) {
-	b.writeUint64(Add, idx, uint64(value))
-}
-
-// AddInt32 appends an addition of int32 value.
-func (b *Buffer) AddInt32(idx uint32, value int32) {
-	b.writeUint32(Add, idx, uint32(value))
-}
-
-// AddInt16 appends an addition of int16 value.
-func (b *Buffer) AddInt16(idx uint32, value int16) {
-	b.writeUint16(Add, idx, uint16(value))
-}
-
-// AddInt appends an addition of int64 value.
-func (b *Buffer) AddInt(idx uint32, value int) {
-	b.writeUint64(Add, idx, uint64(value))
-}
-
-// AddFloat64 appends a float64 value.
-func (b *Buffer) AddFloat64(idx uint32, value float64) {
-	b.writeUint64(Add, idx, math.Float64bits(value))
-}
-
-// AddFloat32 appends an addition of int32 value.
-func (b *Buffer) AddFloat32(idx uint32, value float32) {
-	b.writeUint32(Add, idx, math.Float32bits(value))
-}
-
-// AddNumber appends an addition of float64 value.
-func (b *Buffer) AddNumber(idx uint32, value float64) {
-	b.writeUint64(Add, idx, math.Float64bits(value))
-}
-
 // --------------------------- Others ----------------------------
 
 // PutOperation appends an operation type without a value.
