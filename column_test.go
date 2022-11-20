@@ -5,7 +5,6 @@ package column
 
 import (
 	"fmt"
-	"io"
 	"reflect"
 	"testing"
 	"time"
@@ -674,25 +673,6 @@ func TestRecordMerge_ErrEncode(t *testing.T) {
 		assert.NoError(t, r.MergeRecord("record", mockRecord{}))
 		return nil
 	})
-}
-
-type mockRecord struct {
-	errDecode bool
-	errEncode bool
-}
-
-func (r mockRecord) MarshalBinary() ([]byte, error) {
-	if r.errEncode {
-		return nil, io.ErrUnexpectedEOF
-	}
-	return []byte("OK"), nil
-}
-
-func (r mockRecord) UnmarshalBinary(b []byte) error {
-	if r.errDecode {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
 }
 
 func invoke(any interface{}, name string, args ...interface{}) []reflect.Value {

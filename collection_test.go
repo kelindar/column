@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
 	"sync"
@@ -794,6 +795,25 @@ func newEmpty(capacity int) *Collection {
 	})
 
 	return out
+}
+
+type mockRecord struct {
+	errDecode bool
+	errEncode bool
+}
+
+func (r mockRecord) MarshalBinary() ([]byte, error) {
+	if r.errEncode {
+		return nil, io.ErrUnexpectedEOF
+	}
+	return []byte("OK"), nil
+}
+
+func (r mockRecord) UnmarshalBinary(b []byte) error {
+	if r.errDecode {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
 }
 
 // loadFixture loads a fixture by its name
