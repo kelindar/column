@@ -129,22 +129,22 @@ func (c *columnEnum) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	})
 }
 
-// slice accessor for enums
-type enumSlice struct {
-	textReader[*columnEnum]
+// rwEnum represents read-write accessor for enum
+type rwEnum struct {
+	rdString[*columnEnum]
 	writer *commit.Buffer
 }
 
 // Set sets the value at the current transaction cursor
-func (s enumSlice) Set(value string) {
+func (s rwEnum) Set(value string) {
 	s.writer.PutString(commit.Put, *s.cursor, value)
 }
 
 // Enum returns a enumerable column accessor
-func (txn *Txn) Enum(columnName string) enumSlice {
-	return enumSlice{
-		textReader: textReaderFor[*columnEnum](txn, columnName),
-		writer:     txn.bufferFor(columnName),
+func (txn *Txn) Enum(columnName string) rwEnum {
+	return rwEnum{
+		rdString: readStringOf[*columnEnum](txn, columnName),
+		writer:   txn.bufferFor(columnName),
 	}
 }
 
@@ -191,13 +191,7 @@ func (c *columnString) Apply(chunk commit.Chunk, r *commit.Reader) {
 
 // Value retrieves a value at a specified index
 func (c *columnString) Value(idx uint32) (v interface{}, ok bool) {
-	chunk := commit.ChunkAt(idx)
-	index := idx - chunk.Min()
-
-	if int(chunk) < len(c.chunks) && c.chunks[chunk].fill.Contains(index) {
-		v, ok = c.chunks[chunk].data[index], true
-	}
-	return
+	return c.LoadString(idx)
 }
 
 // Contains checks whether the column has a value at a specified index.
@@ -208,10 +202,14 @@ func (c *columnString) Contains(idx uint32) bool {
 }
 
 // LoadString retrieves a value at a specified index
-func (c *columnString) LoadString(idx uint32) (string, bool) {
-	v, has := c.Value(idx)
-	s, ok := v.(string)
-	return s, has && ok
+func (c *columnString) LoadString(idx uint32) (v string, ok bool) {
+	chunk := commit.ChunkAt(idx)
+	index := idx - chunk.Min()
+
+	if int(chunk) < len(c.chunks) && c.chunks[chunk].fill.Contains(index) {
+		v, ok = c.chunks[chunk].data[index], true
+	}
+	return
 }
 
 // FilterString filters down the values based on the specified predicate. The column for
@@ -234,27 +232,27 @@ func (c *columnString) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	})
 }
 
-// stringWriter represents read-write accessor for strings
-type stringWriter struct {
-	textReader[*columnString]
+// rwString represents read-write accessor for strings
+type rwString struct {
+	rdString[*columnString]
 	writer *commit.Buffer
 }
 
 // Set sets the value at the current transaction cursor
-func (s stringWriter) Set(value string) {
+func (s rwString) Set(value string) {
 	s.writer.PutString(commit.Put, *s.cursor, value)
 }
 
 // Merge merges the value at the current transaction cursor
-func (s stringWriter) Merge(value string) {
+func (s rwString) Merge(value string) {
 	s.writer.PutString(commit.Merge, *s.cursor, value)
 }
 
 // String returns a string column accessor
-func (txn *Txn) String(columnName string) stringWriter {
-	return stringWriter{
-		textReader: textReaderFor[*columnString](txn, columnName),
-		writer:     txn.bufferFor(columnName),
+func (txn *Txn) String(columnName string) rwString {
+	return rwString{
+		rdString: readStringOf[*columnString](txn, columnName),
+		writer:   txn.bufferFor(columnName),
 	}
 }
 
@@ -312,15 +310,15 @@ func (c *columnKey) OffsetOf(v string) (uint32, bool) {
 	return idx, ok
 }
 
-// slice accessor for keys
-type keySlice struct {
+// rwKey represents read-write accessor for primary keys.
+type rwKey struct {
 	cursor *uint32
 	writer *commit.Buffer
 	reader *columnKey
 }
 
 // Set sets the value at the current transaction index
-func (s keySlice) Set(value string) error {
+func (s rwKey) Set(value string) error {
 	if _, ok := s.reader.OffsetOf(value); !ok {
 		s.writer.PutString(commit.Put, *s.cursor, value)
 		return nil
@@ -330,17 +328,17 @@ func (s keySlice) Set(value string) error {
 }
 
 // Get loads the value at the current transaction index
-func (s keySlice) Get() (string, bool) {
+func (s rwKey) Get() (string, bool) {
 	return s.reader.LoadString(*s.cursor)
 }
 
 // Enum returns a enumerable column accessor
-func (txn *Txn) Key() keySlice {
+func (txn *Txn) Key() rwKey {
 	if txn.owner.pk == nil {
 		panic(fmt.Errorf("column: primary key column does not exist"))
 	}
 
-	return keySlice{
+	return rwKey{
 		cursor: &txn.cursor,
 		writer: txn.bufferFor(txn.owner.pk.name),
 		reader: txn.owner.pk,
@@ -349,31 +347,15 @@ func (txn *Txn) Key() keySlice {
 
 // --------------------------- Reader ----------------------------
 
-// textReader represents a read-only accessor for strings
-type textReader[T Textual] struct {
-	cursor *uint32
-	reader T
-}
+// rdString represents a read-only accessor for strings
+type rdString[T Textual] reader[T]
 
 // Get loads the value at the current transaction cursor
-func (s textReader[T]) Get() (string, bool) {
+func (s rdString[T]) Get() (string, bool) {
 	return s.reader.LoadString(*s.cursor)
 }
 
-// textReaderFor creates a new string reader
-func textReaderFor[T Textual](txn *Txn, columnName string) textReader[T] {
-	column, ok := txn.columnAt(columnName)
-	if !ok {
-		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
-	}
-
-	reader, ok := column.Column.(T)
-	if !ok {
-		panic(fmt.Errorf("column: column '%s' is not of string type", columnName))
-	}
-
-	return textReader[T]{
-		cursor: &txn.cursor,
-		reader: reader,
-	}
+// readStringOf creates a new string reader
+func readStringOf[T Textual](txn *Txn, columnName string) rdString[T] {
+	return rdString[T](readerFor[T](txn, columnName))
 }

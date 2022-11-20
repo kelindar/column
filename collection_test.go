@@ -15,24 +15,24 @@ import (
 	"time"
 
 	"github.com/kelindar/column/commit"
-
+	"github.com/kelindar/xxrand"
 	"github.com/stretchr/testify/assert"
 )
 
 /*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkCollection/insert-8         	    2797	    483532 ns/op	   24288 B/op	     500 allocs/op
-BenchmarkCollection/select-at-8      	21007226	        58.94 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/scan-8           	    1872	    539394 ns/op	     110 B/op	       0 allocs/op
-BenchmarkCollection/count-8          	  528410	      2395 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/range-8          	   24799	     44300 ns/op	       7 B/op	       0 allocs/op
-BenchmarkCollection/sum-8            	   88164	     13431 ns/op	       2 B/op	       0 allocs/op
-BenchmarkCollection/avg-8            	   31342	     37728 ns/op	       8 B/op	       0 allocs/op
-BenchmarkCollection/max-8            	   34090	     37313 ns/op	       6 B/op	       0 allocs/op
-BenchmarkCollection/update-at-8      	 6242148	       202.2 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/update-all-8     	    1062	    967519 ns/op	     238 B/op	       0 allocs/op
-BenchmarkCollection/delete-at-8      	 7042724	       184.3 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/delete-all-8     	 2043902	       562.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/insert-8         	    2344	    493043 ns/op	   24161 B/op	     500 allocs/op
+BenchmarkCollection/select-at-8      	22826576	        51.66 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/scan-8           	    2179	    543899 ns/op	     111 B/op	       0 allocs/op
+BenchmarkCollection/count-8          	  499878	      2425 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/range-8          	   27259	     45597 ns/op	       5 B/op	       0 allocs/op
+BenchmarkCollection/sum-8            	   83598	     14057 ns/op	       3 B/op	       0 allocs/op
+BenchmarkCollection/avg-8            	   37809	     29938 ns/op	       5 B/op	       0 allocs/op
+BenchmarkCollection/max-8            	   42026	     29089 ns/op	       5 B/op	       0 allocs/op
+BenchmarkCollection/update-at-8      	 5740621	       207.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/update-all-8     	    1275	    927145 ns/op	    4224 B/op	       0 allocs/op
+BenchmarkCollection/delete-at-8      	 6215265	       182.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/delete-all-8     	 1938399	       616.1 ns/op	       0 B/op	       0 allocs/op
 */
 func BenchmarkCollection(b *testing.B) {
 	amount := 100000
@@ -200,6 +200,77 @@ func BenchmarkCollection(b *testing.B) {
 			})
 		}
 	})
+}
+
+/*
+cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
+BenchmarkRecord/get-8         	 6342373	       172.3 ns/op	      24 B/op	       1 allocs/op
+BenchmarkRecord/set-8         	 4228219	       275.3 ns/op	      32 B/op	       2 allocs/op
+BenchmarkRecord/merge-8       	 2673375	       443.7 ns/op	      32 B/op	       2 allocs/op
+*/
+func BenchmarkRecord(b *testing.B) {
+	const amount = 100000
+
+	// Create a test collection for records
+	newCollection := func() *Collection {
+		col := NewCollection()
+		col.CreateColumn("ts", ForRecord(func() *time.Time {
+			return new(time.Time)
+		}, nil))
+
+		for i := 0; i < amount; i++ {
+			col.Insert(func(r Row) error {
+				now := time.Unix(1667745766, 0)
+				r.SetRecord("ts", &now)
+				return nil
+			})
+		}
+		return col
+	}
+
+	// Decodes records at random indices
+	b.Run("get", func(b *testing.B) {
+		col := newCollection()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			col.QueryAt(xxrand.Uint32n(amount), func(r Row) error {
+				r.Record("ts")
+				return nil
+			})
+		}
+	})
+
+	// Merges records at random indices
+	b.Run("set", func(b *testing.B) {
+		col := newCollection()
+		now := time.Unix(1667745766, 0)
+
+		b.ReportAllocs()
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			col.QueryAt(xxrand.Uint32n(amount), func(r Row) error {
+				r.SetRecord("ts", &now)
+				return nil
+			})
+		}
+	})
+
+	// Merges records at random indices
+	b.Run("merge", func(b *testing.B) {
+		col := newCollection()
+		now := time.Unix(1667745766, 0)
+
+		b.ReportAllocs()
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			col.QueryAt(xxrand.Uint32n(amount), func(r Row) error {
+				r.MergeRecord("ts", &now)
+				return nil
+			})
+		}
+	})
+
 }
 
 func TestCollection(t *testing.T) {

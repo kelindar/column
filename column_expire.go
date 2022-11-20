@@ -34,21 +34,21 @@ func (c *Collection) vacuum(ctx context.Context, interval time.Duration) {
 // --------------------------- Expiration (Column) ----------------------------
 
 // TTL returns a read-write accessor for the time-to-live column
-func (txn *Txn) TTL() ttlWriter {
-	return ttlWriter{
-		rw: int64Writer{
-			numericReader: numericReaderFor[int64](txn, expireColumn),
-			writer:        txn.bufferFor(expireColumn),
+func (txn *Txn) TTL() rwTTL {
+	return rwTTL{
+		rw: rwInt64{
+			rdNumber: readNumberOf[int64](txn, expireColumn),
+			writer:   txn.bufferFor(expireColumn),
 		},
 	}
 }
 
-type ttlWriter struct {
-	rw int64Writer
+type rwTTL struct {
+	rw rwInt64
 }
 
 // TTL returns the remaining time-to-live duration
-func (s ttlWriter) TTL() (time.Duration, bool) {
+func (s rwTTL) TTL() (time.Duration, bool) {
 	if expireAt, ok := s.rw.Get(); ok && expireAt != 0 {
 		return readTTL(expireAt), true
 	}
@@ -56,7 +56,7 @@ func (s ttlWriter) TTL() (time.Duration, bool) {
 }
 
 // ExpiresAt returns the expiration time
-func (s ttlWriter) ExpiresAt() (time.Time, bool) {
+func (s rwTTL) ExpiresAt() (time.Time, bool) {
 	if expireAt, ok := s.rw.Get(); ok && expireAt != 0 {
 		return time.Unix(0, expireAt), true
 	}
@@ -64,12 +64,12 @@ func (s ttlWriter) ExpiresAt() (time.Time, bool) {
 }
 
 // Set sets the time-to-live value at the current transaction cursor
-func (s ttlWriter) Set(ttl time.Duration) {
+func (s rwTTL) Set(ttl time.Duration) {
 	s.rw.Set(writeTTL(ttl))
 }
 
 // Extend extends time-to-live of the row current transaction cursor by a specified amount
-func (s ttlWriter) Extend(delta time.Duration) {
+func (s rwTTL) Extend(delta time.Duration) {
 	s.rw.Merge(int64(delta.Nanoseconds()))
 }
 

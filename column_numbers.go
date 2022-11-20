@@ -33,27 +33,27 @@ func makeInts(opts ...func(*option[int])) Column {
 	)
 }
 
-// intWriter represents a read-write accessor for int
-type intWriter struct {
-	numericReader[int]
+// rwInt represents a read-write cursor for int
+type rwInt struct {
+	rdNumber[int]
 	writer *commit.Buffer
 }
 
 // Set sets the value at the current transaction cursor
-func (s intWriter) Set(value int) {
+func (s rwInt) Set(value int) {
 	s.writer.PutInt(commit.Put, s.txn.cursor, value)
 }
 
 // Merge atomically merges a delta to the value at the current transaction cursor
-func (s intWriter) Merge(delta int) {
+func (s rwInt) Merge(delta int) {
 	s.writer.PutInt(commit.Merge, s.txn.cursor, delta)
 }
 
 // Int returns a read-write accessor for int column
-func (txn *Txn) Int(columnName string) intWriter {
-	return intWriter{
-		numericReader: numericReaderFor[int](txn, columnName),
-		writer:        txn.bufferFor(columnName),
+func (txn *Txn) Int(columnName string) rwInt {
+	return rwInt{
+		rdNumber: readNumberOf[int](txn, columnName),
+		writer:   txn.bufferFor(columnName),
 	}
 }
 
@@ -82,27 +82,27 @@ func makeInt16s(opts ...func(*option[int16])) Column {
 	)
 }
 
-// int16Writer represents a read-write accessor for int16
-type int16Writer struct {
-	numericReader[int16]
+// rwInt16 represents a read-write cursor for int16
+type rwInt16 struct {
+	rdNumber[int16]
 	writer *commit.Buffer
 }
 
 // Set sets the value at the current transaction cursor
-func (s int16Writer) Set(value int16) {
+func (s rwInt16) Set(value int16) {
 	s.writer.PutInt16(commit.Put, s.txn.cursor, value)
 }
 
 // Merge atomically merges a delta to the value at the current transaction cursor
-func (s int16Writer) Merge(delta int16) {
+func (s rwInt16) Merge(delta int16) {
 	s.writer.PutInt16(commit.Merge, s.txn.cursor, delta)
 }
 
 // Int16 returns a read-write accessor for int16 column
-func (txn *Txn) Int16(columnName string) int16Writer {
-	return int16Writer{
-		numericReader: numericReaderFor[int16](txn, columnName),
-		writer:        txn.bufferFor(columnName),
+func (txn *Txn) Int16(columnName string) rwInt16 {
+	return rwInt16{
+		rdNumber: readNumberOf[int16](txn, columnName),
+		writer:   txn.bufferFor(columnName),
 	}
 }
 
@@ -131,27 +131,27 @@ func makeInt32s(opts ...func(*option[int32])) Column {
 	)
 }
 
-// int32Writer represents a read-write accessor for int32
-type int32Writer struct {
-	numericReader[int32]
+// rwInt32 represents a read-write cursor for int32
+type rwInt32 struct {
+	rdNumber[int32]
 	writer *commit.Buffer
 }
 
 // Set sets the value at the current transaction cursor
-func (s int32Writer) Set(value int32) {
+func (s rwInt32) Set(value int32) {
 	s.writer.PutInt32(commit.Put, s.txn.cursor, value)
 }
 
 // Merge atomically merges a delta to the value at the current transaction cursor
-func (s int32Writer) Merge(delta int32) {
+func (s rwInt32) Merge(delta int32) {
 	s.writer.PutInt32(commit.Merge, s.txn.cursor, delta)
 }
 
 // Int32 returns a read-write accessor for int32 column
-func (txn *Txn) Int32(columnName string) int32Writer {
-	return int32Writer{
-		numericReader: numericReaderFor[int32](txn, columnName),
-		writer:        txn.bufferFor(columnName),
+func (txn *Txn) Int32(columnName string) rwInt32 {
+	return rwInt32{
+		rdNumber: readNumberOf[int32](txn, columnName),
+		writer:   txn.bufferFor(columnName),
 	}
 }
 
@@ -180,27 +180,27 @@ func makeInt64s(opts ...func(*option[int64])) Column {
 	)
 }
 
-// int64Writer represents a read-write accessor for int64
-type int64Writer struct {
-	numericReader[int64]
+// rwInt64 represents a read-write cursor for int64
+type rwInt64 struct {
+	rdNumber[int64]
 	writer *commit.Buffer
 }
 
 // Set sets the value at the current transaction cursor
-func (s int64Writer) Set(value int64) {
+func (s rwInt64) Set(value int64) {
 	s.writer.PutInt64(commit.Put, s.txn.cursor, value)
 }
 
 // Merge atomically merges a delta to the value at the current transaction cursor
-func (s int64Writer) Merge(delta int64) {
+func (s rwInt64) Merge(delta int64) {
 	s.writer.PutInt64(commit.Merge, s.txn.cursor, delta)
 }
 
 // Int64 returns a read-write accessor for int64 column
-func (txn *Txn) Int64(columnName string) int64Writer {
-	return int64Writer{
-		numericReader: numericReaderFor[int64](txn, columnName),
-		writer:        txn.bufferFor(columnName),
+func (txn *Txn) Int64(columnName string) rwInt64 {
+	return rwInt64{
+		rdNumber: readNumberOf[int64](txn, columnName),
+		writer:   txn.bufferFor(columnName),
 	}
 }
 
@@ -229,27 +229,27 @@ func makeUints(opts ...func(*option[uint])) Column {
 	)
 }
 
-// uintWriter represents a read-write accessor for uint
-type uintWriter struct {
-	numericReader[uint]
+// rwUint represents a read-write cursor for uint
+type rwUint struct {
+	rdNumber[uint]
 	writer *commit.Buffer
 }
 
 // Set sets the value at the current transaction cursor
-func (s uintWriter) Set(value uint) {
+func (s rwUint) Set(value uint) {
 	s.writer.PutUint(commit.Put, s.txn.cursor, value)
 }
 
 // Merge atomically merges a delta to the value at the current transaction cursor
-func (s uintWriter) Merge(delta uint) {
+func (s rwUint) Merge(delta uint) {
 	s.writer.PutUint(commit.Merge, s.txn.cursor, delta)
 }
 
 // Uint returns a read-write accessor for uint column
-func (txn *Txn) Uint(columnName string) uintWriter {
-	return uintWriter{
-		numericReader: numericReaderFor[uint](txn, columnName),
-		writer:        txn.bufferFor(columnName),
+func (txn *Txn) Uint(columnName string) rwUint {
+	return rwUint{
+		rdNumber: readNumberOf[uint](txn, columnName),
+		writer:   txn.bufferFor(columnName),
 	}
 }
 
@@ -278,27 +278,27 @@ func makeUint16s(opts ...func(*option[uint16])) Column {
 	)
 }
 
-// uint16Writer represents a read-write accessor for uint16
-type uint16Writer struct {
-	numericReader[uint16]
+// rwUint16 represents a read-write cursor for uint16
+type rwUint16 struct {
+	rdNumber[uint16]
 	writer *commit.Buffer
 }
 
 // Set sets the value at the current transaction cursor
-func (s uint16Writer) Set(value uint16) {
+func (s rwUint16) Set(value uint16) {
 	s.writer.PutUint16(commit.Put, s.txn.cursor, value)
 }
 
 // Merge atomically merges a delta to the value at the current transaction cursor
-func (s uint16Writer) Merge(delta uint16) {
+func (s rwUint16) Merge(delta uint16) {
 	s.writer.PutUint16(commit.Merge, s.txn.cursor, delta)
 }
 
 // Uint16 returns a read-write accessor for uint16 column
-func (txn *Txn) Uint16(columnName string) uint16Writer {
-	return uint16Writer{
-		numericReader: numericReaderFor[uint16](txn, columnName),
-		writer:        txn.bufferFor(columnName),
+func (txn *Txn) Uint16(columnName string) rwUint16 {
+	return rwUint16{
+		rdNumber: readNumberOf[uint16](txn, columnName),
+		writer:   txn.bufferFor(columnName),
 	}
 }
 
@@ -327,27 +327,27 @@ func makeUint32s(opts ...func(*option[uint32])) Column {
 	)
 }
 
-// uint32Writer represents a read-write accessor for uint32
-type uint32Writer struct {
-	numericReader[uint32]
+// rwUint32 represents a read-write cursor for uint32
+type rwUint32 struct {
+	rdNumber[uint32]
 	writer *commit.Buffer
 }
 
 // Set sets the value at the current transaction cursor
-func (s uint32Writer) Set(value uint32) {
+func (s rwUint32) Set(value uint32) {
 	s.writer.PutUint32(commit.Put, s.txn.cursor, value)
 }
 
 // Merge atomically merges a delta to the value at the current transaction cursor
-func (s uint32Writer) Merge(delta uint32) {
+func (s rwUint32) Merge(delta uint32) {
 	s.writer.PutUint32(commit.Merge, s.txn.cursor, delta)
 }
 
 // Uint32 returns a read-write accessor for uint32 column
-func (txn *Txn) Uint32(columnName string) uint32Writer {
-	return uint32Writer{
-		numericReader: numericReaderFor[uint32](txn, columnName),
-		writer:        txn.bufferFor(columnName),
+func (txn *Txn) Uint32(columnName string) rwUint32 {
+	return rwUint32{
+		rdNumber: readNumberOf[uint32](txn, columnName),
+		writer:   txn.bufferFor(columnName),
 	}
 }
 
@@ -376,27 +376,27 @@ func makeUint64s(opts ...func(*option[uint64])) Column {
 	)
 }
 
-// uint64Writer represents a read-write accessor for uint64
-type uint64Writer struct {
-	numericReader[uint64]
+// rwUint64 represents a read-write cursor for uint64
+type rwUint64 struct {
+	rdNumber[uint64]
 	writer *commit.Buffer
 }
 
 // Set sets the value at the current transaction cursor
-func (s uint64Writer) Set(value uint64) {
+func (s rwUint64) Set(value uint64) {
 	s.writer.PutUint64(commit.Put, s.txn.cursor, value)
 }
 
 // Merge atomically merges a delta to the value at the current transaction cursor
-func (s uint64Writer) Merge(delta uint64) {
+func (s rwUint64) Merge(delta uint64) {
 	s.writer.PutUint64(commit.Merge, s.txn.cursor, delta)
 }
 
 // Uint64 returns a read-write accessor for uint64 column
-func (txn *Txn) Uint64(columnName string) uint64Writer {
-	return uint64Writer{
-		numericReader: numericReaderFor[uint64](txn, columnName),
-		writer:        txn.bufferFor(columnName),
+func (txn *Txn) Uint64(columnName string) rwUint64 {
+	return rwUint64{
+		rdNumber: readNumberOf[uint64](txn, columnName),
+		writer:   txn.bufferFor(columnName),
 	}
 }
 
@@ -425,27 +425,27 @@ func makeFloat32s(opts ...func(*option[float32])) Column {
 	)
 }
 
-// float32Writer represents a read-write accessor for float32
-type float32Writer struct {
-	numericReader[float32]
+// rwFloat32 represents a read-write cursor for float32
+type rwFloat32 struct {
+	rdNumber[float32]
 	writer *commit.Buffer
 }
 
 // Set sets the value at the current transaction cursor
-func (s float32Writer) Set(value float32) {
+func (s rwFloat32) Set(value float32) {
 	s.writer.PutFloat32(commit.Put, s.txn.cursor, value)
 }
 
 // Merge atomically merges a delta to the value at the current transaction cursor
-func (s float32Writer) Merge(delta float32) {
+func (s rwFloat32) Merge(delta float32) {
 	s.writer.PutFloat32(commit.Merge, s.txn.cursor, delta)
 }
 
 // Float32 returns a read-write accessor for float32 column
-func (txn *Txn) Float32(columnName string) float32Writer {
-	return float32Writer{
-		numericReader: numericReaderFor[float32](txn, columnName),
-		writer:        txn.bufferFor(columnName),
+func (txn *Txn) Float32(columnName string) rwFloat32 {
+	return rwFloat32{
+		rdNumber: readNumberOf[float32](txn, columnName),
+		writer:   txn.bufferFor(columnName),
 	}
 }
 
@@ -474,27 +474,27 @@ func makeFloat64s(opts ...func(*option[float64])) Column {
 	)
 }
 
-// float64Writer represents a read-write accessor for float64
-type float64Writer struct {
-	numericReader[float64]
+// rwFloat64 represents a read-write cursor for float64
+type rwFloat64 struct {
+	rdNumber[float64]
 	writer *commit.Buffer
 }
 
 // Set sets the value at the current transaction cursor
-func (s float64Writer) Set(value float64) {
+func (s rwFloat64) Set(value float64) {
 	s.writer.PutFloat64(commit.Put, s.txn.cursor, value)
 }
 
 // Merge atomically merges a delta to the value at the current transaction cursor
-func (s float64Writer) Merge(delta float64) {
+func (s rwFloat64) Merge(delta float64) {
 	s.writer.PutFloat64(commit.Merge, s.txn.cursor, delta)
 }
 
 // Float64 returns a read-write accessor for float64 column
-func (txn *Txn) Float64(columnName string) float64Writer {
-	return float64Writer{
-		numericReader: numericReaderFor[float64](txn, columnName),
-		writer:        txn.bufferFor(columnName),
+func (txn *Txn) Float64(columnName string) rwFloat64 {
+	return rwFloat64{
+		rdNumber: readNumberOf[float64](txn, columnName),
+		writer:   txn.bufferFor(columnName),
 	}
 }
 

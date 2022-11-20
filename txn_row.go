@@ -3,6 +3,10 @@
 
 package column
 
+import (
+	"encoding"
+)
+
 // Row represents a cursor at a particular row offest in the transaction.
 type Row struct {
 	txn *Txn
@@ -177,7 +181,7 @@ func (r Row) SetKey(key string) {
 
 // String loads a string value at a particular column
 func (r Row) String(columnName string) (v string, ok bool) {
-	return textReaderFor[*columnString](r.txn, columnName).Get()
+	return readStringOf[*columnString](r.txn, columnName).Get()
 }
 
 // SetString stores a string value at a particular column
@@ -192,7 +196,7 @@ func (r Row) MergeString(columnName string, value string) {
 
 // Enum loads a string value at a particular column
 func (r Row) Enum(columnName string) (v string, ok bool) {
-	return textReaderFor[*columnEnum](r.txn, columnName).Get()
+	return readStringOf[*columnEnum](r.txn, columnName).Get()
 }
 
 // SetEnum stores a string value at a particular column
@@ -200,11 +204,28 @@ func (r Row) SetEnum(columnName string, value string) {
 	r.txn.Enum(columnName).Set(value)
 }
 
+// --------------------------- Records ----------------------------
+
+// Record loads a record value at a particular column
+func (r Row) Record(columnName string) (any, bool) {
+	return readRecordOf(r.txn, columnName).Get()
+}
+
+// SetRecord stores a record value at a particular column
+func (r Row) SetRecord(columnName string, value encoding.BinaryMarshaler) error {
+	return r.txn.Record(columnName).Set(value)
+}
+
+// MergeRecord merges a record value at a particular column
+func (r Row) MergeRecord(columnName string, delta encoding.BinaryMarshaler) error {
+	return r.txn.Record(columnName).Merge(delta)
+}
+
 // --------------------------- Others ----------------------------
 
 // Bool loads a bool value at a particular column
 func (r Row) Bool(columnName string) bool {
-	return boolReaderFor(r.txn, columnName).Get()
+	return readBoolOf(r.txn, columnName).Get()
 }
 
 // SetBool stores a bool value at a particular column
@@ -214,7 +235,7 @@ func (r Row) SetBool(columnName string, value bool) {
 
 // Any loads a bool value at a particular column
 func (r Row) Any(columnName string) (any, bool) {
-	return anyReaderFor(r.txn, columnName).Get()
+	return readAnyOf(r.txn, columnName).Get()
 }
 
 // SetAny stores a bool value at a particular column

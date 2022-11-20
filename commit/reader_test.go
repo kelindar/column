@@ -294,3 +294,22 @@ func TestMergeString(t *testing.T) {
 	assert.True(t, r.Next())
 	assert.Equal(t, Skip, r.Type)
 }
+
+func TestMergeBytes(t *testing.T) {
+	buf := NewBuffer(0)
+	buf.PutBytes(Merge, 10, []byte("A"))
+	assert.Equal(t, []byte{0x53, 0x0, 0x1, 0x41, 0xa}, buf.buffer)
+
+	// Swap the value, this should also change the type
+	r := NewReader()
+	r.Seek(buf)
+	assert.True(t, r.Next())
+	assert.Equal(t, Merge, r.Type)
+	r.SwapBytes([]byte("B"))
+
+	// Once swapped, op type should be changed to "Put"
+	r.Seek(buf)
+	assert.Equal(t, []byte{0x54, 0x0, 0x1, 0x41, 0xa, 0x52, 0x0, 0x1, 0x42, 0x0}, buf.buffer)
+	assert.True(t, r.Next())
+	assert.Equal(t, Skip, r.Type)
+}

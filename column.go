@@ -1,8 +1,6 @@
 // Copyright (c) Roman Atachiants and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
-//go:generate go run ./codegen/main.go
-
 package column
 
 import (
@@ -12,7 +10,6 @@ import (
 
 	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
-	"github.com/kelindar/simd"
 )
 
 // columnType represents a type of a column.
@@ -119,17 +116,13 @@ func ForKind(kind reflect.Kind) (Column, error) {
 
 // --------------------------- Generic Options ----------------------------
 
-type optionType interface {
-	simd.Number | ~string
-}
-
 // optInt represents options for variouos columns.
-type option[T optionType] struct {
+type option[T any] struct {
 	Merge func(value, delta T) T
 }
 
 // configure applies options
-func configure[T optionType](opts []func(*option[T]), dst option[T]) option[T] {
+func configure[T any](opts []func(*option[T]), dst option[T]) option[T] {
 	for _, fn := range opts {
 		fn(&dst)
 	}
@@ -138,7 +131,7 @@ func configure[T optionType](opts []func(*option[T]), dst option[T]) option[T] {
 
 // WithMerge sets an optional merge function that allows you to merge a delta value to
 // an existing value, atomically. The operation is performed transactionally.
-func WithMerge[T optionType](fn func(value, delta T) T) func(*option[T]) {
+func WithMerge[T any](fn func(value, delta T) T) func(*option[T]) {
 	return func(v *option[T]) {
 		v.Merge = fn
 	}
@@ -220,48 +213,65 @@ func (c *column) Value(idx uint32) (v interface{}, ok bool) {
 	return
 }
 
-// --------------------------- Accessor ----------------------------
+// --------------------------- Accessor  ----------------------------
 
-// anyReader represents a read-only accessor for any value
-type anyReader struct {
+// Reader represents a generic reader
+type reader[T any] struct {
 	cursor *uint32
-	reader Column
+	reader T
 }
 
-// Get loads the value at the current transaction cursor
-func (s anyReader) Get() (any, bool) {
-	return s.reader.Value(*s.cursor)
-}
-
-// anyReaderFor creates a new any reader
-func anyReaderFor(txn *Txn, columnName string) anyReader {
+// readerFor creates a read-only accessor
+func readerFor[T any](txn *Txn, columnName string) reader[T] {
 	column, ok := txn.columnAt(columnName)
 	if !ok {
 		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
 	}
 
-	return anyReader{
+	target, ok := column.Column.(T)
+	if !ok {
+		panic(fmt.Errorf("column: column '%s' is not of specified type", columnName))
+	}
+
+	return reader[T]{
 		cursor: &txn.cursor,
-		reader: column.Column,
+		reader: target,
 	}
 }
 
-// anyWriter represents read-write accessor for any column type
-type anyWriter struct {
-	anyReader
+// --------------------------- Any Writer ----------------------------
+
+// rwAny represents read-write accessor for any column type
+type rwAny struct {
+	rdAny
 	writer *commit.Buffer
 }
 
 // Set sets the value at the current transaction cursor
-func (s anyWriter) Set(value any) {
+func (s rwAny) Set(value any) {
 	s.writer.PutAny(commit.Put, *s.cursor, value)
 }
 
+// --------------------------- Any Reader ----------------------------
+
+// rdAny represents a read-only accessor for any value
+type rdAny reader[Column]
+
+// Get loads the value at the current transaction cursor
+func (s rdAny) Get() (any, bool) {
+	return s.reader.Value(*s.cursor)
+}
+
+// readAnyOf creates a new any reader
+func readAnyOf(txn *Txn, columnName string) rdAny {
+	return rdAny(readerFor[Column](txn, columnName))
+}
+
 // Any returns a column accessor
-func (txn *Txn) Any(columnName string) anyWriter {
-	return anyWriter{
-		anyReader: anyReaderFor(txn, columnName),
-		writer:    txn.bufferFor(columnName),
+func (txn *Txn) Any(columnName string) rwAny {
+	return rwAny{
+		rdAny:  readAnyOf(txn, columnName),
+		writer: txn.bufferFor(columnName),
 	}
 }
 

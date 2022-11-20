@@ -11,7 +11,6 @@ require (
 	github.com/klauspost/compress v1.15.11
 	github.com/stretchr/testify v1.8.0
 	github.com/zeebo/xxh3 v1.0.2
-	github.com/imdario/mergo v0.3.13
 )
 
 require (
