@@ -4,8 +4,11 @@
 package column
 
 import (
+	"strings"
 	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
+
+	"github.com/tidwall/btree"
 )
 
 // --------------------------- Reader ---------------------------
@@ -119,14 +122,14 @@ func newTrigger(indexName, columnName string, callback func(r Reader)) *column {
 	})
 }
 
-// Grow grows the size of the column until we have enough to store
-func (c *columnTrigger) Grow(idx uint32) {
-	// Noop
-}
-
 // Column returns the target name of the column on which this index should apply.
 func (c *columnTrigger) Column() string {
 	return c.name
+}
+
+// Grow grows the size of the column until we have enough to store
+func (c *columnTrigger) Grow(idx uint32) {
+	// Noop
 }
 
 // Apply applies a set of operations to the column.
@@ -156,4 +159,84 @@ func (c *columnTrigger) Index(chunk commit.Chunk) bitmap.Bitmap {
 // Snapshot writes the entire column into the specified destination buffer
 func (c *columnTrigger) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	// Noop
+}
+
+// ----------------------- Sorted Index --------------------------
+
+// SortIndexItem represents an offset sorted in a generic BTree
+type SortIndexItem struct {
+    Key    string
+    Value  uint32
+}
+
+// columnSortIndex implements a constantly sorted column via BTree
+type columnSortIndex struct {
+	btree  *btree.BTreeG[SortIndexItem]   // 1 constantly sorted data structure
+	// TODO - look into a list of btree, 1 per chunk
+	name   string         		     // The name of the target column
+}
+
+// newSortIndex creates a new bitmap index column.
+func newSortIndex(indexName, columnName string) *column {
+	byKeys := func (a, b SortIndexItem) bool {
+		return a.Key < b.Key
+	}
+	return columnFor(indexName, &columnSortIndex{
+		btree: btree.NewBTreeG[SortIndexItem](byKeys),
+		name:  columnName,
+	})
+}
+
+// Grow grows the size of the column until we have enough to store
+func (c *columnSortIndex) Grow(idx uint32) {
+	return
+}
+
+// Column returns the target name of the column on which this index should apply.
+func (c *columnSortIndex) Column() string {
+	return c.name
+}
+
+
+// Apply applies a set of operations to the column.
+func (c *columnSortIndex) Apply(chunk commit.Chunk, r *commit.Reader) {
+
+	// Index can only be updated based on the final stored value, so we can only work
+	// with put, merge, & delete operations here.
+
+	// TODO - account for updates to target column
+	// will require Delete @ old key + Set @ new key
+	for r.Next() {
+		sit := SortIndexItem{
+		    Key: strings.Clone(r.String()), // alloc required
+		    Value: uint32(r.Offset),
+		}
+		switch r.Type {
+		case commit.Put, commit.Merge:
+			c.btree.Set(sit)
+		case commit.Delete:
+			c.btree.Delete(sit)
+		}
+	}
+}
+
+
+// Value retrieves a value at a specified index.
+func (c *columnSortIndex) Value(idx uint32) (v interface{}, ok bool) {
+	return nil, false
+}
+
+// Contains checks whether the column has a value at a specified index.
+func (c *columnSortIndex) Contains(idx uint32) bool {
+	return false
+}
+
+// Index returns the fill list for the column
+func (c *columnSortIndex) Index(chunk commit.Chunk) bitmap.Bitmap {
+	return nil
+}
+
+// Snapshot writes the entire column into the specified destination buffer
+func (c *columnSortIndex) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
+	// No op
 }

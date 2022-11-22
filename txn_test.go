@@ -259,6 +259,69 @@ func TestIndexed(t *testing.T) {
 	})
 }
 
+func TestSortIndex(t *testing.T) {
+	c := NewCollection()
+	c.CreateColumn("col1", ForString())
+	c.CreateSortIndex("sortedCol1", "col1")
+
+	c.Insert(func (r Row) error {
+		r.SetString("col1", "bob")
+		return nil
+	})
+	c.Insert(func (r Row) error {
+		r.SetString("col1", "carter")
+		return nil
+	})
+	c.Insert(func (r Row) error {
+		r.SetString("col1", "alice")
+		return nil
+	})
+
+	var res []string
+	c.Query(func (txn *Txn) error {
+		col1 := txn.String("col1")
+		txn.SortedRange("sortedCol1", func (i uint32) {
+			name, _ := col1.Get()
+			res = append(res, name)
+		})
+		return nil
+	})
+
+	assert.Equal(t, "alice", res[0])
+	assert.Equal(t, "bob", res[1])
+	assert.Equal(t, "carter", res[2])
+}
+
+func TestSortIndexLoad(t *testing.T) {
+
+	players := loadPlayers(500)
+	players.CreateSortIndex("sorted_names", "name")
+
+	checkN := 0
+	checks := map[int]string{
+		4: "Buckner Frazier",
+		16: "Marla Todd",
+		30: "Shelly Kirk",
+		35: "out of range",
+	}
+
+	players.Query(func (txn *Txn) error {
+		txn = txn.With("human", "mage")
+		name := txn.String("name")
+		txn.SortedRange("sorted_names", func (i uint32) {
+			n, _ := name.Get()
+			if res, exists := checks[checkN]; exists {
+				assert.Equal(t, res, n)
+			}
+			checkN++
+		})
+		return nil
+	})
+
+}
+
+
+
 func TestDeleteAll(t *testing.T) {
 	players := loadPlayers(500)
 	assert.Equal(t, 500, players.Count())

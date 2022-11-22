@@ -388,6 +388,35 @@ func (txn *Txn) Range(fn func(idx uint32)) error {
 	return nil
 }
 
+// SortedRange ascends through a given SortedIndex and returns each offset
+// remaining in the transaction's index
+func (txn *Txn) SortedRange(sortIndexName string, fn func(idx uint32)) error {
+	txn.initialize()
+
+	sortIndex, ok := txn.owner.cols.Load(sortIndexName)
+	if !ok {
+		return fmt.Errorf("column: no sorted index named '%v'", sortIndexName)
+	}
+
+	// TODO - better solution for linear txn index check
+	sortIndexCol, _ := sortIndex.Column.(*columnSortIndex)
+	sortIndexCol.btree.Scan(func (item SortIndexItem) bool {
+		// For each btree key, check if the offset is still in
+		// the txn's index & return if true
+		txn.rangeRead(func (chunk commit.Chunk, index bitmap.Bitmap) {
+			offset := chunk.Min()
+			index.Range(func(x uint32) {
+				if item.Value == offset + x {
+					txn.cursor = item.Value
+					fn(item.Value)
+				}
+			})
+		})
+		return true
+	})
+	return nil
+}
+
 // DeleteAll marks all of the items currently selected by this transaction for deletion. The
 // actual delete will take place once the transaction is committed.
 func (txn *Txn) DeleteAll() {

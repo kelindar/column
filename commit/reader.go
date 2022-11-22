@@ -39,7 +39,7 @@ func (r *Reader) Rewind() {
 	r.Offset = r.start
 }
 
-// Use sets the buffer and resets the reader.
+// use sets the buffer and resets the reader.
 func (r *Reader) use(buffer []byte) {
 	r.buffer = buffer
 	r.headString = 0

@@ -3,6 +3,7 @@ module github.com/kelindar/column
 go 1.19
 
 require (
+	github.com/imdario/mergo v0.3.13
 	github.com/kelindar/bitmap v1.4.1
 	github.com/kelindar/intmap v1.1.0
 	github.com/kelindar/iostream v1.3.0
@@ -12,6 +13,8 @@ require (
 	github.com/stretchr/testify v1.8.1
 	github.com/zeebo/xxh3 v1.0.2
 )
+
+require github.com/tidwall/btree v1.5.2 // indirect
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
