@@ -96,11 +96,15 @@ func (r Row) TTL() (time.Duration, bool) {
 	return 0, false
 }
 
-// SetTTL sets a time-to-live for a row
-func (r Row) SetTTL(ttl time.Duration) {
+// SetTTL sets a time-to-live for a row and returns the expiration time
+func (r Row) SetTTL(ttl time.Duration) (until time.Time) {
+	var nanos int64
 	if ttl > 0 {
-		r.SetInt64(expireColumn, time.Now().Add(ttl).UnixNano())
-	} else {
-		r.SetInt64(expireColumn, 0)
+		until = time.Now().Add(ttl)
+		nanos = until.UnixNano()
 	}
+
+	// Otherwise, return zero time (never expires)
+	r.SetInt64(expireColumn, nanos)
+	return
 }

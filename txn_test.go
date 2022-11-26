@@ -16,13 +16,13 @@ func TestFind(t *testing.T) {
 	players := loadPlayers(500)
 	count := 0
 	players.Query(func(txn *Txn) error {
-		names := txn.Enum("name")
+		names := txn.String("name")
 
 		txn.WithString("race", func(v string) bool {
 			return v == "human"
 		}).WithString("class", func(v string) bool {
 			return v == "mage"
-		}).WithUint("age", func(v uint64) bool {
+		}).WithInt("age", func(v int64) bool {
 			return v >= 30
 		}).Range(func(index uint32) {
 			count++
@@ -206,7 +206,7 @@ func TestIndexed(t *testing.T) {
 
 	// Check the index value
 	players.Query(func(txn *Txn) error {
-		age := txn.Float64("age")
+		age := txn.Int("age")
 		old := txn.Bool("old")
 		class := txn.Enum("class")
 		txn.With("human", "mage", "old").
@@ -364,10 +364,11 @@ func TestCountTwice(t *testing.T) {
 
 	model.Query(func(txn *Txn) error {
 		for i := 0; i < 20000; i++ {
-			_, err := txn.InsertObject(map[string]interface{}{
-				"string": fmt.Sprint(i),
+			_, err := txn.Insert(func(r Row) error {
+				return r.SetMany(map[string]any{
+					"string": fmt.Sprint(i),
+				})
 			})
-
 			assert.NoError(t, err)
 		}
 		return nil
@@ -398,8 +399,10 @@ func TestUninitializedSet(t *testing.T) {
 
 	assert.NoError(t, c.Query(func(txn *Txn) error {
 		for i := 0; i < 20000; i++ {
-			txn.InsertObject(map[string]interface{}{
-				"col1": fmt.Sprint(i % 3),
+			txn.Insert(func(r Row) error {
+				return r.SetMany(map[string]any{
+					"col1": fmt.Sprint(i % 3),
+				})
 			})
 		}
 		return nil
@@ -426,10 +429,13 @@ func TestUninitializedSet(t *testing.T) {
 func TestUpdateAt(t *testing.T) {
 	c := NewCollection()
 	c.CreateColumn("col1", ForString())
-	index := c.InsertObject(map[string]interface{}{
-		"col1": "hello",
+	index, err := c.Insert(func(r Row) error {
+		return r.SetMany(map[string]any{
+			"col1": "hello",
+		})
 	})
 
+	assert.NoError(t, err)
 	assert.NoError(t, c.QueryAt(index, func(r Row) error {
 		r.SetString("col1", "hi")
 		return nil
@@ -696,14 +702,16 @@ func TestUnion(t *testing.T) {
 	c.CreateIndex("d_a_2", "d_a", func(r Reader) bool { return r.String() == "2" })
 	c.CreateIndex("d_a_3", "d_a", func(r Reader) bool { return r.String() == "on99" })
 
-	c.InsertObject(map[string]interface{}{
-		"d_a": "1",
+	c.Insert(func(r Row) error {
+		return r.SetMany(map[string]any{"d_a": "1"})
 	})
-	c.InsertObject(map[string]interface{}{
-		"d_a": "2",
+
+	c.Insert(func(r Row) error {
+		return r.SetMany(map[string]any{"d_a": "2"})
 	})
-	c.InsertObject(map[string]interface{}{
-		"d_a": "on99",
+
+	c.Insert(func(r Row) error {
+		return r.SetMany(map[string]any{"d_a": "on99"})
 	})
 
 	c.Query(func(txn *Txn) error {
@@ -739,17 +747,25 @@ func TestWithUnion(t *testing.T) {
 	c.CreateIndex("testerB_5", "testerB", func(r Reader) bool { return r.String() == "5" })
 	c.CreateIndex("testerB_6", "testerB", func(r Reader) bool { return r.String() == "6" })
 
-	c.InsertObject(map[string]interface{}{
-		"tester": "1",
-		"testerB": "4",
+	c.Insert(func(r Row) error {
+		return r.SetMany(map[string]any{
+			"tester":  "1",
+			"testerB": "4",
+		})
 	})
-	c.InsertObject(map[string]interface{}{
-		"tester": "2",
-		"testerB": "5",
+
+	c.Insert(func(r Row) error {
+		return r.SetMany(map[string]any{
+			"tester":  "2",
+			"testerB": "5",
+		})
 	})
-	c.InsertObject(map[string]interface{}{
-		"tester": "3",
-		"testerB": "6",
+
+	c.Insert(func(r Row) error {
+		return r.SetMany(map[string]any{
+			"tester":  "3",
+			"testerB": "6",
+		})
 	})
 
 	// account for normal use-case
@@ -770,7 +786,7 @@ func TestWithUnion(t *testing.T) {
 		return nil
 	})
 
-	c.Query(func (txn *Txn) error {
+	c.Query(func(txn *Txn) error {
 		txn.Without("tester_1", "testerB_5")
 		txn.WithUnion("tester_2", "tester_1", "tester_3")
 
@@ -782,24 +798,24 @@ func TestWithUnion(t *testing.T) {
 func TestWithUnionPlayers(t *testing.T) {
 	trueCount := 0
 	players := loadPlayers(100000)
-	
-	players.Query(func (txn *Txn) error {
+
+	players.Query(func(txn *Txn) error {
 		ageCol := txn.Any("age")
 		raceCol := txn.Any("race")
 		classCol := txn.Any("class")
 
-		return txn.Range(func (i uint32) {
+		return txn.Range(func(i uint32) {
 			age, _ := ageCol.Get()
 			race, _ := raceCol.Get()
 			class, _ := classCol.Get()
 
-			if race == "dwarf" && (age.(float64) >= 30.0 || class == "mage") {
+			if race == "dwarf" && (age.(int) >= 30.0 || class == "mage") {
 				trueCount++
 			}
 		})
 	})
 
-	players.Query(func (txn *Txn) error {
+	players.Query(func(txn *Txn) error {
 		txn.With("dwarf")
 		txn.WithUnion("mage", "old")
 
@@ -807,20 +823,20 @@ func TestWithUnionPlayers(t *testing.T) {
 		return nil
 	})
 
-	players.Query(func (txn *Txn) error {
+	players.Query(func(txn *Txn) error {
 		txn.With("dwarf", "mage", "old")
 		assert.True(t, txn.Count() < trueCount)
 		return nil
 	})
 
-	players.Query(func (txn *Txn) error {
+	players.Query(func(txn *Txn) error {
 		txn.Union("dwarf", "mage", "old")
 		assert.True(t, txn.Count() > trueCount)
 		return nil
 	})
 
 	// dwarf & elf cancel out
-	players.Query(func (txn *Txn) error {
+	players.Query(func(txn *Txn) error {
 		txn.With("dwarf")
 		txn.WithUnion("mage", "old", "elf")
 		assert.Equal(t, trueCount, txn.Count())
@@ -897,5 +913,26 @@ func TestMaxBalance(t *testing.T) {
 		assert.Equal(t, float64(3978.83), max)
 		assert.True(t, ok)
 		return nil
+	})
+}
+
+func TestSetManyErr(t *testing.T) {
+	players := loadPlayers(500)
+	t.Run("invalid", func(t *testing.T) {
+		_, err := players.Insert(func(r Row) error {
+			return r.SetMany(map[string]any{
+				"invalid": 1,
+			})
+		})
+		assert.Error(t, err)
+	})
+
+	t.Run("write", func(t *testing.T) {
+		_, err := players.Insert(func(r Row) error {
+			return r.SetMany(map[string]any{
+				"age": complex64(1),
+			})
+		})
+		assert.Error(t, err)
 	})
 }

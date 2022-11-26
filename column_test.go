@@ -232,7 +232,10 @@ func TestForString(t *testing.T) {
 
 	data := []string{"a", "b", "c", "d"}
 	for i, d := range data {
-		coll.InsertObject(map[string]interface{}{"id": i, "data": d})
+		_, err := coll.Insert(func(r Row) error {
+			return r.SetMany(map[string]any{"id": i, "data": d})
+		})
+		assert.NoError(t, err)
 	}
 
 	coll.Query(func(txn *Txn) error {
@@ -265,13 +268,13 @@ func TestAtKey(t *testing.T) {
 	}))
 
 	assert.NoError(t, players.QueryKey(testKey, func(r Row) error {
-		r.SetEnum("name", "Roman")
+		r.SetString("name", "Roman")
 		return nil
 	}))
 
 	// Read back and assert
 	assertion := func(r Row) error {
-		name, _ := r.Enum("name")
+		name, _ := r.String("name")
 		race, _ := r.Enum("race")
 		assert.Equal(t, "Roman", name)
 		assert.Equal(t, "elf", race)
@@ -631,6 +634,7 @@ func TestRecord_Errors(t *testing.T) {
 		assert.False(t, ok)
 		return nil
 	})
+
 }
 
 func TestRecordMerge_ErrDecode(t *testing.T) {

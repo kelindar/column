@@ -5,12 +5,12 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"os"
 	"time"
 
 	"github.com/kelindar/column"
+	"github.com/kelindar/column/fixtures"
 )
 
 func main() {
@@ -85,10 +85,10 @@ func main() {
 	measure("update", "age of mages", func() {
 		updates := 0
 		players.Query(func(txn *column.Txn) error {
-			age := txn.Float64("age")
+			age := txn.Int("age")
 			return txn.With("mage").Range(func(idx uint32) {
 				updates++
-				age.Set(99.0)
+				age.Set(99)
 			})
 		})
 		fmt.Printf("-> updated %v rows\n", updates)
@@ -102,9 +102,9 @@ func createCollection(out *column.Collection, amount int) *column.Collection {
 	out.CreateColumn("active", column.ForBool())
 	out.CreateColumn("class", column.ForEnum())
 	out.CreateColumn("race", column.ForEnum())
-	out.CreateColumn("age", column.ForFloat64())
-	out.CreateColumn("hp", column.ForFloat64())
-	out.CreateColumn("mp", column.ForFloat64())
+	out.CreateColumn("age", column.ForInt())
+	out.CreateColumn("hp", column.ForInt())
+	out.CreateColumn("mp", column.ForInt())
 	out.CreateColumn("balance", column.ForFloat64())
 	out.CreateColumn("gender", column.ForEnum())
 	out.CreateColumn("guild", column.ForEnum())
@@ -129,29 +129,36 @@ func createCollection(out *column.Collection, amount int) *column.Collection {
 		return r.String() == "female"
 	})
 
-	// Load the 500 rows from JSON
-	b, err := os.ReadFile("../../fixtures/players.json")
-	if err != nil {
-		panic(err)
-	}
-
-	// Unmarshal the items
-	var data []map[string]interface{}
-	if err := json.Unmarshal(b, &data); err != nil {
-		panic(err)
-	}
-
 	// Load the data in
+	data := fixtures.Players()
 	for i := 0; i < amount/len(data); i++ {
-		out.Query(func(txn *column.Txn) error {
-			for _, p := range data {
-				txn.InsertObject(p)
-			}
-			return nil
-		})
+		insertPlayers(out, data)
 	}
 
 	return out
+}
+
+// insertPlayers inserts players
+func insertPlayers(dst *column.Collection, data []fixtures.Player) error {
+	return dst.Query(func(txn *column.Txn) error {
+		for _, v := range data {
+			txn.Insert(func(r column.Row) error {
+				r.SetEnum("serial", v.Serial)
+				r.SetEnum("name", v.Name)
+				r.SetBool("active", v.Active)
+				r.SetEnum("class", v.Class)
+				r.SetEnum("race", v.Race)
+				r.SetInt("age", v.Age)
+				r.SetInt("hp", v.Hp)
+				r.SetInt("mp", v.Mp)
+				r.SetFloat64("balance", v.Balance)
+				r.SetEnum("gender", v.Gender)
+				r.SetEnum("guild", v.Guild)
+				return nil
+			})
+		}
+		return nil
+	})
 }
 
 // measure runs a function and measures it

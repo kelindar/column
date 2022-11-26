@@ -5,6 +5,9 @@ package column
 
 import (
 	"encoding"
+	"fmt"
+
+	"github.com/kelindar/column/commit"
 )
 
 // Row represents a cursor at a particular row offest in the transaction.
@@ -219,6 +222,22 @@ func (r Row) SetRecord(columnName string, value encoding.BinaryMarshaler) error 
 // MergeRecord merges a record value at a particular column
 func (r Row) MergeRecord(columnName string, delta encoding.BinaryMarshaler) error {
 	return r.txn.Record(columnName).Merge(delta)
+}
+
+// --------------------------- Map ----------------------------
+
+// SetMany stores a set of columns for a given map
+func (r Row) SetMany(value map[string]any) error {
+	for k, v := range value {
+		if _, ok := r.txn.columnAt(k); !ok {
+			return fmt.Errorf("unable to set '%s', no such column", k)
+		}
+
+		if err := r.txn.bufferFor(k).PutAny(commit.Put, r.txn.cursor, v); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // --------------------------- Others ----------------------------

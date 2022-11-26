@@ -40,53 +40,44 @@ The general idea is to leverage cache-friendly ways of organizing data in [struc
 - [Expiring Values](#expiring-values)
 - [Transaction Commit and Rollback](#transaction-commit-and-rollback)
 - [Using Primary Keys](#using-primary-keys)
+- [Storing Binary Records](#storing-binary-records)
 - [Streaming Changes](#streaming-changes)
 - [Snapshot and Restore](#snapshot-and-restore)
-- [Complete Example](#complete-example)
+- [Examples](#examples)
 - [Benchmarks](#benchmarks)
 - [Contributing](#contributing)
 
 ## Collection and Columns
 
-In order to get data into the store, you'll need to first create a `Collection` by calling `NewCollection()` method. Each collection requires a schema, which can be either specified manually by calling `CreateColumn()` multiple times or automatically inferred from an object by calling `CreateColumnsOf()` function.
-
-In the example below we're loading some `JSON` data by using `json.Unmarshal()` and auto-creating colums based on the first element on the loaded slice. After this is done, we can then load our data by inserting the objects one by one into the collection. This is accomplished by calling `InsertObject()` method on the collection itself repeatedly.
+In order to get data into the store, you'll need to first create a `Collection` by calling `NewCollection()` method. Each collection requires a schema, which needs to be specified by calling `CreateColumn()` multiple times or automatically inferred from an object by calling `CreateColumnsOf()` function. In the example below we create a new collection with several columns.
 
 ```go
-data := loadFromJson("players.json")
-
-// Create a new columnar collection
-players := column.NewCollection()
-players.CreateColumnsOf(data[0])
-
-// Insert every item from our loaded data
-for _, v := range data {
-	players.InsertObject(v)
-}
-```
-
-Now, let's say we only want specific columns to be added. We can do this by calling `CreateColumn()` method on the collection manually to create the required columns.
-
-```go
-// Create a new columnar collection with pre-defined columns
+// Create a new collection with some columns
 players := column.NewCollection()
 players.CreateColumn("name", column.ForString())
 players.CreateColumn("class", column.ForString())
 players.CreateColumn("balance", column.ForFloat64())
 players.CreateColumn("age", column.ForInt16())
-
-// Insert every item from our loaded data
-for _, v := range loadFromJson("players.json") {
-	players.InsertObject(v)
-}
 ```
 
-While the previous example demonstrated how to insert many objects, it was doing it one by one and is rather inefficient. This is due to the fact that each `InsertObject()` call directly on the collection initiates a separate transacion and there's a small performance cost associated with it. If you want to do a bulk insert and insert many values, faster, that can be done by calling `Insert()` on a transaction, as demonstrated in the example below. Note that the only difference is instantiating a transaction by calling the `Query()` method and calling the `txn.Insert()` method on the transaction instead the one on the collection.
+Now that we have created a collection, we can insert a single record by using `Insert()` method on the collection. In this example we're inserting a single row and manually specifying values. Note that this function returns an `index` that indicates the row index for the inserted row.
+
+```go
+index, err := players.Insert(func(r column.Row) error {
+	r.SetString("name", "merlin")
+	r.SetString("class", "mage")
+	r.SetFloat64("balance", 99.95)
+	r.SetInt16("age", 107)
+	return nil
+})
+```
+
+While the previous example demonstrated how to insert a single row, inserting multiple rows this way is rather inefficient. This is due to the fact that each `Insert()` call directly on the collection initiates a separate transacion and there's a small performance cost associated with it. If you want to do a bulk insert and insert many values, faster, that can be done by calling `Insert()` on a transaction, as demonstrated in the example below. Note that the only difference is instantiating a transaction by calling the `Query()` method and calling the `txn.Insert()` method on the transaction instead the one on the collection.
 
 ```go
 players.Query(func(txn *column.Txn) error {
-	for _, v := range loadFromJson("players.json") {
-		txn.InsertObject(v)
+	for _, v := range myRawData {
+		txn.Insert(...)
 	}
 	return nil // Commit
 })
@@ -356,6 +347,49 @@ players.QueryKey("merlin", func(r column.Row) error {
 })
 ```
 
+## Storing Binary Records
+
+If you find yourself in need of encoding a more complex structure as a single column, you may do so by using `column.ForRecord()` function. This allows you to specify a `BinaryMarshaler` / `BinaryUnmarshaler` type that will get automatically encoded as a single column. In th example below we are creating a `Location` type that implements the required methods.
+
+```go
+type Location struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+}
+
+func (l Location) MarshalBinary() ([]byte, error) {
+	return json.Marshal(l)
+}
+
+func (l *Location) UnmarshalBinary(b []byte) error {
+	return json.Unmarshal(b, l)
+}
+```
+
+Now that we have a record implementation, we can create a column for this struct by using `ForRecord()` function as shown below.
+
+```go
+players.CreateColumn("location", ForRecord(func() *Location {
+	return new(Location)
+}, nil)) // no merging
+```
+
+In order to manipulate the record, we can use the appropriate `Record()`, `SetRecord()` methods of the `Row`, similarly to other column types.
+
+```go
+// Insert a new location
+idx, _ := players.Insert(func(r Row) error {
+	r.SetRecord("location", &Location{X: 1, Y: 2})
+	return nil
+})
+
+// Read the location back
+players.QueryAt(idx, func(r Row) error {
+	location, ok := r.Record("location")
+	return nil
+})
+```
+
 ## Streaming Changes
 
 This library also supports streaming out all transaction commits consistently, as they happen. This allows you to implement your own change data capture (CDC) listeners, stream data into kafka or into a remote database for durability. In order to enable it, you can simply provide an implementation of a `commit.Logger` interface during the creation of the collection.
@@ -429,59 +463,9 @@ if err != nil {
 err := players.Restore(src)
 ```
 
-## Complete Example
+## Examples
 
-```go
-func main(){
-
-	// Create a new columnar collection
-	players := column.NewCollection()
-	players.CreateColumn("serial", column.ForKey())
-	players.CreateColumn("name", column.ForEnum())
-	players.CreateColumn("active", column.ForBool())
-	players.CreateColumn("class", column.ForEnum())
-	players.CreateColumn("race", column.ForEnum())
-	players.CreateColumn("age", column.ForFloat64())
-	players.CreateColumn("hp", column.ForFloat64())
-	players.CreateColumn("mp", column.ForFloat64())
-	players.CreateColumn("balance", column.ForFloat64())
-	players.CreateColumn("gender", column.ForEnum())
-	players.CreateColumn("guild", column.ForEnum())
-
-	// index on humans
-	players.CreateIndex("human", "race", func(r column.Reader) bool {
-		return r.String() == "human"
-	})
-
-	// index for mages
-	players.CreateIndex("mage", "class", func(r column.Reader) bool {
-		return r.String() == "mage"
-	})
-
-	// index for old
-	players.CreateIndex("old", "age", func(r column.Reader) bool {
-		return r.Float() >= 30
-	})
-
-	// Load the items into the collection
-	loaded := loadFixture("players.json")
-	players.Query(func(txn *column.Txn) error {
-		for _, v := range loaded {
-			txn.InsertObject(v)
-		}
-		return nil
-	})
-
-	// Run an indexed query
-	players.Query(func(txn *column.Txn) error {
-		name := txn.Enum("name")
-		return txn.With("human", "mage", "old").Range(func(idx uint32) {
-			value, _ := name.Get()
-			println("old mage, human:", value)
-		})
-	})
-}
-```
+Multiple complete usage examples of this library can be found in the [examples](https://github.com/kelindar/column/tree/main/examples) directory in this repository.
 
 ## Benchmarks
 

@@ -6,7 +6,6 @@ package commit
 import (
 	"math/rand"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -176,10 +175,8 @@ func TestReadSwap(t *testing.T) {
 }
 
 func TestWriteUnsupported(t *testing.T) {
-	assert.Panics(t, func() {
-		buf := NewBuffer(0)
-		buf.PutAny(Put, 10, time.Time{})
-	})
+	buf := NewBuffer(0)
+	assert.Error(t, buf.PutAny(Put, 10, complex64(1)))
 }
 
 func TestReaderIface(t *testing.T) {

@@ -208,7 +208,7 @@ func readNumberOf[T simd.Number](txn *Txn, columnName string) rdNumber[T] {
 
 	reader, ok := column.Column.(*numericColumn[T])
 	if !ok {
-		panic(fmt.Errorf("column: column '%s' is not of type %T", columnName, float64(0)))
+		panic(fmt.Errorf("column: column '%s' is not of type %T", columnName, T(0)))
 	}
 
 	return rdNumber[T]{

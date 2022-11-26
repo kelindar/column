@@ -5,10 +5,8 @@ package column
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -16,50 +14,28 @@ import (
 	"time"
 
 	"github.com/kelindar/column/commit"
+	"github.com/kelindar/column/fixtures"
 	"github.com/kelindar/xxrand"
 	"github.com/stretchr/testify/assert"
 )
 
 /*
 cpu: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
-BenchmarkCollection/insert-8         	    2344	    493043 ns/op	   24161 B/op	     500 allocs/op
-BenchmarkCollection/select-at-8      	22826576	        51.66 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/scan-8           	    2179	    543899 ns/op	     111 B/op	       0 allocs/op
-BenchmarkCollection/count-8          	  499878	      2425 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/range-8          	   27259	     45597 ns/op	       5 B/op	       0 allocs/op
-BenchmarkCollection/sum-8            	   83598	     14057 ns/op	       3 B/op	       0 allocs/op
-BenchmarkCollection/avg-8            	   37809	     29938 ns/op	       5 B/op	       0 allocs/op
-BenchmarkCollection/max-8            	   42026	     29089 ns/op	       5 B/op	       0 allocs/op
-BenchmarkCollection/update-at-8      	 5740621	       207.3 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/update-all-8     	    1275	    927145 ns/op	    4224 B/op	       0 allocs/op
-BenchmarkCollection/delete-at-8      	 6215265	       182.3 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCollection/delete-all-8     	 1938399	       616.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/select-at-8      	18796579	        56.27 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/scan-8           	    2220	    614501 ns/op	     114 B/op	       0 allocs/op
+BenchmarkCollection/count-8          	  499893	      2414 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/range-8          	   25044	     47727 ns/op	       5 B/op	       0 allocs/op
+BenchmarkCollection/sum-8            	   84232	     14045 ns/op	       2 B/op	       0 allocs/op
+BenchmarkCollection/avg-8            	   41404	     30238 ns/op	       3 B/op	       0 allocs/op
+BenchmarkCollection/max-8            	   41194	     28929 ns/op	       6 B/op	       0 allocs/op
+BenchmarkCollection/update-at-8      	 5999748	       199.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/update-all-8     	    1269	    947274 ns/op	    4179 B/op	       0 allocs/op
+BenchmarkCollection/delete-at-8      	 7177303	       184.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollection/delete-all-8     	 2063108	       614.8 ns/op	       0 B/op	       0 allocs/op
 */
 func BenchmarkCollection(b *testing.B) {
 	amount := 100000
 	players := loadPlayers(amount)
-
-	b.Run("insert", func(b *testing.B) {
-		temp := loadPlayers(500)
-		data := loadFixture("players.json")
-		b.ReportAllocs()
-		b.ResetTimer()
-		for n := 0; n < b.N; n++ {
-			b.StopTimer()
-			temp.Query(func(txn *Txn) error {
-				txn.DeleteAll()
-				return nil
-			})
-			b.StartTimer()
-
-			temp.Query(func(txn *Txn) error {
-				for _, p := range data {
-					txn.InsertObject(p)
-				}
-				return nil
-			})
-		}
-	})
 
 	b.Run("select-at", func(b *testing.B) {
 		name := ""
@@ -67,7 +43,7 @@ func BenchmarkCollection(b *testing.B) {
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
 			players.QueryAt(20, func(r Row) error {
-				name, _ = r.Enum("name")
+				name, _ = r.String("name")
 				return nil
 			})
 		}
@@ -108,7 +84,7 @@ func BenchmarkCollection(b *testing.B) {
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
 			players.Query(func(txn *Txn) error {
-				names := txn.Enum("name")
+				names := txn.String("name")
 				txn.With("human", "mage", "old").Range(func(idx uint32) {
 					count++
 					name, _ = names.Get()
@@ -275,7 +251,7 @@ func BenchmarkRecord(b *testing.B) {
 }
 
 func TestCollection(t *testing.T) {
-	obj := Object{
+	obj := map[string]any{
 		"name":   "Roman",
 		"age":    35,
 		"wallet": 50.99,
@@ -285,9 +261,20 @@ func TestCollection(t *testing.T) {
 
 	col := NewCollection()
 	col.CreateColumnsOf(obj)
-	idx := col.InsertObject(obj)
+
+	// Insert first row
+	idx, err := col.Insert(func(r Row) error {
+		return r.SetMany(obj)
+	})
+	assert.NoError(t, err)
 	assert.Equal(t, uint32(0), idx)
-	assert.Equal(t, uint32(1), col.InsertObject(obj))
+
+	// Insert second row
+	idx, err = col.Insert(func(r Row) error {
+		return r.SetMany(obj)
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, uint32(1), idx)
 
 	// Should not drop, since it's not an index
 	assert.Error(t, col.DropIndex("name"))
@@ -319,7 +306,11 @@ func TestCollection(t *testing.T) {
 	}
 
 	{ // Add a new one, should replace
-		newIdx := col.InsertObject(obj)
+		newIdx, err := col.Insert(func(r Row) error {
+			return r.SetMany(obj)
+		})
+
+		assert.NoError(t, err)
 		assert.Equal(t, idx, newIdx)
 		assert.NoError(t, col.QueryAt(newIdx, func(r Row) error {
 			name, ok := r.String("name")
@@ -357,7 +348,7 @@ func TestCollection(t *testing.T) {
 }
 
 func TestDropColumn(t *testing.T) {
-	obj := Object{
+	obj := map[string]any{
 		"wallet": 5000,
 	}
 
@@ -367,8 +358,13 @@ func TestDropColumn(t *testing.T) {
 		return r.Float() > 100
 	}))
 
-	assert.Equal(t, uint32(0), col.InsertObject(obj))
-	assert.Equal(t, uint32(1), col.InsertObject(obj))
+	for i := 0; i < 2; i++ {
+		idx, err := col.Insert(func(r Row) error {
+			return r.SetMany(obj)
+		})
+		assert.NoError(t, err)
+		assert.Equal(t, uint32(i), idx)
+	}
 
 	col.DropColumn("rich")
 	col.Query(func(txn *Txn) error {
@@ -377,11 +373,15 @@ func TestDropColumn(t *testing.T) {
 	})
 }
 
-func TestInsertObject(t *testing.T) {
+func TestInsertMany(t *testing.T) {
 	col := NewCollection()
 	col.CreateColumn("name", ForString())
-	col.InsertObject(Object{"name": "A"})
-	col.InsertObject(Object{"name": "B"})
+	col.Insert(func(r Row) error {
+		return r.SetMany(map[string]any{"name": "A"})
+	})
+	col.Insert(func(r Row) error {
+		return r.SetMany(map[string]any{"name": "B"})
+	})
 
 	assert.Equal(t, 2, col.Count())
 	assert.NoError(t, col.QueryAt(0, func(r Row) error {
@@ -395,7 +395,7 @@ func TestInsertObject(t *testing.T) {
 func TestExpire(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	obj := Object{
+	obj := map[string]any{
 		"name":   "Roman",
 		"age":    35,
 		"wallet": 50.99,
@@ -408,7 +408,11 @@ func TestExpire(t *testing.T) {
 	defer col.Close()
 
 	// Insert an object
-	col.InsertObjectWithTTL(obj, time.Microsecond)
+	col.Insert(func(r Row) error {
+		r.SetTTL(time.Microsecond)
+		return r.SetMany(obj)
+	})
+
 	col.Query(func(txn *Txn) error {
 		ttl := txn.TTL()
 		return txn.Range(func(idx uint32) {
@@ -466,21 +470,26 @@ func TestExpireExtend(t *testing.T) {
 }
 
 func TestCreateIndex(t *testing.T) {
-	row := Object{
+	row := map[string]any{
 		"age": 35,
 	}
 
 	// Create a collection with 1 row
 	col := NewCollection()
-	col.CreateColumnsOf(row)
-	col.InsertObject(row)
 	defer col.Close()
+
+	col.CreateColumnsOf(row)
+	col.Insert(func(r Row) error {
+		return r.SetMany(row)
+	})
 
 	// Create an index, add 1 more row
 	assert.NoError(t, col.CreateIndex("young", "age", func(r Reader) bool {
 		return r.Int() < 50
 	}))
-	col.InsertObject(row)
+	col.Insert(func(r Row) error {
+		return r.SetMany(row)
+	})
 
 	// We now should have 2 rows in the index
 	col.Query(func(txn *Txn) error {
@@ -499,15 +508,18 @@ func TestCreateIndexInvalidColumn(t *testing.T) {
 }
 
 func TestDropIndex(t *testing.T) {
-	row := Object{
+	row := map[string]any{
 		"age": 35,
 	}
 
 	// Create a collection with 1 row
 	col := NewCollection()
-	col.CreateColumnsOf(row)
-	col.InsertObject(row)
 	defer col.Close()
+
+	col.CreateColumnsOf(row)
+	col.Insert(func(r Row) error {
+		return r.SetMany(row)
+	})
 
 	// Create an index
 	assert.NoError(t, col.CreateIndex("young", "age", func(r Reader) bool {
@@ -549,7 +561,7 @@ func TestDropOneOfMultipleIndices(t *testing.T) {
 }
 
 func TestInsertParallel(t *testing.T) {
-	obj := Object{
+	obj := map[string]any{
 		"name":   "Roman",
 		"age":    35,
 		"wallet": 50.99,
@@ -558,11 +570,16 @@ func TestInsertParallel(t *testing.T) {
 	}
 
 	col := NewCollection()
+	col.CreateColumnsOf(obj)
+
 	var wg sync.WaitGroup
 	wg.Add(500)
 	for i := 0; i < 500; i++ {
 		go func() {
-			col.InsertObject(obj)
+			_, err := col.Insert(func(r Row) error {
+				return r.SetMany(obj)
+			})
+			assert.NoError(t, err)
 			wg.Done()
 		}()
 	}
@@ -576,7 +593,7 @@ func TestInsertParallel(t *testing.T) {
 }
 
 func TestConcurrentPointReads(t *testing.T) {
-	obj := Object{
+	obj := map[string]any{
 		"name":   "Roman",
 		"age":    35,
 		"wallet": 50.99,
@@ -587,7 +604,9 @@ func TestConcurrentPointReads(t *testing.T) {
 	col := NewCollection()
 	col.CreateColumnsOf(obj)
 	for i := 0; i < 1000; i++ {
-		col.InsertObject(obj)
+		col.Insert(func(r Row) error {
+			return r.SetMany(obj)
+		})
 	}
 
 	var ops int64
@@ -642,7 +661,8 @@ func TestInsertWithTTL(t *testing.T) {
 
 	idx, err := c.Insert(func(r Row) error {
 		if _, ok := r.TTL(); !ok {
-			r.SetTTL(time.Hour)
+			assert.True(t, r.SetTTL(0).IsZero())
+			assert.False(t, r.SetTTL(time.Hour).IsZero())
 			r.SetString("name", "Roman")
 		}
 		return nil
@@ -730,16 +750,34 @@ func loadPlayers(amount int) *Collection {
 	out := newEmpty(amount)
 
 	// Load and copy until we reach the amount required
-	data := loadFixture("players.json")
+	data := fixtures.Players()
 	for i := 0; i < amount/len(data); i++ {
-		out.Query(func(txn *Txn) error {
-			for _, p := range data {
-				txn.InsertObject(p)
-			}
-			return nil
-		})
+		insertPlayers(out, data)
 	}
 	return out
+}
+
+func insertPlayers(dst *Collection, data []fixtures.Player) error {
+	return dst.Query(func(txn *Txn) error {
+		for _, v := range data {
+			txn.Insert(func(r Row) error {
+				r.SetString("serial", v.Serial)
+				r.SetString("name", v.Name)
+				r.SetBool("active", v.Active)
+				r.SetEnum("class", v.Class)
+				r.SetEnum("race", v.Race)
+				r.SetInt("age", v.Age)
+				r.SetInt("hp", v.Hp)
+				r.SetInt("mp", v.Mp)
+				r.SetFloat64("balance", v.Balance)
+				r.SetEnum("gender", v.Gender)
+				r.SetEnum("guild", v.Guild)
+				r.SetRecord("location", &v.Location)
+				return nil
+			})
+		}
+		return nil
+	})
 }
 
 // newEmpty creates a new empty collection for a the fixture
@@ -752,17 +790,19 @@ func newEmpty(capacity int) *Collection {
 
 	// Load the items into the collection
 	out.CreateColumn("serial", ForString())
-	out.CreateColumn("name", ForEnum())
+	out.CreateColumn("name", ForString())
 	out.CreateColumn("active", ForBool())
 	out.CreateColumn("class", ForEnum())
 	out.CreateColumn("race", ForEnum())
-	out.CreateColumn("age", ForFloat64())
-	out.CreateColumn("hp", ForFloat64())
-	out.CreateColumn("mp", ForFloat64())
+	out.CreateColumn("age", ForInt())
+	out.CreateColumn("hp", ForInt())
+	out.CreateColumn("mp", ForInt())
 	out.CreateColumn("balance", ForFloat64())
 	out.CreateColumn("gender", ForEnum())
 	out.CreateColumn("guild", ForEnum())
-	//out.CreateColumn("location", ForString())
+	out.CreateColumn("location", ForRecord(func() *fixtures.Location {
+		return new(fixtures.Location)
+	}, nil))
 
 	// index on humans
 	out.CreateIndex("human", "race", func(r Reader) bool {
@@ -791,11 +831,13 @@ func newEmpty(capacity int) *Collection {
 
 	// index for old
 	out.CreateIndex("old", "age", func(r Reader) bool {
-		return r.Float() >= 30
+		return r.Int() >= 30
 	})
 
 	return out
 }
+
+// --------------------------- Mock Record ----------------------------
 
 type mockRecord struct {
 	errDecode bool
@@ -814,19 +856,4 @@ func (r mockRecord) UnmarshalBinary(b []byte) error {
 		return io.ErrUnexpectedEOF
 	}
 	return nil
-}
-
-// loadFixture loads a fixture by its name
-func loadFixture(name string) []Object {
-	b, err := os.ReadFile("fixtures/" + name)
-	if err != nil {
-		panic(err)
-	}
-
-	var data []Object
-	if err := json.Unmarshal(b, &data); err != nil {
-		panic(err)
-	}
-
-	return data
 }

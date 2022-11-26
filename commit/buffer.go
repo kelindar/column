@@ -4,6 +4,7 @@
 package commit
 
 import (
+	"encoding"
 	"fmt"
 	"math"
 
@@ -100,7 +101,7 @@ func (b *Buffer) RangeChunks(fn func(chunk Chunk)) {
 }
 
 // PutAny appends a supported value onto the buffer.
-func (b *Buffer) PutAny(op OpType, idx uint32, value interface{}) {
+func (b *Buffer) PutAny(op OpType, idx uint32, value any) error {
 	switch v := value.(type) {
 	case uint64:
 		b.PutUint64(op, idx, v)
@@ -134,9 +135,16 @@ func (b *Buffer) PutAny(op OpType, idx uint32, value interface{}) {
 		b.PutBool(idx, v)
 	case nil:
 		b.PutOperation(op, idx)
+	case encoding.BinaryMarshaler:
+		data, err := v.MarshalBinary()
+		if err == nil {
+			b.PutBytes(op, idx, data)
+		}
+		return err
 	default:
-		panic(fmt.Errorf("column: unsupported type (%T)", value))
+		return fmt.Errorf("column: unsupported type (%T)", value)
 	}
+	return nil
 }
 
 // --------------------------- Numbers ----------------------------

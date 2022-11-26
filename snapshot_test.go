@@ -100,7 +100,9 @@ func runReplication(t *testing.T, updates, inserts, concurrency int) {
 
 		// Write some objects
 		for i := 0; i < inserts; i++ {
-			primary.InsertObject(object)
+			primary.Insert(func(r Row) error {
+				return r.SetMany(object)
+			})
 		}
 
 		work := make(chan async.Task)
@@ -138,7 +140,9 @@ func runReplication(t *testing.T, updates, inserts, concurrency int) {
 
 				// Randomly insert an item
 				if rand.Int31n(5) == 0 {
-					primary.InsertObject(object)
+					primary.Insert(func(r Row) error {
+						return r.SetMany(object)
+					})
 				}
 				return nil, nil
 			})
@@ -180,7 +184,7 @@ func TestSnapshot(t *testing.T) {
 	go func() {
 		for i := 0; i < amount; i++ {
 			assert.NoError(t, input.QueryAt(uint32(i), func(r Row) error {
-				r.SetEnum("name", "Roman")
+				r.SetString("name", "Roman")
 				return nil
 			}))
 			wg.Done()
@@ -239,14 +243,14 @@ func TestSnapshotFailedAppendCommit(t *testing.T) {
 func TestSnapshotDoubleApply(t *testing.T) {
 	amount := 500
 	input := loadPlayers(amount)
-	var startVal float64
+	var startVal int
 
 	// Op 1
 	input.QueryAt(0, func(r Row) error {
-		bal, _ := r.Float64("age")
-		startVal = bal
+		age, _ := r.Int("age")
+		startVal = age
 
-		r.MergeFloat64("age", 1.0)
+		r.MergeInt("age", 1)
 		return nil
 	})
 
@@ -256,7 +260,7 @@ func TestSnapshotDoubleApply(t *testing.T) {
 
 	// Op 2
 	input.QueryAt(0, func(r Row) error {
-		r.MergeFloat64("age", 1.0)
+		r.MergeInt("age", 1)
 		return nil
 	})
 
@@ -268,8 +272,8 @@ func TestSnapshotDoubleApply(t *testing.T) {
 	output := newEmpty(amount)
 	assert.NoError(t, output.Restore(buffer))
 	output.QueryAt(0, func(r Row) error {
-		bal, _ := r.Float64("age")
-		assert.Equal(t, startVal+1.0, bal)
+		age, _ := r.Int("age")
+		assert.Equal(t, startVal+1, age)
 		return nil
 	})
 
@@ -277,8 +281,8 @@ func TestSnapshotDoubleApply(t *testing.T) {
 	// Verify that only second delete is applied, not both
 	assert.NoError(t, output.Restore(buffer2))
 	output.QueryAt(0, func(r Row) error {
-		bal, _ := r.Float64("age")
-		assert.Equal(t, startVal+2.0, bal)
+		age, _ := r.Int("age")
+		assert.Equal(t, startVal+2, age)
 		return nil
 	})
 }

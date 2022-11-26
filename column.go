@@ -230,7 +230,9 @@ func readerFor[T any](txn *Txn, columnName string) reader[T] {
 
 	target, ok := column.Column.(T)
 	if !ok {
-		panic(fmt.Errorf("column: column '%s' is not of specified type", columnName))
+		var want T
+		panic(fmt.Errorf("column: column '%s' is not of specified type (has=%T, want=%T)",
+			columnName, column.Column, want))
 	}
 
 	return reader[T]{
@@ -248,8 +250,8 @@ type rwAny struct {
 }
 
 // Set sets the value at the current transaction cursor
-func (s rwAny) Set(value any) {
-	s.writer.PutAny(commit.Put, *s.cursor, value)
+func (s rwAny) Set(value any) error {
+	return s.writer.PutAny(commit.Put, *s.cursor, value)
 }
 
 // --------------------------- Any Reader ----------------------------

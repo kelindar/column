@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
@@ -220,7 +219,7 @@ func (txn *Txn) WithUnion(columns ...string) *Txn {
 		lock.RLock(uint(chunk))
 
 		// reset entire bitmap
-		for i, _ := range tmpMap {
+		for i := range tmpMap {
 			tmpMap[i] = 0
 		}
 
@@ -346,25 +345,6 @@ func (txn *Txn) DeleteAt(index uint32) bool {
 // deleteAt marks an index as deleted
 func (txn *Txn) deleteAt(idx uint32) {
 	txn.bufferFor(rowColumn).PutOperation(commit.Delete, idx)
-}
-
-// InsertObject adds an object to a collection and returns the allocated index.
-func (txn *Txn) InsertObject(object Object) (uint32, error) {
-	return txn.InsertObjectWithTTL(object, 0)
-}
-
-// InsertObjectWithTTL adds an object to a collection, sets the expiration time
-// based on the specified time-to-live and returns the allocated index.
-func (txn *Txn) InsertObjectWithTTL(object Object, ttl time.Duration) (uint32, error) {
-	return txn.Insert(func(r Row) error {
-		r.SetTTL(ttl)
-		for k, v := range object {
-			if _, ok := txn.columnAt(k); ok {
-				txn.bufferFor(k).PutAny(commit.Put, txn.cursor, v)
-			}
-		}
-		return nil
-	})
 }
 
 // Insert executes a mutable cursor transactionally at a new offset.
