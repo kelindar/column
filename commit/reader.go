@@ -242,6 +242,13 @@ func (r *Reader) SwapString(v string) string {
 	return v
 }
 
+// SwapBytes swaps a binary value with a new one.
+func (r *Reader) SwapBytes(v []byte) []byte {
+	r.writeSkipped()
+	r.PutBytes(Put, r.Index(), v)
+	return v
+}
+
 // writeSwapped marks the current value to be a store
 func (r *Reader) writeSwapped() {
 	r.buffer[r.i0-1] &= 0xf0

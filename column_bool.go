@@ -4,8 +4,6 @@
 package column
 
 import (
-	"fmt"
-
 	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
 )
@@ -61,45 +59,38 @@ func (c *columnBool) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	dst.PutBitmap(commit.PutTrue, chunk, c.data)
 }
 
-// boolReader represents a read-only accessor for boolean values
-type boolReader struct {
-	cursor *uint32
-	reader Column
-}
+// --------------------------- Writer ----------------------------
 
-// Get loads the value at the current transaction cursor
-func (s boolReader) Get() bool {
-	return s.reader.Contains(*s.cursor)
-}
-
-// boolReaderFor creates a new reader
-func boolReaderFor(txn *Txn, columnName string) boolReader {
-	column, ok := txn.columnAt(columnName)
-	if !ok {
-		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
-	}
-
-	return boolReader{
-		cursor: &txn.cursor,
-		reader: column.Column,
-	}
-}
-
-// boolWriter represents read-write accessor for boolean values
-type boolWriter struct {
-	boolReader
+// rwBool represents read-write accessor for boolean values
+type rwBool struct {
+	rdBool
 	writer *commit.Buffer
 }
 
 // Set sets the value at the current transaction cursor
-func (s boolWriter) Set(value bool) {
+func (s rwBool) Set(value bool) {
 	s.writer.PutBool(*s.cursor, value)
 }
 
 // Bool returns a bool column accessor
-func (txn *Txn) Bool(columnName string) boolWriter {
-	return boolWriter{
-		boolReader: boolReaderFor(txn, columnName),
-		writer:     txn.bufferFor(columnName),
+func (txn *Txn) Bool(columnName string) rwBool {
+	return rwBool{
+		rdBool: readBoolOf(txn, columnName),
+		writer: txn.bufferFor(columnName),
 	}
+}
+
+// --------------------------- Reader ----------------------------
+
+// rdBool represents a read-only accessor for boolean values
+type rdBool reader[Column]
+
+// Get loads the value at the current transaction cursor
+func (s rdBool) Get() bool {
+	return s.reader.Contains(*s.cursor)
+}
+
+// readBoolOf creates a new boolean reader
+func readBoolOf(txn *Txn, columnName string) rdBool {
+	return rdBool(readerFor[Column](txn, columnName))
 }

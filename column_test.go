@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
@@ -231,7 +232,10 @@ func TestForString(t *testing.T) {
 
 	data := []string{"a", "b", "c", "d"}
 	for i, d := range data {
-		coll.InsertObject(map[string]interface{}{"id": i, "data": d})
+		_, err := coll.Insert(func(r Row) error {
+			return r.SetMany(map[string]any{"id": i, "data": d})
+		})
+		assert.NoError(t, err)
 	}
 
 	coll.Query(func(txn *Txn) error {
@@ -264,13 +268,13 @@ func TestAtKey(t *testing.T) {
 	}))
 
 	assert.NoError(t, players.QueryKey(testKey, func(r Row) error {
-		r.SetEnum("name", "Roman")
+		r.SetString("name", "Roman")
 		return nil
 	}))
 
 	// Read back and assert
 	assertion := func(r Row) error {
-		name, _ := r.Enum("name")
+		name, _ := r.String("name")
 		race, _ := r.Enum("race")
 		assert.Equal(t, "Roman", name)
 		assert.Equal(t, "elf", race)
@@ -567,6 +571,110 @@ func TestMergeString(t *testing.T) {
 		assert.Equal(t, "Merlin", name)
 		letters, _ := r.String("letters")
 		assert.Equal(t, "a, b", letters)
+		return nil
+	})
+}
+
+func TestRecord(t *testing.T) {
+	col := NewCollection()
+	col.CreateColumn("ts", ForRecord(func() *time.Time {
+		return new(time.Time)
+	}, nil))
+
+	// Insert the time, it implements binary marshaler
+	idx, _ := col.Insert(func(r Row) error {
+		now := time.Unix(1667745766, 0)
+		r.SetRecord("ts", &now)
+		return nil
+	})
+
+	// We should be able to read back the time
+	col.QueryAt(idx, func(r Row) error {
+		now := time.Unix(1667745766, 0)
+		r.MergeRecord("ts", &now)
+		return nil
+	})
+
+	// We should be able to read back the time
+	col.QueryAt(idx, func(r Row) error {
+		ts, ok := r.Record("ts")
+		assert.True(t, ok)
+		assert.Equal(t, "November", ts.(*time.Time).UTC().Month().String())
+		return nil
+	})
+}
+
+func TestRecord_Errors(t *testing.T) {
+	col := NewCollection()
+	col.CreateColumn("id", ForInt64())
+	col.CreateColumn("ts", ForRecord(func() *time.Time {
+		return new(time.Time)
+	}, nil))
+
+	// Column "xxx" does not exist
+	assert.Panics(t, func() {
+		col.Query(func(txn *Txn) error {
+			txn.Record("xxx")
+			return nil
+		})
+	})
+
+	// Column "id" is not of record type
+	assert.Panics(t, func() {
+		col.Query(func(txn *Txn) error {
+			txn.Record("id")
+			return nil
+		})
+	})
+
+	// No value at index 10
+	col.QueryAt(10, func(r Row) error {
+		v, ok := r.Record("ts")
+		assert.Nil(t, v)
+		assert.False(t, ok)
+		return nil
+	})
+
+}
+
+func TestRecordMerge_ErrDecode(t *testing.T) {
+	col := NewCollection()
+	col.CreateColumn("record", ForRecord(func() mockRecord {
+		return mockRecord{
+			errDecode: true,
+		}
+	}, nil))
+
+	// Insert the time, it implements binary marshaler
+	idx, _ := col.Insert(func(r Row) error {
+		r.SetRecord("record", mockRecord{})
+		return nil
+	})
+
+	// Merge a record, but will fail on decode
+	col.QueryAt(idx, func(r Row) error {
+		assert.NoError(t, r.MergeRecord("record", mockRecord{}))
+		return nil
+	})
+}
+
+func TestRecordMerge_ErrEncode(t *testing.T) {
+	col := NewCollection()
+	col.CreateColumn("record", ForRecord(func() mockRecord {
+		return mockRecord{
+			errEncode: true,
+		}
+	}, nil))
+
+	// Insert the time, it implements binary marshaler
+	idx, _ := col.Insert(func(r Row) error {
+		r.SetRecord("record", mockRecord{})
+		return nil
+	})
+
+	// Merge a record, but will fail on decode
+	col.QueryAt(idx, func(r Row) error {
+		assert.NoError(t, r.MergeRecord("record", mockRecord{}))
 		return nil
 	})
 }

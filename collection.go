@@ -17,9 +17,6 @@ import (
 	"github.com/kelindar/smutex"
 )
 
-// Object represents a single object
-type Object = map[string]interface{}
-
 const (
 	expireColumn = "expire"
 	rowColumn    = "row"
@@ -127,25 +124,6 @@ func (c *Collection) findFreeIndex(count uint64) uint32 {
 	return idx
 }
 
-// InsertObject adds an object to a collection and returns the allocated index.
-func (c *Collection) InsertObject(obj Object) (index uint32) {
-	c.Query(func(txn *Txn) error {
-		index, _ = txn.InsertObject(obj)
-		return nil
-	})
-	return
-}
-
-// InsertObjectWithTTL adds an object to a collection, sets the expiration time
-// based on the specified time-to-live and returns the allocated index.
-func (c *Collection) InsertObjectWithTTL(obj Object, ttl time.Duration) (index uint32) {
-	c.Query(func(txn *Txn) error {
-		index, _ = txn.InsertObjectWithTTL(obj, ttl)
-		return nil
-	})
-	return
-}
-
 // Insert executes a mutable cursor transactionally at a new offset.
 func (c *Collection) Insert(fn func(Row) error) (index uint32, err error) {
 	err = c.Query(func(txn *Txn) (innerErr error) {
@@ -181,9 +159,9 @@ func (c *Collection) createColumnKey(columnName string, column *columnKey) error
 	return nil
 }
 
-// CreateColumnsOf registers a set of columns that are present in the target object.
-func (c *Collection) CreateColumnsOf(object Object) error {
-	for k, v := range object {
+// CreateColumnsOf registers a set of columns that are present in the target map.
+func (c *Collection) CreateColumnsOf(value map[string]any) error {
+	for k, v := range value {
 		column, err := ForKind(reflect.TypeOf(v).Kind())
 		if err != nil {
 			return err

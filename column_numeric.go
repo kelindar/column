@@ -11,6 +11,8 @@ import (
 	"github.com/kelindar/simd"
 )
 
+//go:generate go run ./codegen/main.go
+
 // readNumber is a helper function for point reads
 func readNumber[T simd.Number](txn *Txn, columnName string) (value T, found bool) {
 	if column, ok := txn.columnAt(columnName); ok {
@@ -134,19 +136,19 @@ func (c *numericColumn[T]) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 
 // --------------------------- Reader/Writer ----------------------------
 
-// numericReader represents a read-only accessor for simd.Numbers
-type numericReader[T simd.Number] struct {
+// rdNumber represents a read-only accessor for simd.Numbers
+type rdNumber[T simd.Number] struct {
 	reader *numericColumn[T]
 	txn    *Txn
 }
 
 // Get loads the value at the current transaction cursor
-func (s numericReader[T]) Get() (T, bool) {
+func (s rdNumber[T]) Get() (T, bool) {
 	return s.reader.load(s.txn.cursor)
 }
 
 // Sum computes a sum of the column values selected by this transaction
-func (s numericReader[T]) Sum() (sum T) {
+func (s rdNumber[T]) Sum() (sum T) {
 	s.txn.initialize()
 	s.txn.rangeRead(func(chunk commit.Chunk, index bitmap.Bitmap) {
 		if int(chunk) < len(s.reader.chunks) {
@@ -157,7 +159,7 @@ func (s numericReader[T]) Sum() (sum T) {
 }
 
 // Avg computes an arithmetic mean of the column values selected by this transaction
-func (s numericReader[T]) Avg() float64 {
+func (s rdNumber[T]) Avg() float64 {
 	sum, ct := T(0), 0
 	s.txn.initialize()
 	s.txn.rangeRead(func(chunk commit.Chunk, index bitmap.Bitmap) {
@@ -170,7 +172,7 @@ func (s numericReader[T]) Avg() float64 {
 }
 
 // Min finds the smallest value from the column values selected by this transaction
-func (s numericReader[T]) Min() (min T, ok bool) {
+func (s rdNumber[T]) Min() (min T, ok bool) {
 	s.txn.initialize()
 	s.txn.rangeRead(func(chunk commit.Chunk, index bitmap.Bitmap) {
 		if int(chunk) < len(s.reader.chunks) {
@@ -184,7 +186,7 @@ func (s numericReader[T]) Min() (min T, ok bool) {
 }
 
 // Max finds the largest value from the column values selected by this transaction
-func (s numericReader[T]) Max() (max T, ok bool) {
+func (s rdNumber[T]) Max() (max T, ok bool) {
 	s.txn.initialize()
 	s.txn.rangeRead(func(chunk commit.Chunk, index bitmap.Bitmap) {
 		if int(chunk) < len(s.reader.chunks) {
@@ -197,8 +199,8 @@ func (s numericReader[T]) Max() (max T, ok bool) {
 	return
 }
 
-// numericReaderFor creates a new numeric reader
-func numericReaderFor[T simd.Number](txn *Txn, columnName string) numericReader[T] {
+// readNumberOf creates a new numeric reader
+func readNumberOf[T simd.Number](txn *Txn, columnName string) rdNumber[T] {
 	column, ok := txn.columnAt(columnName)
 	if !ok {
 		panic(fmt.Errorf("column: column '%s' does not exist", columnName))
@@ -206,10 +208,10 @@ func numericReaderFor[T simd.Number](txn *Txn, columnName string) numericReader[
 
 	reader, ok := column.Column.(*numericColumn[T])
 	if !ok {
-		panic(fmt.Errorf("column: column '%s' is not of type %T", columnName, float64(0)))
+		panic(fmt.Errorf("column: column '%s' is not of type %T", columnName, T(0)))
 	}
 
-	return numericReader[T]{
+	return rdNumber[T]{
 		reader: reader,
 		txn:    txn,
 	}

@@ -6,6 +6,7 @@ package commit
 import (
 	"bytes"
 	"testing"
+	"time"
 	"unsafe"
 
 	"github.com/kelindar/bitmap"
@@ -236,6 +237,16 @@ func TestPutNil(t *testing.T) {
 	r.Seek(buf)
 	assert.True(t, r.Next())
 	assert.True(t, r.Bool())
+}
+
+func TestPutTime(t *testing.T) {
+	buf := NewBuffer(0)
+	buf.PutAny(Put, 0, time.Unix(0, 0))
+
+	r := NewReader()
+	r.Seek(buf)
+	assert.True(t, r.Next())
+	assert.NotEmpty(t, r.Bytes())
 }
 
 func TestPutBitmap(t *testing.T) {

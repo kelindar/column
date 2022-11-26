@@ -33,27 +33,27 @@ func make{{.Name}}s(opts ...func(*option[{{.Type}}])) Column {
 	)
 }
 
-// {{.Type}}Writer represents a read-write accessor for {{.Type}}
-type {{.Type}}Writer struct {
-	numericReader[{{.Type}}]
+// rw{{.Name}} represents a read-write cursor for {{.Type}}
+type rw{{.Name}} struct {
+	rdNumber[{{.Type}}]
 	writer *commit.Buffer
 }
 
 // Set sets the value at the current transaction cursor
-func (s {{.Type}}Writer) Set(value {{.Type}}) {
+func (s rw{{.Name}}) Set(value {{.Type}}) {
 	s.writer.Put{{.Name}}(commit.Put, s.txn.cursor, value)
 }
 
 // Merge atomically merges a delta to the value at the current transaction cursor
-func (s {{.Type}}Writer) Merge(delta {{.Type}}) {
+func (s rw{{.Name}}) Merge(delta {{.Type}}) {
 	s.writer.Put{{.Name}}(commit.Merge, s.txn.cursor, delta)
 }
 
 // {{.Name}} returns a read-write accessor for {{.Type}} column
-func (txn *Txn) {{.Name}}(columnName string) {{.Type}}Writer {
-	return {{.Type}}Writer{
-		numericReader: numericReaderFor[{{.Type}}](txn, columnName),
-		writer:        txn.bufferFor(columnName),
+func (txn *Txn) {{.Name}}(columnName string) rw{{.Name}} {
+	return rw{{.Name}}{
+		rdNumber: readNumberOf[{{.Type}}](txn, columnName),
+		writer:   txn.bufferFor(columnName),
 	}
 }
 
