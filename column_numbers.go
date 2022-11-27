@@ -29,7 +29,7 @@ func makeInts(opts ...func(*option[int])) Column {
 					fill.Remove(offset)
 				}
 			}
-		},
+		}, opts,
 	)
 }
 
@@ -78,7 +78,7 @@ func makeInt16s(opts ...func(*option[int16])) Column {
 					fill.Remove(offset)
 				}
 			}
-		},
+		}, opts,
 	)
 }
 
@@ -127,7 +127,7 @@ func makeInt32s(opts ...func(*option[int32])) Column {
 					fill.Remove(offset)
 				}
 			}
-		},
+		}, opts,
 	)
 }
 
@@ -176,7 +176,7 @@ func makeInt64s(opts ...func(*option[int64])) Column {
 					fill.Remove(offset)
 				}
 			}
-		},
+		}, opts,
 	)
 }
 
@@ -225,7 +225,7 @@ func makeUints(opts ...func(*option[uint])) Column {
 					fill.Remove(offset)
 				}
 			}
-		},
+		}, opts,
 	)
 }
 
@@ -274,7 +274,7 @@ func makeUint16s(opts ...func(*option[uint16])) Column {
 					fill.Remove(offset)
 				}
 			}
-		},
+		}, opts,
 	)
 }
 
@@ -323,7 +323,7 @@ func makeUint32s(opts ...func(*option[uint32])) Column {
 					fill.Remove(offset)
 				}
 			}
-		},
+		}, opts,
 	)
 }
 
@@ -372,7 +372,7 @@ func makeUint64s(opts ...func(*option[uint64])) Column {
 					fill.Remove(offset)
 				}
 			}
-		},
+		}, opts,
 	)
 }
 
@@ -421,7 +421,7 @@ func makeFloat32s(opts ...func(*option[float32])) Column {
 					fill.Remove(offset)
 				}
 			}
-		},
+		}, opts,
 	)
 }
 
@@ -470,7 +470,7 @@ func makeFloat64s(opts ...func(*option[float64])) Column {
 					fill.Remove(offset)
 				}
 			}
-		},
+		}, opts,
 	)
 }
 

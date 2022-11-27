@@ -24,7 +24,7 @@ func main() {
 	players.CreateColumn("guild", column.ForEnum())
 	players.CreateColumn("location", column.ForRecord(func() *Location {
 		return new(Location)
-	}, nil))
+	}))
 
 	// index on humans
 	players.CreateIndex("human", "race", func(r column.Reader) bool {

@@ -193,7 +193,7 @@ func BenchmarkRecord(b *testing.B) {
 		col := NewCollection()
 		col.CreateColumn("ts", ForRecord(func() *time.Time {
 			return new(time.Time)
-		}, nil))
+		}))
 
 		for i := 0; i < amount; i++ {
 			col.Insert(func(r Row) error {
@@ -247,7 +247,6 @@ func BenchmarkRecord(b *testing.B) {
 			})
 		}
 	})
-
 }
 
 func TestCollection(t *testing.T) {
@@ -802,7 +801,7 @@ func newEmpty(capacity int) *Collection {
 	out.CreateColumn("guild", ForEnum())
 	out.CreateColumn("location", ForRecord(func() *fixtures.Location {
 		return new(fixtures.Location)
-	}, nil))
+	}))
 
 	// index on humans
 	out.CreateIndex("human", "race", func(r Reader) bool {

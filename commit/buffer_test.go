@@ -306,3 +306,17 @@ func TestBufferReadFromFailures(t *testing.T) {
 		assert.Error(t, err)
 	}
 }
+
+func FuzzBufferString(f *testing.F) {
+	f.Add(uint32(1), "test")
+
+	f.Fuzz(func(t *testing.T, i uint32, v string) {
+		buf := NewBuffer(0)
+		buf.PutString(Put, i, v)
+
+		r := NewReader()
+		r.Seek(buf)
+		assert.True(t, r.Next())
+		assert.Equal(t, v, r.String())
+	})
+}

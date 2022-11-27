@@ -116,7 +116,7 @@ func ForKind(kind reflect.Kind) (Column, error) {
 
 // --------------------------- Generic Options ----------------------------
 
-// optInt represents options for variouos columns.
+// option represents options for variouos columns.
 type option[T any] struct {
 	Merge func(value, delta T) T
 }

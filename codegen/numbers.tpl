@@ -29,7 +29,7 @@ func make{{.Name}}s(opts ...func(*option[{{.Type}}])) Column {
 					fill.Remove(offset)
 				}
 			}
-		},
+		}, opts,
 	)
 }
 
