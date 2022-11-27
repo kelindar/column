@@ -12,6 +12,43 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func FuzzInsert(f *testing.F) {
+	players := newEmpty(10)
+	defer players.Close()
+
+	f.Add("name", true, 30, 7.5)
+	f.Fuzz(func(t *testing.T, name string, active bool, age int, balance float64) {
+
+		idx, err := players.Insert(func(r Row) error {
+			r.SetString("name", name)
+			r.SetBool("active", active)
+			r.SetInt("age", age)
+			r.SetFloat64("balance", balance)
+			return nil
+		})
+
+		assert.NoError(t, err)
+		assert.NoError(t, players.QueryAt(idx, func(r Row) error {
+			assert.Equal(t, active, r.Bool("active"))
+
+			s, ok := r.String("name")
+			assert.True(t, ok)
+			assert.Equal(t, name, s)
+
+			i, ok := r.Int("age")
+			assert.True(t, ok)
+			assert.Equal(t, age, i)
+
+			f, ok := r.Float64("balance")
+			assert.True(t, ok)
+			assert.Equal(t, balance, f)
+			return nil
+		}))
+
+		assert.True(t, players.DeleteAt(idx))
+	})
+}
+
 func TestFind(t *testing.T) {
 	players := loadPlayers(500)
 	count := 0

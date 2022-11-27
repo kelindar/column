@@ -371,7 +371,7 @@ Now that we have a record implementation, we can create a column for this struct
 ```go
 players.CreateColumn("location", ForRecord(func() *Location {
 	return new(Location)
-}, nil)) // no merging
+}))
 ```
 
 In order to manipulate the record, we can use the appropriate `Record()`, `SetRecord()` methods of the `Row`, similarly to other column types.

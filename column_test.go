@@ -579,7 +579,7 @@ func TestRecord(t *testing.T) {
 	col := NewCollection()
 	col.CreateColumn("ts", ForRecord(func() *time.Time {
 		return new(time.Time)
-	}, nil))
+	}))
 
 	// Insert the time, it implements binary marshaler
 	idx, _ := col.Insert(func(r Row) error {
@@ -609,7 +609,7 @@ func TestRecord_Errors(t *testing.T) {
 	col.CreateColumn("id", ForInt64())
 	col.CreateColumn("ts", ForRecord(func() *time.Time {
 		return new(time.Time)
-	}, nil))
+	}))
 
 	// Column "xxx" does not exist
 	assert.Panics(t, func() {
@@ -643,7 +643,7 @@ func TestRecordMerge_ErrDecode(t *testing.T) {
 		return mockRecord{
 			errDecode: true,
 		}
-	}, nil))
+	}))
 
 	// Insert the time, it implements binary marshaler
 	idx, _ := col.Insert(func(r Row) error {
@@ -664,7 +664,7 @@ func TestRecordMerge_ErrEncode(t *testing.T) {
 		return mockRecord{
 			errEncode: true,
 		}
-	}, nil))
+	}))
 
 	// Insert the time, it implements binary marshaler
 	idx, _ := col.Insert(func(r Row) error {
@@ -675,6 +675,33 @@ func TestRecordMerge_ErrEncode(t *testing.T) {
 	// Merge a record, but will fail on decode
 	col.QueryAt(idx, func(r Row) error {
 		assert.NoError(t, r.MergeRecord("record", mockRecord{}))
+		return nil
+	})
+}
+
+func TestNumberMerge(t *testing.T) {
+	col := NewCollection()
+	col.CreateColumn("age", ForInt32(WithMerge(func(v, d int32) int32 {
+		v -= d
+		return v
+	})))
+
+	// Insert the time, it implements binary marshaler
+	idx, _ := col.Insert(func(r Row) error {
+		r.SetInt32("age", 10)
+		return nil
+	})
+
+	for i := 0; i < 10; i++ {
+		col.QueryAt(idx, func(r Row) error {
+			r.MergeInt32("age", 1)
+			return nil
+		})
+	}
+
+	col.QueryAt(idx, func(r Row) error {
+		age, _ := r.Int32("age")
+		assert.Equal(t, int32(0), age)
 		return nil
 	})
 }

@@ -28,10 +28,10 @@ type columnRecord struct {
 // ForRecord creates a new column that contains a type marshaled into/from binary. It requires
 // a constructor for the type as well as optional merge function. If merge function is
 // set to nil, "overwrite" strategy will be used.
-func ForRecord[T recordType](new func() T, merge func(value, delta T) T) Column {
-	if merge == nil {
-		merge = func(value, delta T) T { return delta }
-	}
+func ForRecord[T recordType](new func() T, opts ...func(*option[T])) Column {
+	mergeFunc := configure(opts, option[T]{
+		Merge: func(value, delta T) T { return delta },
+	}).Merge
 
 	pool := &sync.Pool{
 		New: func() any { return new() },
@@ -52,10 +52,8 @@ func ForRecord[T recordType](new func() T, merge func(value, delta T) T) Column 
 			return v
 		}
 
-		// Apply the user-defined merging strategy
-		merged := merge(value, delta)
-
-		// Marshal the value back
+		// Apply the user-defined merging strategy and marshal it back
+		merged := mergeFunc(value, delta)
 		if encoded, err := merged.MarshalBinary(); err == nil {
 			return b2s(&encoded)
 		}

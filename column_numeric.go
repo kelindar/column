@@ -37,7 +37,7 @@ type numericColumn[T simd.Number] struct {
 func makeNumeric[T simd.Number](
 	write func(*commit.Buffer, uint32, T),
 	apply func(*commit.Reader, bitmap.Bitmap, []T, option[T]),
-	opts ...func(*option[T]),
+	opts []func(*option[T]),
 ) *numericColumn[T] {
 	return &numericColumn[T]{
 		chunks: make(chunks[T], 0, 4),
