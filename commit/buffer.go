@@ -36,6 +36,24 @@ const (
 	Skip     OpType = 4 // Skips the value
 )
 
+// String returns a string representation
+func (o OpType) String() string {
+	switch o {
+	case Delete:
+		return "delete"
+	case Insert:
+		return "insert"
+	case Put:
+		return "put"
+	case Merge:
+		return "merge"
+	case Skip:
+		return "skip"
+	default:
+		return "unknown"
+	}
+}
+
 // --------------------------- Delta log ----------------------------
 
 // Buffer represents a buffer of delta operations.

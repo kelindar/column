@@ -4,7 +4,9 @@
 package commit
 
 import (
+	"fmt"
 	"math/rand"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -273,25 +275,6 @@ func TestSwapOpChange(t *testing.T) {
 	assert.Equal(t, Put, r.Type)
 }
 
-func TestMergeString(t *testing.T) {
-	buf := NewBuffer(0)
-	buf.PutString(Merge, 10, "A")
-	assert.Equal(t, []byte{0x53, 0x0, 0x1, 0x41, 0xa}, buf.buffer)
-
-	// Swap the value, this should also change the type
-	r := NewReader()
-	r.Seek(buf)
-	assert.True(t, r.Next())
-	assert.Equal(t, Merge, r.Type)
-	r.SwapString("B")
-
-	// Once swapped, op type should be changed to "Put"
-	r.Seek(buf)
-	assert.Equal(t, []byte{0x54, 0x0, 0x1, 0x41, 0xa, 0x52, 0x0, 0x1, 0x42, 0x0}, buf.buffer)
-	assert.True(t, r.Next())
-	assert.Equal(t, Skip, r.Type)
-}
-
 func TestMergeBytes(t *testing.T) {
 	buf := NewBuffer(0)
 	buf.PutBytes(Merge, 10, []byte("A"))
@@ -306,7 +289,41 @@ func TestMergeBytes(t *testing.T) {
 
 	// Once swapped, op type should be changed to "Put"
 	r.Seek(buf)
-	assert.Equal(t, []byte{0x54, 0x0, 0x1, 0x41, 0xa, 0x52, 0x0, 0x1, 0x42, 0x0}, buf.buffer)
+	assert.Equal(t, []byte{0x52, 0x0, 0x1, 0x42, 0xa}, buf.buffer)
 	assert.True(t, r.Next())
-	assert.Equal(t, Skip, r.Type)
+	assert.Equal(t, Put, r.Type)
+}
+
+func TestMergeStrings(t *testing.T) {
+	buf := NewBuffer(0)
+	buf.PutBytes(Merge, 30, []byte("5"))
+	buf.PutBytes(Merge, 40, []byte("6"))
+	buf.PutBytes(Merge, 10, []byte("2"))
+	buf.PutBytes(Merge, 20, []byte("3"))
+
+	var scanned []string
+
+	// Swap the value, this should also change the type
+	r := NewReader()
+	r.Range(buf, 0, func(r *Reader) {
+		for r.Rewind(); r.Next(); {
+			i, _ := strconv.Atoi(r.String())
+			r.SwapString(strconv.Itoa(i * i))
+		}
+	})
+
+	r.Range(buf, 0, func(r *Reader) {
+		for r.Rewind(); r.Next(); {
+			scanned = append(scanned, fmt.Sprintf("(%s) %v", r.Type, r.String()))
+		}
+	})
+
+	assert.Equal(t, []string{
+		"(skip) 5",
+		"(skip) 6",
+		"(put) 4",
+		"(put) 9",
+		"(put) 25",
+		"(put) 36",
+	}, scanned)
 }

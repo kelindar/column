@@ -11,13 +11,15 @@ import (
 
 // Reader represnts a commit log reader (iterator).
 type Reader struct {
-	*Buffer
-	head   int    // The read position
-	i0, i1 int    // The value start and end
-	Type   OpType // The current operation type
-	buffer []byte // The log slice
-	Offset int32  // The current offset
-	start  int32  // The start offset
+	Type       OpType  // The current operation type
+	i0, i1     int     // The value start and end
+	buffer     []byte  // The log slice
+	Offset     int32   // The current offset
+	last       int     // The read position
+	start      int32   // The start offset
+	x0, x1     uint32  // The lower and upper bounds of the underlying buffer
+	headString int     // The starting position of a string value
+	parent     *Buffer // The parent buffer
 }
 
 // NewReader creates a new reader for a commit log.
@@ -27,7 +29,7 @@ func NewReader() *Reader {
 
 // Seek resets the reader so it can be reused.
 func (r *Reader) Seek(b *Buffer) {
-	r.Buffer = b
+	r.parent = b
 	r.use(b.buffer)
 }
 
@@ -40,7 +42,8 @@ func (r *Reader) Rewind() {
 // Use sets the buffer and resets the reader.
 func (r *Reader) use(buffer []byte) {
 	r.buffer = buffer
-	r.head = 0
+	r.headString = 0
+	r.last = 0
 	r.i0 = 0
 	r.i1 = 0
 	r.Offset = 0
@@ -158,70 +161,70 @@ func (r *Reader) Bool() bool {
 // SwapInt16 swaps a uint16 value with a new one.
 func (r *Reader) SwapInt16(v int16) int16 {
 	binary.BigEndian.PutUint16(r.buffer[r.i0:r.i1], uint16(v))
-	r.writeSwapped()
+	r.writeSwap()
 	return v
 }
 
 // SwapInt32 swaps a uint32 value with a new one.
 func (r *Reader) SwapInt32(v int32) int32 {
 	binary.BigEndian.PutUint32(r.buffer[r.i0:r.i1], uint32(v))
-	r.writeSwapped()
+	r.writeSwap()
 	return v
 }
 
 // SwapInt64 swaps a uint64 value with a new one.
 func (r *Reader) SwapInt64(v int64) int64 {
 	binary.BigEndian.PutUint64(r.buffer[r.i0:r.i1], uint64(v))
-	r.writeSwapped()
+	r.writeSwap()
 	return v
 }
 
 // SwapInt swaps a uint64 value with a new one.
 func (r *Reader) SwapInt(v int) int {
 	binary.BigEndian.PutUint64(r.buffer[r.i0:r.i1], uint64(v))
-	r.writeSwapped()
+	r.writeSwap()
 	return v
 }
 
 // SwapUint16 swaps a uint16 value with a new one.
 func (r *Reader) SwapUint16(v uint16) uint16 {
 	binary.BigEndian.PutUint16(r.buffer[r.i0:r.i1], v)
-	r.writeSwapped()
+	r.writeSwap()
 	return v
 }
 
 // SwapUint32 swaps a uint32 value with a new one.
 func (r *Reader) SwapUint32(v uint32) uint32 {
 	binary.BigEndian.PutUint32(r.buffer[r.i0:r.i1], v)
-	r.writeSwapped()
+	r.writeSwap()
 	return v
 }
 
 // SwapUint64 swaps a uint64 value with a new one.
 func (r *Reader) SwapUint64(v uint64) uint64 {
 	binary.BigEndian.PutUint64(r.buffer[r.i0:r.i1], v)
-	r.writeSwapped()
+	r.writeSwap()
 	return v
 }
 
 // SwapUint swaps a uint64 value with a new one.
 func (r *Reader) SwapUint(v uint) uint {
 	binary.BigEndian.PutUint64(r.buffer[r.i0:r.i1], uint64(v))
-	r.writeSwapped()
+	r.writeSwap()
 	return v
 }
 
 // SwapFloat32 swaps a float32 value with a new one.
 func (r *Reader) SwapFloat32(v float32) float32 {
 	binary.BigEndian.PutUint32(r.buffer[r.i0:r.i1], math.Float32bits(v))
-	r.writeSwapped()
+	r.writeSwap()
 	return v
 }
 
 // SwapFloat64 swaps a float64 value with a new one.
 func (r *Reader) SwapFloat64(v float64) float64 {
 	binary.BigEndian.PutUint64(r.buffer[r.i0:r.i1], math.Float64bits(v))
-	r.writeSwapped()
+	r.writeSwap()
 	return v
 }
 
@@ -231,34 +234,39 @@ func (r *Reader) SwapBool(b bool) bool {
 	if b {
 		r.buffer[r.i0] = 1
 	}
-	r.writeSwapped()
+	r.writeSwap()
 	return b
 }
 
 // SwapString swaps a string value with a new one.
 func (r *Reader) SwapString(v string) string {
-	r.writeSkipped()
-	r.PutString(Put, r.Index(), v)
+	r.SwapBytes(toBytes(v))
 	return v
 }
 
 // SwapBytes swaps a binary value with a new one.
 func (r *Reader) SwapBytes(v []byte) []byte {
-	r.writeSkipped()
-	r.PutBytes(Put, r.Index(), v)
+	if (r.i1 - r.i0) == len(v) {
+		copy(r.buffer[r.i0:r.i1], v)
+		r.buffer[r.headString] &= 0xf0
+		r.buffer[r.headString] |= byte(Put)
+		return v
+	}
+
+	// If the value we write is of different size, we append a new value
+	// to the end of the underlying buffer. In doing so, we may lose our
+	// existing slice due to re-allocation. Hence, we reslice.
+	r.parent.PutBytes(Put, r.Index(), v)
+	r.buffer = r.parent.buffer[r.x0:r.x1]
+	r.buffer[r.headString] &= 0xf0
+	r.buffer[r.headString] |= byte(Skip)
 	return v
 }
 
-// writeSwapped marks the current value to be a store
-func (r *Reader) writeSwapped() {
+// writeSwap marks the current value to be a store (only for fixed length)
+func (r *Reader) writeSwap() {
 	r.buffer[r.i0-1] &= 0xf0
 	r.buffer[r.i0-1] |= byte(Put)
-}
-
-// writeSkipped marks the current value to be skipped
-func (r *Reader) writeSkipped() {
-	r.buffer[r.i0-3] &= 0xf0
-	r.buffer[r.i0-3] |= byte(Skip)
 }
 
 // --------------------------- Chunk Iterator ----------------------------
@@ -271,16 +279,15 @@ func (r *Reader) Range(buf *Buffer, chunk Chunk, fn func(*Reader)) {
 		}
 
 		// Find the next offset
-		offset := c.Start
-		buffer := buf.buffer[offset:]
+		r.x0 = uint32(c.Start)
+		r.x1 = uint32(len(buf.buffer))
 		if len(buf.chunks) > i+1 {
-			until := uint32(buf.chunks[i+1].Start)
-			buffer = buf.buffer[offset:until]
+			r.x1 = uint32(buf.chunks[i+1].Start)
 		}
 
 		// Set the reader to the subset buffer and call the delegate
-		r.use(buffer)
-		r.Buffer = buf
+		r.use(buf.buffer[r.x0:r.x1])
+		r.parent = buf
 		r.Offset = int32(c.Value)
 		r.start = int32(c.Value)
 		fn(r)
@@ -292,38 +299,40 @@ func (r *Reader) Range(buf *Buffer, chunk Chunk, fn func(*Reader)) {
 // Next reads the current operation and returns false if there is no more
 // operations in the log.
 func (r *Reader) Next() bool {
-	if r.head >= len(r.buffer) {
+	if r.last >= len(r.buffer) {
 		return false
 	}
 
-	head := r.buffer[r.head]
-	switch head & 0xc0 {
+	header := r.buffer[r.last]
+	switch header & 0xc0 {
 
 	// If this is a variable-size value but not a next neighbour, read the
 	// string and its offset.
 	case isString:
-		r.readString(head)
+		r.headString = r.last
+		r.readString(header)
 		r.readOffset()
 		return true
 
 	// If this is both a variable-size value and a next neighbour, read the
 	// string and skip the offset.
 	case isNext | isString:
-		r.readString(head)
+		r.headString = r.last
+		r.readString(header)
 		r.Offset++
 		return true
 
 	// If the first bit is set, this means that the delta is one and we
 	// can skip reading the actual offset. (special case)
 	case isNext:
-		r.readFixed(head)
+		r.readFixed(header)
 		r.Offset++
 		return true
 
 	// If it's not a string nor it is an immediate neighbor, we need to read
 	// the full offset.
 	default:
-		r.readFixed(head)
+		r.readFixed(header)
 		r.readOffset()
 		return true
 	}
@@ -334,41 +343,41 @@ func (r *Reader) Next() bool {
 // This would lead to negative values not being packed well, but given the
 // rarity of negative values in the data, this is acceptable.
 func (r *Reader) readOffset() {
-	b := uint32(r.buffer[r.head])
+	b := uint32(r.buffer[r.last])
 	if b < 0x80 {
-		r.head++
+		r.last++
 		r.Offset += int32(b)
 		return
 	}
 
 	x := b & 0x7f
-	b = uint32(r.buffer[r.head+1])
+	b = uint32(r.buffer[r.last+1])
 	if b < 0x80 {
-		r.head += 2
+		r.last += 2
 		r.Offset += int32(x | (b << 7))
 		return
 	}
 
 	x |= (b & 0x7f) << 7
-	b = uint32(r.buffer[r.head+2])
+	b = uint32(r.buffer[r.last+2])
 	if b < 0x80 {
-		r.head += 3
+		r.last += 3
 		r.Offset += int32(x | (b << 14))
 		return
 	}
 
 	x |= (b & 0x7f) << 14
-	b = uint32(r.buffer[r.head+3])
+	b = uint32(r.buffer[r.last+3])
 	if b < 0x80 {
-		r.head += 4
+		r.last += 4
 		r.Offset += int32(x | (b << 21))
 		return
 	}
 
 	x |= (b & 0x7f) << 21
-	b = uint32(r.buffer[r.head+4])
+	b = uint32(r.buffer[r.last+4])
 	if b < 0x80 {
-		r.head += 5
+		r.last += 5
 		r.Offset += int32(x | (b << 28))
 		return
 	}
@@ -377,19 +386,19 @@ func (r *Reader) readOffset() {
 // readFixed reads the fixed-size value at the current position.
 func (r *Reader) readFixed(v byte) {
 	size := int(1 << (v >> 4 & 0b11) & 0b1110)
-	r.head++
-	r.i0 = r.head
-	r.head += size
-	r.i1 = r.head
+	r.last++
+	r.i0 = r.last
+	r.last += size
+	r.i1 = r.last
 	r.Type = OpType(v & 0x0f)
 }
 
 // readString reads the operation type and the value at the current position.
 func (r *Reader) readString(v byte) {
-	size := int(r.buffer[r.head+2]) | int(r.buffer[r.head+1])<<8
-	r.head += 3
-	r.i0 = r.head
-	r.head += size
-	r.i1 = r.head
+	size := int(r.buffer[r.last+2]) | int(r.buffer[r.last+1])<<8
+	r.last += 3
+	r.i0 = r.last
+	r.last += size
+	r.i1 = r.last
 	r.Type = OpType(v & 0x0f)
 }

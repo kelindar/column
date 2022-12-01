@@ -580,17 +580,30 @@ func TestRecord(t *testing.T) {
 	col.CreateColumn("ts", ForRecord(func() *time.Time {
 		return new(time.Time)
 	}))
+	col.CreateIndex("recent", "ts", func(r Reader) bool {
+		var ts time.Time
+		if err := ts.UnmarshalBinary(r.Bytes()); err == nil {
+			return ts.After(time.Unix(1667745800, 0))
+		}
+		return false
+	})
 
 	// Insert the time, it implements binary marshaler
 	idx, _ := col.Insert(func(r Row) error {
-		now := time.Unix(1667745766, 0)
+		now := time.Unix(1667745700, 0)
 		r.SetRecord("ts", &now)
+		return nil
+	})
+
+	// Index should not have any recent
+	col.Query(func(txn *Txn) error {
+		assert.Equal(t, 1, txn.Without("recent").Count())
 		return nil
 	})
 
 	// We should be able to read back the time
 	col.QueryAt(idx, func(r Row) error {
-		now := time.Unix(1667745766, 0)
+		now := time.Unix(1667745900, 0)
 		r.MergeRecord("ts", &now)
 		return nil
 	})
@@ -600,6 +613,12 @@ func TestRecord(t *testing.T) {
 		ts, ok := r.Record("ts")
 		assert.True(t, ok)
 		assert.Equal(t, "November", ts.(*time.Time).UTC().Month().String())
+		return nil
+	})
+
+	// Merge should have updated the index as well
+	col.Query(func(txn *Txn) error {
+		assert.Equal(t, 1, txn.With("recent").Count())
 		return nil
 	})
 }
@@ -686,22 +705,31 @@ func TestNumberMerge(t *testing.T) {
 		return v
 	})))
 
+	col.CreateIndex("young", "age", func(r Reader) bool {
+		return r.Int() < 50
+	})
+
 	// Insert the time, it implements binary marshaler
 	idx, _ := col.Insert(func(r Row) error {
-		r.SetInt32("age", 10)
+		r.SetInt32("age", 100)
 		return nil
 	})
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 7; i++ {
 		col.QueryAt(idx, func(r Row) error {
-			r.MergeInt32("age", 1)
+			r.MergeInt32("age", 10)
 			return nil
 		})
 	}
 
 	col.QueryAt(idx, func(r Row) error {
 		age, _ := r.Int32("age")
-		assert.Equal(t, int32(0), age)
+		assert.Equal(t, int32(30), age)
+		return nil
+	})
+
+	col.Query(func(txn *Txn) error {
+		assert.Equal(t, 1, txn.With("young").Count())
 		return nil
 	})
 }
