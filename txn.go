@@ -535,16 +535,21 @@ func (txn *Txn) commitUpdates(chunk commit.Chunk) (updated bool) {
 			continue
 		}
 
-		// Do a linear search to find the offset for the current chunk
+		// Apply the updates on the column itself first. This may result in a modified
+		// buffer caused by merge updates, so we need to range our indexes separately.
 		updated = true
 		txn.reader.Range(u, chunk, func(r *commit.Reader) {
-
-			// Range through all of the pending updates and apply them to the column
-			// and its associated computed columns.
-			for _, v := range columns {
-				v.Apply(chunk, r)
-			}
+			columns[0].Apply(chunk, r)
 		})
+
+		// Range through all of the computed columns and apply the final state updates.
+		if len(columns) > 1 {
+			txn.reader.Range(u, chunk, func(r *commit.Reader) {
+				for _, v := range columns[1:] {
+					v.Apply(chunk, r)
+				}
+			})
+		}
 	}
 	return updated
 }
@@ -552,16 +557,16 @@ func (txn *Txn) commitUpdates(chunk commit.Chunk) (updated bool) {
 // commitMarkers commits inserts and deletes to the collection.
 func (txn *Txn) commitMarkers(chunk commit.Chunk, fill bitmap.Bitmap, buffer *commit.Buffer) {
 	txn.reader.Range(buffer, chunk, func(r *commit.Reader) {
+		txn.owner.lock.Lock()
 		for r.Next() {
-			txn.owner.lock.Lock()
 			switch r.Type {
 			case commit.Insert:
 				txn.owner.fill.Set(r.Index())
 			case commit.Delete:
 				txn.owner.fill.Remove(r.Index())
 			}
-			txn.owner.lock.Unlock()
 		}
+		txn.owner.lock.Unlock()
 	})
 
 	// We also need to apply the delete operations on the column so it

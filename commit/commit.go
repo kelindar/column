@@ -128,8 +128,8 @@ func (c *Commit) WriteTo(dst io.Writer) (int64, error) {
 		// Write chunk information
 		offset := uint32(0)
 		reader.Range(buffer, c.Chunk, func(r *Reader) {
-			w.WriteUint32(uint32(r.Offset)) // Value
-			w.WriteUint32(offset)           // Offset
+			_ = w.WriteUint32(uint32(r.Offset)) // Value
+			_ = w.WriteUint32(offset)           // Offset
 			offset += uint32(len(r.buffer))
 		})
 
@@ -140,7 +140,7 @@ func (c *Commit) WriteTo(dst io.Writer) (int64, error) {
 
 		// Write all chunk bytes together
 		reader.Range(buffer, c.Chunk, func(r *Reader) {
-			w.Write(r.buffer)
+			_, _ = w.Write(r.buffer)
 		})
 		return nil
 	}); err != nil {

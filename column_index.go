@@ -14,6 +14,7 @@ import (
 type Reader interface {
 	Index() uint32
 	String() string
+	Bytes() []byte
 	Float() float64
 	Int() int
 	Uint() uint
@@ -65,7 +66,7 @@ func (c *columnIndex) Apply(chunk commit.Chunk, r *commit.Reader) {
 	// on the actual column.
 	for r.Next() {
 		switch r.Type {
-		case commit.Put, commit.Merge:
+		case commit.Put:
 			if c.rule(r) {
 				c.fill.Set(uint32(r.Offset))
 			} else {
