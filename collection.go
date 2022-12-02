@@ -286,6 +286,12 @@ func (c *Collection) CreateSortIndex(indexName, columnName string) error {
 		return fmt.Errorf("column: unable to create index, column '%v' does not exist", columnName)
 	}
 
+	// Check to make sure index does not already exist
+	_, ok = c.cols.Load(indexName)
+	if ok {
+		return fmt.Errorf("column: unable to create index, index '%v' already exist", indexName)
+	}
+
 	// Create and add the index column,
 	index := newSortIndex(indexName, columnName)
 	c.lock.Lock()
@@ -464,6 +470,18 @@ func (c *columns) LoadWithIndex(columnName string) ([]*column, bool) {
 	for _, v := range cols {
 		if v.name == columnName {
 			return v.cols, true
+		}
+	}
+	return nil, false
+}
+
+// LoadIndex loads an index column by its name.
+func (c *columns) LoadIndex(indexName string) (*column, bool) {
+	cols := c.cols.Load().([]columnEntry)
+	for _, v := range cols {
+		if v.name == indexName {
+			col := v.cols[0]
+			return col, col != nil
 		}
 	}
 	return nil, false

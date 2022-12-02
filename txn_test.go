@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"strconv"
 
 	"github.com/kelindar/column/commit"
 	"github.com/stretchr/testify/assert"
@@ -264,6 +265,10 @@ func TestSortIndex(t *testing.T) {
 	c.CreateColumn("col1", ForString())
 	c.CreateSortIndex("sortedCol1", "col1")
 
+	assert.Error(t, c.CreateSortIndex("", ""))
+	assert.Error(t, c.CreateSortIndex("no_col", "nonexistent"))
+	assert.Error(t, c.CreateSortIndex("sortedCol1", "col1"))
+
 	c.Insert(func (r Row) error {
 		r.SetString("col1", "bob")
 		return nil
@@ -277,14 +282,21 @@ func TestSortIndex(t *testing.T) {
 		return nil
 	})
 
-	var res []string
+	assert.Error(t, c.Query(func (txn *Txn) error {
+		return txn.SortedRange("nonexistent", func (i uint32) {
+			return
+		})
+	}))
+
+	var res [3]string
+	var resN int = 0
 	c.Query(func (txn *Txn) error {
 		col1 := txn.String("col1")
-		txn.SortedRange("sortedCol1", func (i uint32) {
+		return txn.SortedRange("sortedCol1", func (i uint32) {
 			name, _ := col1.Get()
-			res = append(res, name)
+			res[resN] = name
+			resN++
 		})
-		return nil
 	})
 
 	assert.Equal(t, "alice", res[0])
@@ -320,6 +332,38 @@ func TestSortIndexLoad(t *testing.T) {
 
 }
 
+func TestSortIndexChunks(t *testing.T) {
+	N := 100_000
+	obj := map[string]any{
+		"name": "1",
+		"balance": 12.5,
+	}
+
+	players := NewCollection()
+	players.CreateColumnsOf(obj)
+	players.CreateSortIndex("sorted_names", "name")
+
+	for i := 0; i < N; i++ {
+		players.Insert(func (r Row) error {
+			return r.SetMany(map[string]any{
+				"name": strconv.Itoa(i),
+				"balance": float64(i) + 0.5,
+			})
+		})
+	}
+
+	players.Query(func (txn *Txn) error {
+		name := txn.String("name")
+		txn.SortedRange("sorted_names", func (i uint32) {
+			n, _ := name.Get()
+			if i % 400 == 0 {
+				nInt, _ := strconv.Atoi(n)
+				assert.Equal(t, nInt, int(i))
+			}
+		})
+		return nil
+	})
+}
 
 
 func TestDeleteAll(t *testing.T) {
