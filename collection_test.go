@@ -742,6 +742,63 @@ func TestReplica(t *testing.T) {
 	})
 }
 
+// --------------------------- Create/Drop Trigger ----------------------------
+
+func TestTriggerCreate(t *testing.T) {
+	updates := make([]string, 0, 128)
+	players := loadPlayers(500)
+	players.CreateTrigger("on_balance", "balance", func(r Reader) {
+		switch {
+		case r.IsDelete():
+			updates = append(updates, fmt.Sprintf("delete %d", r.Index()))
+		case r.IsUpsert():
+			updates = append(updates, fmt.Sprintf("upsert %d=%v", r.Index(), r.Float()))
+		}
+	})
+
+	// Perform a few deletions and insertions
+	for i := 0; i < 3; i++ {
+		players.DeleteAt(uint32(i))
+		players.Insert(func(r Row) error {
+			r.SetFloat64("balance", 50.0)
+			return nil
+		})
+	}
+
+	// Must keep track of all operations
+	assert.Len(t, updates, 6)
+	assert.Equal(t, []string{"delete 0", "upsert 500=50", "delete 1", "upsert 501=50", "delete 2", "upsert 502=50"}, updates)
+	assert.NoError(t, players.DropTrigger("on_balance"))
+
+	// Must not drop if doesn't exist or not a trigger
+	assert.Error(t, players.DropTrigger("on_balance"))
+	assert.Error(t, players.DropTrigger("balance"))
+
+	// After dropping, should not trigger anymore
+	players.DeleteAt(100)
+	assert.Len(t, updates, 6)
+}
+
+func TestTriggerInvalid(t *testing.T) {
+	players := newEmpty(10)
+	assert.Error(t, players.CreateTrigger("on_balance", "invalid", func(r Reader) {}))
+	assert.Error(t, players.CreateTrigger("", "", nil))
+}
+
+func TestTriggerImpl(t *testing.T) {
+	column := newTrigger("test", "target", func(r Reader) {}).Column
+	v, ok := column.Value(0)
+
+	assert.Nil(t, v)
+	assert.False(t, ok)
+	assert.False(t, column.Contains(0))
+	assert.Nil(t, column.Index(0))
+	assert.NotPanics(t, func() {
+		column.Grow(100)
+		column.Snapshot(0, nil)
+	})
+}
+
 // --------------------------- Mocks & Fixtures ----------------------------
 
 // loadPlayers loads a list of players from the fixture

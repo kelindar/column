@@ -156,6 +156,16 @@ func (r *Reader) Bool() bool {
 	return r.Type == PutTrue
 }
 
+// IsUpsert returns true if the current operation is an insert or update
+func (r *Reader) IsUpsert() bool {
+	return r.Type == Put
+}
+
+// IsDelete returns true if the current operation is a deletion
+func (r *Reader) IsDelete() bool {
+	return r.Type == Delete
+}
+
 // --------------------------- Value Swap ----------------------------
 
 // SwapInt16 swaps a uint16 value with a new one.

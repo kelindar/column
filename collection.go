@@ -196,6 +196,48 @@ func (c *Collection) DropColumn(columnName string) {
 	c.cols.DeleteColumn(columnName)
 }
 
+// CreateTrigger creates an trigger column with a specified name which depends on a given
+// column. The trigger function will be applied on the values of the column whenever
+// a new row is added, updated or deleted.
+func (c *Collection) CreateTrigger(triggerName, columnName string, fn func(r Reader)) error {
+	if fn == nil || columnName == "" || triggerName == "" {
+		return fmt.Errorf("column: create trigger must specify name, column and function")
+	}
+
+	// Prior to creating an index, we should have a column
+	column, ok := c.cols.Load(columnName)
+	if !ok {
+		return fmt.Errorf("column: unable to create trigger, column '%v' does not exist", columnName)
+	}
+
+	// Create and add the trigger column
+	trigger := newTrigger(triggerName, columnName, fn)
+	c.lock.Lock()
+	c.cols.Store(triggerName, trigger)
+	c.cols.Store(columnName, column, trigger)
+	c.lock.Unlock()
+	return nil
+}
+
+// DropTrigger removes the trigger column with the specified name. If the trigger with this
+// name does not exist, this operation is a no-op.
+func (c *Collection) DropTrigger(triggerName string) error {
+	column, exists := c.cols.Load(triggerName)
+	if !exists {
+		return fmt.Errorf("column: unable to drop index, index '%v' does not exist", triggerName)
+	}
+
+	if _, ok := column.Column.(computed); !ok {
+		return fmt.Errorf("column: unable to drop index, '%v' is not a trigger", triggerName)
+	}
+
+	// Figure out the associated column and delete the index from that
+	columnName := column.Column.(computed).Column()
+	c.cols.DeleteIndex(columnName, triggerName)
+	c.cols.DeleteColumn(triggerName)
+	return nil
+}
+
 // CreateIndex creates an index column with a specified name which depends on a given
 // column. The index function will be applied on the values of the column whenever
 // a new row is added or updated.

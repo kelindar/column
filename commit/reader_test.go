@@ -327,3 +327,16 @@ func TestMergeStrings(t *testing.T) {
 		"(put) 36",
 	}, scanned)
 }
+
+func TestReaderIsUpsert(t *testing.T) {
+	buf := NewBuffer(0)
+	buf.PutFloat32(Put, 0, 10)
+	buf.PutFloat32(Delete, 0, 0)
+
+	r := NewReader()
+	r.Seek(buf)
+	assert.True(t, r.Next())
+	assert.True(t, r.IsUpsert())
+	assert.True(t, r.Next())
+	assert.True(t, r.IsDelete())
+}
