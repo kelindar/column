@@ -171,8 +171,9 @@ type SortIndexItem struct {
 
 // columnSortIndex implements a constantly sorted column via BTree
 type columnSortIndex struct {
-	btree   *btree.BTreeG[SortIndexItem] // 1 constantly sorted data structure
-	name    string         		     // The name of the target column
+	btree    *btree.BTreeG[SortIndexItem] // 1 constantly sorted data structure
+	backMap  map[uint32]string            // for constant key lookups
+	name     string                       // The name of the target column
 }
 
 // newSortIndex creates a new bitmap index column.
@@ -182,6 +183,7 @@ func newSortIndex(indexName, columnName string) *column {
 	}
 	return columnFor(indexName, &columnSortIndex{
 		btree: btree.NewBTreeG[SortIndexItem](byKeys),
+		backMap: make(map[uint32]string),
 		name:  columnName,
 	})
 }
@@ -205,7 +207,7 @@ func (c *columnSortIndex) Apply(chunk commit.Chunk, r *commit.Reader) {
 	for r.Next() {
 		switch r.Type {
 		case commit.Put:
-			delItem := SortIndexItem{"", 0}
+			/*delItem := SortIndexItem{"", 0}
 			c.btree.Scan(func (item SortIndexItem) bool {
 				if item.Value == r.Index() {
 					delItem.Key = item.Key
@@ -216,22 +218,25 @@ func (c *columnSortIndex) Apply(chunk commit.Chunk, r *commit.Reader) {
 			})
 			if delItem.Key != "" {
 				c.btree.Delete(delItem)
+			}*/
+			if delKey, exists := c.backMap[r.Index()]; exists {
+				c.btree.Delete(SortIndexItem{
+					Key: delKey,
+					Value: r.Index(),
+				})
 			}
+			upsertKey := strings.Clone(r.String()) // alloc required
+			c.backMap[r.Index()] = upsertKey
 			c.btree.Set(SortIndexItem{
-				Key: strings.Clone(r.String()), // alloc required
+				Key: upsertKey,
 				Value: r.Index(),
 			})
 		case commit.Delete:
-			delItem := SortIndexItem{"", 0}
-			c.btree.Scan(func (item SortIndexItem) bool {
-				if item.Value == r.Index() {
-					delItem.Key = item.Key
-					delItem.Value = item.Value
-					return false
-				}
-				return true
+			delKey, _ := c.backMap[r.Index()]
+			c.btree.Delete(SortIndexItem{
+				Key: delKey,
+				Value: r.Index(),
 			})
-			c.btree.Delete(delItem)
 		}
 	}
 }
