@@ -269,6 +269,7 @@ func TestSortIndex(t *testing.T) {
 	assert.Error(t, c.CreateSortIndex("no_col", "nonexistent"))
 	assert.Error(t, c.CreateSortIndex("sortedCol1", "col1"))
 
+	// Inserts
 	c.Insert(func (r Row) error {
 		r.SetString("col1", "bob")
 		return nil
@@ -285,20 +286,25 @@ func TestSortIndex(t *testing.T) {
 		r.SetString("col1", "alice")
 		return nil
 	})
+	
+	// Update
 	assert.NoError(t, c.QueryAt(3, func(r Row) error {
 		r.SetString("col1", "rob")
 		return nil
 	}))
+	indexCol, _ := c.cols.Load("sortedCol1")
+	assert.Equal(t, 4, indexCol.Column.(*columnSortIndex).btree.Len())
+	
+	// Delete
 	assert.Equal(t, true, c.DeleteAt(1))
+	assert.Equal(t, 3, indexCol.Column.(*columnSortIndex).btree.Len())
 
+	// Range
 	assert.Error(t, c.Query(func (txn *Txn) error {
 		return txn.SortedRange("nonexistent", func (i uint32) {
 			return
 		})
 	}))
-
-	indexCol, _ := c.cols.Load("sortedCol1")
-	assert.Equal(t, 3, indexCol.Column.(*columnSortIndex).btree.Len())
 
 	var res [3]string
 	var resN int = 0

@@ -401,12 +401,14 @@ func (txn *Txn) SortedRange(sortIndexName string, fn func(idx uint32)) error {
 	// TODO - better solution for linear txn index check
 	sortIndexCol, _ := sortIndex.Column.(*columnSortIndex)
 	sortIndexCol.btree.Scan(func (item SortIndexItem) bool {
+		/*
 		if txn.index.Contains(item.Value) {
 			fn(item.Value)
 		}
+		*/
 		// For each btree key, check if the offset is still in
 		// the txn's index & return if true
-		/*
+		
 		txn.rangeRead(func (chunk commit.Chunk, index bitmap.Bitmap) {
 			offset := chunk.Min()
 			index.Range(func(x uint32) {
@@ -415,7 +417,7 @@ func (txn *Txn) SortedRange(sortIndexName string, fn func(idx uint32)) error {
 					fn(item.Value)
 				}
 			})
-		})*/
+		})
 		return true
 	})
 	return nil

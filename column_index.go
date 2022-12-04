@@ -4,9 +4,7 @@
 package column
 
 import (
-	"fmt"
 	"strings"
-	// "runtime/debug"
 	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
 
@@ -204,21 +202,36 @@ func (c *columnSortIndex) Apply(chunk commit.Chunk, r *commit.Reader) {
 
 	// Index can only be updated based on the final stored value, so we can only work
 	// with put, merge, & delete operations here.
-
-	// TODO - account for updates to target column
-	// will require Delete @ old key + Set @ new key
 	for r.Next() {
-		sit := SortIndexItem{
-		    Key: strings.Clone(r.String()), // alloc required
-		    Value: r.Index(),
-		}
 		switch r.Type {
 		case commit.Put:
-			// TODO: if idx already stored, delete it first (update)
-			c.btree.Set(sit)
+			delItem := SortIndexItem{"", 0}
+			c.btree.Scan(func (item SortIndexItem) bool {
+				if item.Value == r.Index() {
+					delItem.Key = item.Key
+					delItem.Value = item.Value
+					return false
+				}
+				return true
+			})
+			if delItem.Key != "" {
+				c.btree.Delete(delItem)
+			}
+			c.btree.Set(SortIndexItem{
+				Key: strings.Clone(r.String()), // alloc required
+				Value: r.Index(),
+			})
 		case commit.Delete:
-			// TODO: delete commits do not contain original string
-			c.btree.Delete(sit)
+			delItem := SortIndexItem{"", 0}
+			c.btree.Scan(func (item SortIndexItem) bool {
+				if item.Value == r.Index() {
+					delItem.Key = item.Key
+					delItem.Value = item.Value
+					return false
+				}
+				return true
+			})
+			c.btree.Delete(delItem)
 		}
 	}
 }
