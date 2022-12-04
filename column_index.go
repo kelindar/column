@@ -4,7 +4,9 @@
 package column
 
 import (
+	"fmt"
 	"strings"
+	// "runtime/debug"
 	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
 
@@ -171,9 +173,8 @@ type SortIndexItem struct {
 
 // columnSortIndex implements a constantly sorted column via BTree
 type columnSortIndex struct {
-	btree  *btree.BTreeG[SortIndexItem]   // 1 constantly sorted data structure
-	// TODO - look into a list of btree, 1 per chunk
-	name   string         		     // The name of the target column
+	btree   *btree.BTreeG[SortIndexItem] // 1 constantly sorted data structure
+	name    string         		     // The name of the target column
 }
 
 // newSortIndex creates a new bitmap index column.
@@ -209,12 +210,14 @@ func (c *columnSortIndex) Apply(chunk commit.Chunk, r *commit.Reader) {
 	for r.Next() {
 		sit := SortIndexItem{
 		    Key: strings.Clone(r.String()), // alloc required
-		    Value: uint32(r.Offset),
+		    Value: r.Index(),
 		}
 		switch r.Type {
-		case commit.Put, commit.Merge:
+		case commit.Put:
+			// TODO: if idx already stored, delete it first (update)
 			c.btree.Set(sit)
 		case commit.Delete:
+			// TODO: delete commits do not contain original string
 			c.btree.Delete(sit)
 		}
 	}

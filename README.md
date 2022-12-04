@@ -212,8 +212,8 @@ Along with bitmap indexing, collections support consistently sorted indexes. The
 In the example below, we create a SortedIndex object and use it to sort filtered records in a transaction.
 
 ```go
-// Create the index "sortedNames" in advance
-out.CreateIndex("richest", "balance")
+// Create the sorted index "sortedNames" in advance
+out.CreateSortIndex("richest", "balance")
 
 // This filters the transaction with the `rouge` index before
 // ranging through the remaining balances in ascending order
