@@ -221,7 +221,7 @@ players.Query(func(txn *column.Txn) error {
 	name    := txn.String("name")
 	balance := txn.Float64("balance")
 
-	txn.With("rogue").SortedRange("richest", func (i uint32) {
+	txn.With("rogue").Ascend("richest", func (i uint32) {
 		// save or do something with sorted record
 		curName, _ := name.Get()
 		balance.Set(newBalance(curName))

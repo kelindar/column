@@ -163,7 +163,6 @@ func (c *columnTrigger) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 
 // ----------------------- Sorted Index --------------------------
 
-// SortIndexItem represents an offset sorted in a generic BTree
 type SortIndexItem struct {
     Key    string
     Value  uint32

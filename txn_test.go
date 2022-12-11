@@ -301,7 +301,7 @@ func TestSortIndex(t *testing.T) {
 
 	// Range
 	assert.Error(t, c.Query(func (txn *Txn) error {
-		return txn.SortedRange("nonexistent", func (i uint32) {
+		return txn.Ascend("nonexistent", func (i uint32) {
 			return
 		})
 	}))
@@ -310,7 +310,7 @@ func TestSortIndex(t *testing.T) {
 	var resN int = 0
 	c.Query(func (txn *Txn) error {
 		col1 := txn.String("col1")
-		return txn.SortedRange("sortedCol1", func (i uint32) {
+		return txn.Ascend("sortedCol1", func (i uint32) {
 			name, _ := col1.Get()
 			res[resN] = name
 			resN++
@@ -338,7 +338,7 @@ func TestSortIndexLoad(t *testing.T) {
 	players.Query(func (txn *Txn) error {
 		txn = txn.With("human", "mage")
 		name := txn.String("name")
-		txn.SortedRange("sorted_names", func (i uint32) {
+		txn.Ascend("sorted_names", func (i uint32) {
 			n, _ := name.Get()
 			if res, exists := checks[checkN]; exists {
 				assert.Equal(t, res, n)
@@ -372,7 +372,7 @@ func TestSortIndexChunks(t *testing.T) {
 
 	players.Query(func (txn *Txn) error {
 		name := txn.String("name")
-		txn.SortedRange("sorted_names", func (i uint32) {
+		txn.Ascend("sorted_names", func (i uint32) {
 			n, _ := name.Get()
 			if i % 400 == 0 {
 				nInt, _ := strconv.Atoi(n)
@@ -382,7 +382,6 @@ func TestSortIndexChunks(t *testing.T) {
 		return nil
 	})
 }
-
 
 func TestDeleteAll(t *testing.T) {
 	players := loadPlayers(500)

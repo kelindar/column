@@ -388,9 +388,9 @@ func (txn *Txn) Range(fn func(idx uint32)) error {
 	return nil
 }
 
-// SortedRange ascends through a given SortedIndex and returns each offset
+// Ascend through a given SortedIndex and returns each offset
 // remaining in the transaction's index
-func (txn *Txn) SortedRange(sortIndexName string, fn func(idx uint32)) error {
+func (txn *Txn) Ascend(sortIndexName string, fn func(idx uint32)) error {
 	txn.initialize()
 
 	sortIndex, ok := txn.owner.cols.Load(sortIndexName)
