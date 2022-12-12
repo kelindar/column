@@ -271,6 +271,7 @@ func TestSortIndex(t *testing.T) {
 	assert.Error(t, c.CreateSortIndex("sortedCol1", "col1"))
 
 	indexCol, _ := c.cols.Load("sortedCol1")
+	assert.Equal(t, "col1", indexCol.Column.(*columnSortIndex).Column())
 	assert.False(t, indexCol.Column.(*columnSortIndex).Contains(0))
 	assert.Nil(t, indexCol.Column.(*columnSortIndex).Index(0))
 	assert.NotPanics(t, func() {
