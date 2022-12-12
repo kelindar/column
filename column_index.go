@@ -206,18 +206,6 @@ func (c *columnSortIndex) Apply(chunk commit.Chunk, r *commit.Reader) {
 	for r.Next() {
 		switch r.Type {
 		case commit.Put:
-			/*delItem := SortIndexItem{"", 0}
-			c.btree.Scan(func (item SortIndexItem) bool {
-				if item.Value == r.Index() {
-					delItem.Key = item.Key
-					delItem.Value = item.Value
-					return false
-				}
-				return true
-			})
-			if delItem.Key != "" {
-				c.btree.Delete(delItem)
-			}*/
 			if delKey, exists := c.backMap[r.Index()]; exists {
 				c.btree.Delete(SortIndexItem{
 					Key: delKey,

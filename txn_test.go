@@ -390,7 +390,6 @@ func TestSortIndexChunks(t *testing.T) {
 	order.Add(1)
 
 	// Do the same test as before at the same time as other updates
-	// go func(order *sync.WaitGroup) {
 	go func() {
 		players.Query(func (txn *Txn) error {
 			name := txn.String("name")
@@ -407,7 +406,6 @@ func TestSortIndexChunks(t *testing.T) {
 		wg.Done()
 	}()
 	
-	//go func(order *sync.WaitGroup) {
 	go func() {
 		order.Wait() // Wait for scan to begin
 		idx1 := xxrand.Uint32n(uint32(N / 400)) * 400 // hit checked idxs only
