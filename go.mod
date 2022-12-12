@@ -14,7 +14,7 @@ require (
 	github.com/zeebo/xxh3 v1.0.2
 )
 
-require github.com/tidwall/btree v1.5.2 // indirect
+require github.com/tidwall/btree v1.6.0 // indirect
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect

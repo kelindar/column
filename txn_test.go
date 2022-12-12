@@ -9,6 +9,7 @@ import (
 	"testing"
 	"strconv"
 
+	"github.com/kelindar/xxrand"
 	"github.com/kelindar/column/commit"
 	"github.com/stretchr/testify/assert"
 )
@@ -381,6 +382,51 @@ func TestSortIndexChunks(t *testing.T) {
 		})
 		return nil
 	})
+
+	// Concurrency Test
+	var wg sync.WaitGroup
+	order := new(sync.WaitGroup)
+	wg.Add(2)
+	order.Add(1)
+
+	// Do the same test as before at the same time as other updates
+	// go func(order *sync.WaitGroup) {
+	go func() {
+		players.Query(func (txn *Txn) error {
+			name := txn.String("name")
+			order.Done() // Ensure this txn begins before update
+			txn.Ascend("sorted_names", func (i uint32) {
+				n, _ := name.Get()
+				if i % 400 == 0 {
+					nInt, _ := strconv.Atoi(n)
+					assert.Equal(t, nInt, int(i))
+				}
+			})
+			return nil
+		})
+		wg.Done()
+	}()
+	
+	//go func(order *sync.WaitGroup) {
+	go func() {
+		order.Wait() // Wait for scan to begin
+		idx1 := xxrand.Uint32n(uint32(N / 400)) * 400 // hit checked idxs only
+		idx2 := xxrand.Uint32n(uint32(N / 400)) * 400
+		players.Insert(func (r Row) error {
+			r.SetString("name", "new")
+			r.SetFloat64("balance", 43.2)
+			return nil
+		})
+		players.QueryAt(idx1, func (r Row) error {
+			r.SetString("name", "updated")
+			return nil
+		})
+		players.DeleteAt(idx2)
+		wg.Done()
+	}()
+
+	wg.Wait()
+	assert.Equal(t, 100_000, players.Count())
 }
 
 func TestDeleteAll(t *testing.T) {

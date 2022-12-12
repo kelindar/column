@@ -398,26 +398,14 @@ func (txn *Txn) Ascend(sortIndexName string, fn func(idx uint32)) error {
 		return fmt.Errorf("column: no sorted index named '%v'", sortIndexName)
 	}
 
-	// TODO - better solution for linear txn index check
+	// For each btree key, check if the offset is still in
+	// the txn's index & return if true
 	sortIndexCol, _ := sortIndex.Column.(*columnSortIndex)
-	sortIndexCol.btree.Scan(func (item SortIndexItem) bool {
-		/*
+	sortIndexCol.btree.ScanMut(func (item SortIndexItem) bool {
 		if txn.index.Contains(item.Value) {
+			txn.cursor = item.Value
 			fn(item.Value)
 		}
-		*/
-		// For each btree key, check if the offset is still in
-		// the txn's index & return if true
-		
-		txn.rangeRead(func (chunk commit.Chunk, index bitmap.Bitmap) {
-			offset := chunk.Min()
-			index.Range(func(x uint32) {
-				if item.Value == offset + x {
-					txn.cursor = item.Value
-					fn(item.Value)
-				}
-			})
-		})
 		return true
 	})
 	return nil

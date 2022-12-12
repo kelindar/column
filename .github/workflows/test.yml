@@ -22,7 +22,7 @@ jobs:
           go mod download
       - name: Run Unit Tests
         run: |
-          go test -timeout 1200s -race -covermode atomic -coverprofile=profile.cov ./...
+          go test -race -covermode atomic -coverprofile=profile.cov ./...
       - name: Upload Coverage
         uses: shogo82148/actions-goveralls@v1
         with:
