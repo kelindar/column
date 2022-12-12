@@ -274,6 +274,9 @@ func TestSortIndex(t *testing.T) {
 	assert.Equal(t, "col1", indexCol.Column.(*columnSortIndex).Column())
 	assert.False(t, indexCol.Column.(*columnSortIndex).Contains(0))
 	assert.Nil(t, indexCol.Column.(*columnSortIndex).Index(0))
+	v, ok := indexCol.Column.(*columnSortIndex).Value(0)
+	assert.Nil(t, v)
+	assert.False(t, ok)
 	assert.NotPanics(t, func() {
 		indexCol.Column.(*columnSortIndex).Grow(100)
 		indexCol.Column.(*columnSortIndex).Snapshot(0, nil)
