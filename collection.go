@@ -475,18 +475,6 @@ func (c *columns) LoadWithIndex(columnName string) ([]*column, bool) {
 	return nil, false
 }
 
-// LoadIndex loads an index column by its name.
-func (c *columns) LoadIndex(indexName string) (*column, bool) {
-	cols := c.cols.Load().([]columnEntry)
-	for _, v := range cols {
-		if v.name == indexName {
-			col := v.cols[0]
-			return col, col != nil
-		}
-	}
-	return nil, false
-}
-
 // Store stores a column into the registry.
 func (c *columns) Store(columnName string, main *column, index ...*column) {
 

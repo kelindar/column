@@ -246,5 +246,5 @@ func (c *columnSortIndex) Index(chunk commit.Chunk) bitmap.Bitmap {
 
 // Snapshot writes the entire column into the specified destination buffer
 func (c *columnSortIndex) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
-	// No op
+	// No-op
 }
