@@ -5,6 +5,7 @@ package column
 
 import (
 	"strings"
+
 	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
 
@@ -163,27 +164,27 @@ func (c *columnTrigger) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 
 // ----------------------- Sorted Index --------------------------
 
-type SortIndexItem struct {
-    Key    string
-    Value  uint32
+type sortIndexItem struct {
+	Key   string
+	Value uint32
 }
 
 // columnSortIndex implements a constantly sorted column via BTree
 type columnSortIndex struct {
-	btree    *btree.BTreeG[SortIndexItem] // 1 constantly sorted data structure
-	backMap  map[uint32]string            // for constant key lookups
-	name     string                       // The name of the target column
+	btree   *btree.BTreeG[sortIndexItem] // 1 constantly sorted data structure
+	backMap map[uint32]string            // for constant key lookups
+	name    string                       // The name of the target column
 }
 
 // newSortIndex creates a new bitmap index column.
 func newSortIndex(indexName, columnName string) *column {
-	byKeys := func (a, b SortIndexItem) bool {
+	byKeys := func(a, b sortIndexItem) bool {
 		return a.Key < b.Key
 	}
 	return columnFor(indexName, &columnSortIndex{
-		btree: btree.NewBTreeG[SortIndexItem](byKeys),
+		btree:   btree.NewBTreeG(byKeys),
 		backMap: make(map[uint32]string),
-		name:  columnName,
+		name:    columnName,
 	})
 }
 
@@ -197,7 +198,6 @@ func (c *columnSortIndex) Column() string {
 	return c.name
 }
 
-
 // Apply applies a set of operations to the column.
 func (c *columnSortIndex) Apply(chunk commit.Chunk, r *commit.Reader) {
 
@@ -207,27 +207,26 @@ func (c *columnSortIndex) Apply(chunk commit.Chunk, r *commit.Reader) {
 		switch r.Type {
 		case commit.Put:
 			if delKey, exists := c.backMap[r.Index()]; exists {
-				c.btree.Delete(SortIndexItem{
-					Key: delKey,
+				c.btree.Delete(sortIndexItem{
+					Key:   delKey,
 					Value: r.Index(),
 				})
 			}
 			upsertKey := strings.Clone(r.String()) // alloc required
 			c.backMap[r.Index()] = upsertKey
-			c.btree.Set(SortIndexItem{
-				Key: upsertKey,
+			c.btree.Set(sortIndexItem{
+				Key:   upsertKey,
 				Value: r.Index(),
 			})
 		case commit.Delete:
 			delKey, _ := c.backMap[r.Index()]
-			c.btree.Delete(SortIndexItem{
-				Key: delKey,
+			c.btree.Delete(sortIndexItem{
+				Key:   delKey,
 				Value: r.Index(),
 			})
 		}
 	}
 }
-
 
 // Value retrieves a value at a specified index.
 func (c *columnSortIndex) Value(idx uint32) (v interface{}, ok bool) {

@@ -239,7 +239,7 @@ func (c *Collection) DropTrigger(triggerName string) error {
 }
 
 // CreateIndex creates an index column with a specified name which depends on a given
-// column. The index function will be applied on the values of the column whenever
+// data column. The index function will be applied on the values of the column whenever
 // a new row is added or updated.
 func (c *Collection) CreateIndex(indexName, columnName string, fn func(r Reader) bool) error {
 	if fn == nil || columnName == "" || indexName == "" {
@@ -275,6 +275,8 @@ func (c *Collection) CreateIndex(indexName, columnName string, fn func(r Reader)
 	return nil
 }
 
+// CreateSortIndex creates a sorted index column with a specified name which depends
+// on a given data column.
 func (c *Collection) CreateSortIndex(indexName, columnName string) error {
 	if columnName == "" || indexName == "" {
 		return fmt.Errorf("column: create index must specify name & column")
@@ -295,7 +297,6 @@ func (c *Collection) CreateSortIndex(indexName, columnName string) error {
 	// Create and add the index column,
 	index := newSortIndex(indexName, columnName)
 	c.lock.Lock()
-	// index.Grow(uint32(c.opts.Capacity))
 	c.cols.Store(indexName, index)
 	c.cols.Store(columnName, column, index)
 	c.lock.Unlock()

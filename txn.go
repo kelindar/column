@@ -404,7 +404,7 @@ func (txn *Txn) Ascend(sortIndexName string, fn func(idx uint32)) error {
 	// For each btree key, check if the offset is still in
 	// the txn's index & return if true
 	sortIndexCol, _ := sortIndex.Column.(*columnSortIndex)
-	sortIndexCol.btree.Scan(func (item SortIndexItem) bool {
+	sortIndexCol.btree.Scan(func(item sortIndexItem) bool {
 		if txn.index.Contains(item.Value) {
 			// chunk := commit.ChunkAt(item.Value)
 			// lock.RLock(uint(chunk))
