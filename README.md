@@ -205,6 +205,31 @@ players.Query(func(txn *column.Txn) error {
 })
 ```
 
+## Sorted Indexes
+
+Along with bitmap indexing, collections support consistently sorted indexes. These indexes are transient, and must be recreated when a collection is loading a snapshot. 
+
+In the example below, we create a SortedIndex object and use it to sort filtered records in a transaction.
+
+```go
+// Create the sorted index "sortedNames" in advance
+out.CreateSortIndex("richest", "balance")
+
+// This filters the transaction with the `rouge` index before
+// ranging through the remaining balances in ascending order
+players.Query(func(txn *column.Txn) error {
+	name    := txn.String("name")
+	balance := txn.Float64("balance")
+
+	txn.With("rogue").Ascend("richest", func (i uint32) {
+		// save or do something with sorted record
+		curName, _ := name.Get()
+		balance.Set(newBalance(curName))
+	})
+	return nil
+})
+```
+
 ## Updating Values
 
 In order to update certain items in the collection, you can simply call `Range()` method and use column accessor's `Set()` or `Add()` methods to update a value of a certain column atomically. The updates won't be instantly reflected given that our store supports transactions. Only when transaction is commited, then the update will be applied to the collection, allowing for isolation and rollbacks.

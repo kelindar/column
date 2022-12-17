@@ -275,6 +275,46 @@ func (c *Collection) CreateIndex(indexName, columnName string, fn func(r Reader)
 	return nil
 }
 
+func (c *Collection) CreateSortIndex(indexName, columnName string) error {
+	if columnName == "" || indexName == "" {
+		return fmt.Errorf("column: create index must specify name & column")
+	}
+
+	// Prior to creating an index, we should have a column
+	column, ok := c.cols.Load(columnName)
+	if !ok {
+		return fmt.Errorf("column: unable to create index, column '%v' does not exist", columnName)
+	}
+
+	// Check to make sure index does not already exist
+	_, ok = c.cols.Load(indexName)
+	if ok {
+		return fmt.Errorf("column: unable to create index, index '%v' already exist", indexName)
+	}
+
+	// Create and add the index column,
+	index := newSortIndex(indexName, columnName)
+	c.lock.Lock()
+	// index.Grow(uint32(c.opts.Capacity))
+	c.cols.Store(indexName, index)
+	c.cols.Store(columnName, column, index)
+	c.lock.Unlock()
+
+	// Iterate over all of the values of the target column, chunk by chunk and fill
+	// the index accordingly.
+	chunks := c.chunks()
+	buffer := commit.NewBuffer(c.Count())
+	reader := commit.NewReader()
+	for chunk := commit.Chunk(0); int(chunk) < chunks; chunk++ {
+		if column.Snapshot(chunk, buffer) {
+			reader.Seek(buffer)
+			index.Apply(chunk, reader)
+		}
+	}
+
+	return nil
+}
+
 // DropIndex removes the index column with the specified name. If the index with this
 // name does not exist, this operation is a no-op.
 func (c *Collection) DropIndex(indexName string) error {

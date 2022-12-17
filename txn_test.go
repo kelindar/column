@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"strconv"
 
+	"github.com/kelindar/xxrand"
 	"github.com/kelindar/column/commit"
 	"github.com/stretchr/testify/assert"
 )
@@ -257,6 +259,183 @@ func TestIndexed(t *testing.T) {
 			})
 		return nil
 	})
+}
+
+func TestSortIndex(t *testing.T) {
+	c := NewCollection()
+	c.CreateColumn("col1", ForString())
+	c.CreateSortIndex("sortedCol1", "col1")
+
+	assert.Error(t, c.CreateSortIndex("", ""))
+	assert.Error(t, c.CreateSortIndex("no_col", "nonexistent"))
+	assert.Error(t, c.CreateSortIndex("sortedCol1", "col1"))
+
+	indexCol, _ := c.cols.Load("sortedCol1")
+	assert.Equal(t, "col1", indexCol.Column.(*columnSortIndex).Column())
+	assert.False(t, indexCol.Column.(*columnSortIndex).Contains(0))
+	assert.Nil(t, indexCol.Column.(*columnSortIndex).Index(0))
+	v, ok := indexCol.Column.(*columnSortIndex).Value(0)
+	assert.Nil(t, v)
+	assert.False(t, ok)
+	assert.NotPanics(t, func() {
+		indexCol.Column.(*columnSortIndex).Grow(100)
+		indexCol.Column.(*columnSortIndex).Snapshot(0, nil)
+	})
+
+	// Inserts
+	c.Insert(func (r Row) error {
+		r.SetString("col1", "bob")
+		return nil
+	})
+	c.Insert(func (r Row) error {
+		r.SetString("col1", "carter")
+		return nil
+	})
+	c.Insert(func (r Row) error {
+		r.SetString("col1", "dan")
+		return nil
+	})
+	c.Insert(func (r Row) error {
+		r.SetString("col1", "alice")
+		return nil
+	})
+	
+	// Update
+	assert.NoError(t, c.QueryAt(3, func(r Row) error {
+		r.SetString("col1", "rob")
+		return nil
+	}))
+	assert.Equal(t, 4, indexCol.Column.(*columnSortIndex).btree.Len())
+	
+	// Delete
+	assert.Equal(t, true, c.DeleteAt(1))
+	assert.Equal(t, 3, indexCol.Column.(*columnSortIndex).btree.Len())
+
+	// Range
+	assert.Error(t, c.Query(func (txn *Txn) error {
+		return txn.Ascend("nonexistent", func (i uint32) {
+			return
+		})
+	}))
+
+	var res [3]string
+	var resN int = 0
+	c.Query(func (txn *Txn) error {
+		col1 := txn.String("col1")
+		return txn.Ascend("sortedCol1", func (i uint32) {
+			name, _ := col1.Get()
+			res[resN] = name
+			resN++
+		})
+	})
+
+	assert.Equal(t, "bob", res[0])
+	assert.Equal(t, "dan", res[1])
+	assert.Equal(t, "rob", res[2])
+}
+
+func TestSortIndexLoad(t *testing.T) {
+
+	players := loadPlayers(500)
+	players.CreateSortIndex("sorted_names", "name")
+
+	checkN := 0
+	checks := map[int]string{
+		4: "Buckner Frazier",
+		16: "Marla Todd",
+		30: "Shelly Kirk",
+		35: "out of range",
+	}
+
+	players.Query(func (txn *Txn) error {
+		txn = txn.With("human", "mage")
+		name := txn.String("name")
+		txn.Ascend("sorted_names", func (i uint32) {
+			n, _ := name.Get()
+			if res, exists := checks[checkN]; exists {
+				assert.Equal(t, res, n)
+			}
+			checkN++
+		})
+		return nil
+	})
+
+}
+
+func TestSortIndexChunks(t *testing.T) {
+	N := 100_000
+	obj := map[string]any{
+		"name": "1",
+		"balance": 12.5,
+	}
+
+	players := NewCollection()
+	players.CreateColumnsOf(obj)
+	players.CreateSortIndex("sorted_names", "name")
+
+	for i := 0; i < N; i++ {
+		players.Insert(func (r Row) error {
+			return r.SetMany(map[string]any{
+				"name": strconv.Itoa(i),
+				"balance": float64(i) + 0.5,
+			})
+		})
+	}
+
+	players.Query(func (txn *Txn) error {
+		name := txn.String("name")
+		txn.Ascend("sorted_names", func (i uint32) {
+			n, _ := name.Get()
+			if i % 400 == 0 {
+				nInt, _ := strconv.Atoi(n)
+				assert.Equal(t, nInt, int(i))
+			}
+		})
+		return nil
+	})
+
+	// Concurrency Test
+	var wg sync.WaitGroup
+	order := new(sync.WaitGroup)
+	wg.Add(2)
+	order.Add(1)
+
+	// Do the same test as before at the same time as other updates
+	go func() {
+		players.Query(func (txn *Txn) error {
+			name := txn.String("name")
+			order.Done() // Ensure this txn begins before update
+			txn.Ascend("sorted_names", func (i uint32) {
+				n, _ := name.Get()
+				if i % 400 == 0 {
+					nInt, _ := strconv.Atoi(n)
+					assert.Equal(t, nInt, int(i))
+				}
+			})
+			return nil
+		})
+		wg.Done()
+	}()
+	
+	go func() {
+		order.Wait() // Wait for scan to begin
+		idx1 := xxrand.Uint32n(uint32(N / 400)) * 400 // hit checked idxs only
+		idx2 := xxrand.Uint32n(uint32(N / 400)) * 400
+		players.Insert(func (r Row) error {
+			r.SetString("name", "new")
+			r.SetFloat64("balance", 43.2)
+			return nil
+		})
+		players.QueryAt(idx1, func (r Row) error {
+			r.SetString("name", "updated")
+			return nil
+		})
+		players.DeleteAt(idx2)
+		wg.Done()
+	}()
+
+	wg.Wait()
+	assert.Equal(t, 100_000, players.Count())
 }
 
 func TestDeleteAll(t *testing.T) {
