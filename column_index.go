@@ -5,6 +5,7 @@ package column
 
 import (
 	"strings"
+	"sync"
 
 	"github.com/kelindar/bitmap"
 	"github.com/kelindar/column/commit"
@@ -171,9 +172,10 @@ type sortIndexItem struct {
 
 // columnSortIndex implements a constantly sorted column via BTree
 type columnSortIndex struct {
-	btree   *btree.BTreeG[sortIndexItem] // 1 constantly sorted data structure
-	backMap map[uint32]string            // for constant key lookups
-	name    string                       // The name of the target column
+	btree    *btree.BTreeG[sortIndexItem] // 1 constantly sorted data structure
+	backMap  map[uint32]string            // for constant key lookups
+	backLock sync.Mutex                   // protect backMap access
+	name     string                       // The name of the target column
 }
 
 // newSortIndex creates a new bitmap index column.
@@ -182,9 +184,9 @@ func newSortIndex(indexName, columnName string) *column {
 		return a.Key < b.Key
 	}
 	return columnFor(indexName, &columnSortIndex{
-		btree:   btree.NewBTreeG(byKeys),
-		backMap: make(map[uint32]string),
-		name:    columnName,
+		btree:    btree.NewBTreeG(byKeys),
+		backMap:  make(map[uint32]string),
+		name:     columnName,
 	})
 }
 
@@ -204,6 +206,7 @@ func (c *columnSortIndex) Apply(chunk commit.Chunk, r *commit.Reader) {
 	// Index can only be updated based on the final stored value, so we can only work
 	// with put, merge, & delete operations here.
 	for r.Next() {
+		c.backLock.Lock()
 		switch r.Type {
 		case commit.Put:
 			if delKey, exists := c.backMap[r.Index()]; exists {
@@ -225,6 +228,7 @@ func (c *columnSortIndex) Apply(chunk commit.Chunk, r *commit.Reader) {
 				Value: r.Index(),
 			})
 		}
+		c.backLock.Unlock()
 	}
 }
 
