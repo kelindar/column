@@ -184,9 +184,9 @@ func newSortIndex(indexName, columnName string) *column {
 		return a.Key < b.Key
 	}
 	return columnFor(indexName, &columnSortIndex{
-		btree:    btree.NewBTreeG(byKeys),
-		backMap:  make(map[uint32]string),
-		name:     columnName,
+		btree:   btree.NewBTreeG(byKeys),
+		backMap: make(map[uint32]string),
+		name:    columnName,
 	})
 }
 

@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"io"
 	"runtime"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
-	"strconv"
 
 	"github.com/kelindar/column/commit"
 	"github.com/kelindar/column/fixtures"
@@ -593,7 +593,7 @@ func TestInsertParallel(t *testing.T) {
 }
 
 func BenchmarkParallelSort(b *testing.B) {
-	getobj := func (n string) map[string]any {
+	getobj := func(n string) map[string]any {
 		return map[string]any{
 			"name":   n,
 			"age":    35,
@@ -603,7 +603,7 @@ func BenchmarkParallelSort(b *testing.B) {
 		}
 	}
 
-	b.Run("in-asc", func(b *testing.B) { 
+	b.Run("in-asc", func(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
@@ -616,7 +616,7 @@ func BenchmarkParallelSort(b *testing.B) {
 				go func(ii int) {
 					for x := 0; x < 5000; x++ {
 						tobj := getobj("n")
-						tobj["name"] = strconv.Itoa((ii*20)+x)
+						tobj["name"] = strconv.Itoa((ii * 20) + x)
 						col.Insert(func(r Row) error {
 							return r.SetMany(tobj)
 						})
@@ -627,8 +627,8 @@ func BenchmarkParallelSort(b *testing.B) {
 					for y := 0; y < 5; y++ {
 						col.Query(func(txn *Txn) error {
 							health := txn.Int("health")
-							return txn.Ascend("sorted_name", func (i uint32) {
-								health.Set((ii*20)+y)
+							return txn.Ascend("sorted_name", func(i uint32) {
+								health.Set((ii * 20) + y)
 							})
 						})
 					}
@@ -640,7 +640,7 @@ func BenchmarkParallelSort(b *testing.B) {
 }
 
 func TestParallelSort(t *testing.T) {
-	getobj := func (n string) map[string]any {
+	getobj := func(n string) map[string]any {
 		return map[string]any{
 			"name":   n,
 			"age":    35,
@@ -660,7 +660,7 @@ func TestParallelSort(t *testing.T) {
 		go func(ii int) {
 			for x := 0; x < 5000; x++ {
 				tobj := getobj("n")
-				tobj["name"] = strconv.Itoa((ii*20)+x)
+				tobj["name"] = strconv.Itoa((ii * 20) + x)
 				col.Insert(func(r Row) error {
 					return r.SetMany(tobj)
 				})
@@ -670,7 +670,7 @@ func TestParallelSort(t *testing.T) {
 		go func(ii int) {
 			col.Query(func(txn *Txn) error {
 				health := txn.Int("health")
-				return txn.Ascend("sorted_name", func (i uint32) {
+				return txn.Ascend("sorted_name", func(i uint32) {
 					health.Set(ii)
 				})
 			})
