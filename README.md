@@ -216,7 +216,7 @@ In the example below, we create a SortedIndex object and use it to sort filtered
 out.CreateSortIndex("richest", "balance")
 
 // This filters the transaction with the `rouge` index before
-// ranging through the remaining balances in ascending order
+// ranging through the remaining balances by ascending order
 players.Query(func(txn *column.Txn) error {
 	name    := txn.String("name")
 	balance := txn.Float64("balance")

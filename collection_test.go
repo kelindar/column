@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"runtime"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -589,6 +590,94 @@ func TestInsertParallel(t *testing.T) {
 		assert.Equal(t, 500, txn.Count())
 		return nil
 	}))
+}
+
+func BenchmarkParallelSort(b *testing.B) {
+	getobj := func(n string) map[string]any {
+		return map[string]any{
+			"name":   n,
+			"age":    35,
+			"wallet": 50.99,
+			"health": 100,
+			"mana":   200,
+		}
+	}
+
+	b.Run("in-asc", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			col := NewCollection()
+			col.CreateColumnsOf(getobj("n"))
+			col.CreateSortIndex("sorted_name", "name")
+			var wg sync.WaitGroup
+			wg.Add(20)
+			for i := 0; i < 20; i++ {
+				go func(ii int) {
+					for x := 0; x < 5000; x++ {
+						tobj := getobj("n")
+						tobj["name"] = strconv.Itoa((ii * 20) + x)
+						col.Insert(func(r Row) error {
+							return r.SetMany(tobj)
+						})
+					}
+					wg.Done()
+				}(i)
+				go func(ii int) {
+					for y := 0; y < 5; y++ {
+						col.Query(func(txn *Txn) error {
+							health := txn.Int("health")
+							return txn.Ascend("sorted_name", func(i uint32) {
+								health.Set((ii * 20) + y)
+							})
+						})
+					}
+				}(i)
+			}
+			wg.Wait()
+		}
+	})
+}
+
+func TestParallelSort(t *testing.T) {
+	getobj := func(n string) map[string]any {
+		return map[string]any{
+			"name":   n,
+			"age":    35,
+			"wallet": 50.99,
+			"health": 100,
+			"mana":   200,
+		}
+	}
+
+	col := NewCollection()
+	col.CreateColumnsOf(getobj("n"))
+	col.CreateSortIndex("sorted_name", "name")
+
+	var wg sync.WaitGroup
+	wg.Add(20)
+	for i := 0; i < 20; i++ {
+		go func(ii int) {
+			for x := 0; x < 5000; x++ {
+				tobj := getobj("n")
+				tobj["name"] = strconv.Itoa((ii * 20) + x)
+				col.Insert(func(r Row) error {
+					return r.SetMany(tobj)
+				})
+			}
+			wg.Done()
+		}(i)
+		go func(ii int) {
+			col.Query(func(txn *Txn) error {
+				health := txn.Int("health")
+				return txn.Ascend("sorted_name", func(i uint32) {
+					health.Set(ii)
+				})
+			})
+		}(i)
+	}
+	wg.Wait()
+	assert.Equal(t, 100_000, col.Count())
 }
 
 func TestConcurrentPointReads(t *testing.T) {
