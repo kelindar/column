@@ -202,6 +202,34 @@ func TestSnapshot(t *testing.T) {
 	assert.Equal(t, amount, output.Count())
 }
 
+func TestLargeSnapshot(t *testing.T) {
+	amount := 3_000_000
+	buffer := bytes.NewBuffer(nil)
+	input := loadPlayers(amount)
+
+	var wg sync.WaitGroup
+	wg.Add(amount)
+	go func() {
+		for i := 0; i < amount; i++ {
+			assert.NoError(t, input.QueryAt(uint32(i), func(r Row) error {
+				r.SetString("name", "Roman")
+				return nil
+			}))
+			wg.Done()
+		}
+	}()
+
+	// Start snapshotting
+	assert.NoError(t, input.Snapshot(buffer))
+	assert.NotZero(t, buffer.Len())
+
+	// Restore the snapshot
+	wg.Wait()
+	output := newEmpty(amount)
+	assert.NoError(t, output.Restore(buffer))
+	assert.Equal(t, amount, output.Count())
+}
+
 func TestSnapshotFailures(t *testing.T) {
 	input := NewCollection()
 	input.CreateColumn("name", ForString())
