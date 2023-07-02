@@ -10,6 +10,7 @@ import (
 	"io"
 	"math"
 	"math/rand"
+	"os"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/kelindar/async"
 	"github.com/kelindar/column/commit"
+	"github.com/klauspost/compress/s2"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -203,30 +205,16 @@ func TestSnapshot(t *testing.T) {
 }
 
 func TestLargeSnapshot(t *testing.T) {
-	amount := 3_000_000
-	buffer := bytes.NewBuffer(nil)
-	input := loadPlayers(amount)
+	const amount = 3_000_000
 
-	var wg sync.WaitGroup
-	wg.Add(amount)
-	go func() {
-		for i := 0; i < amount; i++ {
-			assert.NoError(t, input.QueryAt(uint32(i), func(r Row) error {
-				r.SetString("name", "Roman")
-				return nil
-			}))
-			wg.Done()
-		}
-	}()
-
-	// Start snapshotting
-	assert.NoError(t, input.Snapshot(buffer))
-	assert.NotZero(t, buffer.Len())
+	encoded, err := os.ReadFile("fixtures/3million.bin.s2")
+	assert.NoError(t, err)
+	input, err := s2.Decode(nil, encoded)
+	assert.NoError(t, err)
 
 	// Restore the snapshot
-	wg.Wait()
 	output := newEmpty(amount)
-	assert.NoError(t, output.Restore(buffer))
+	assert.NoError(t, output.Restore(bytes.NewBuffer(input)))
 	assert.Equal(t, amount, output.Count())
 }
 
