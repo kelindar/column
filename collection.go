@@ -180,7 +180,13 @@ func (c *Collection) CreateColumn(columnName string, column Column) error {
 		return fmt.Errorf("column: unable to create column '%s', already exists", columnName)
 	}
 
-	column.Grow(uint32(c.opts.Capacity))
+	// Grow the column to the current capacity
+	capacity := uint32(atomic.LoadUint64(&c.count))
+	if c.opts.Capacity > int(capacity) {
+		capacity = uint32(c.opts.Capacity)
+	}
+
+	column.Grow(capacity)
 	c.cols.Store(columnName, columnFor(columnName, column))
 
 	// If necessary, create a primary key column
