@@ -179,7 +179,7 @@ func (c *columnString) Apply(chunk commit.Chunk, r *commit.Reader) {
 		switch r.Type {
 		case commit.Put:
 			fill[offset>>6] |= 1 << (offset & 0x3f)
-			data[offset] = string(r.Bytes())
+			data[offset] = r.String()
 		case commit.Merge:
 			fill[offset>>6] |= 1 << (offset & 0x3f)
 			data[offset] = r.SwapString(c.Merge(data[offset], r.String()))
@@ -285,7 +285,7 @@ func (c *columnKey) Apply(chunk commit.Chunk, r *commit.Reader) {
 		offset := r.Offset - int32(from)
 		switch r.Type {
 		case commit.Put:
-			value := string(r.Bytes())
+			value := r.String()
 
 			fill[offset>>6] |= 1 << (offset & 0x3f)
 			data[offset] = value
