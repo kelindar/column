@@ -734,6 +734,24 @@ func TestNumberMerge(t *testing.T) {
 	})
 }
 
+func TestIssue87(t *testing.T) {
+	table := NewCollection()
+	table.CreateColumn("birthdate", ForRecord(func() *time.Time { return new(time.Time) }))
+
+	srcDate := time.Date(1999, 3, 2, 12, 0, 0, 0, time.Local)
+	table.Insert(func(r Row) error {
+		r.SetRecord("birthdate", srcDate)
+		return nil
+	})
+
+	table.Query(func(txn *Txn) error {
+		assert.Equal(t, txn.WithValue("birthdate", func(v any) bool {
+			return v.(*time.Time).Equal(srcDate)
+		}).Count(), 1)
+		return nil
+	})
+}
+
 // Tests the case where a column is created after inserting a large enough amount of data
 func TestIssue89(t *testing.T) {
 	coll := NewCollection()
