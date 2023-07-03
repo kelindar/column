@@ -71,6 +71,16 @@ func ForRecord[T recordType](new func() T, opts ...func(*option[T])) Column {
 	}
 }
 
+// Value returns the value at the given index
+// TODO: should probably get rid of this and use an `rdRecord` instead
+func (c *columnRecord) Value(idx uint32) (out any, has bool) {
+	if v, ok := c.columnString.Value(idx); ok {
+		out = c.pool.New()
+		has = out.(encoding.BinaryUnmarshaler).UnmarshalBinary(s2b(v.(string))) == nil
+	}
+	return
+}
+
 // --------------------------- Writer ----------------------------
 
 // rwRecord represents read-write accessor for primary keys.
