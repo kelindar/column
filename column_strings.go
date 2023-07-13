@@ -232,25 +232,25 @@ func (c *columnString) Snapshot(chunk commit.Chunk, dst *commit.Buffer) {
 	})
 }
 
-// rwString represents read-write accessor for strings
-type rwString struct {
+// RwString represents read-write accessor for strings
+type RwString struct {
 	rdString[*columnString]
 	writer *commit.Buffer
 }
 
 // Set sets the value at the current transaction cursor
-func (s rwString) Set(value string) {
+func (s RwString) Set(value string) {
 	s.writer.PutString(commit.Put, *s.cursor, value)
 }
 
 // Merge merges the value at the current transaction cursor
-func (s rwString) Merge(value string) {
+func (s RwString) Merge(value string) {
 	s.writer.PutString(commit.Merge, *s.cursor, value)
 }
 
 // String returns a string column accessor
-func (txn *Txn) String(columnName string) rwString {
-	return rwString{
+func (txn *Txn) String(columnName string) RwString {
+	return RwString{
 		rdString: readStringOf[*columnString](txn, columnName),
 		writer:   txn.bufferFor(columnName),
 	}
