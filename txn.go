@@ -89,6 +89,11 @@ type Txn struct {
 	reader  *commit.Reader   // The commit reader to re-use
 }
 
+// Index returns the current index
+func (txn *Txn) Index() uint32 {
+	return txn.cursor
+}
+
 // Reset resets the transaction state so it can be used again.
 func (txn *Txn) reset() {
 	for i := range txn.updates {

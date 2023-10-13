@@ -15,6 +15,11 @@ type Row struct {
 	txn *Txn
 }
 
+// Index returns the index of the row
+func (r Row) Index() uint32 {
+	return r.txn.Index()
+}
+
 // --------------------------- Numbers ----------------------------
 
 // Int loads a int value at a particular column
