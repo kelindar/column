@@ -44,6 +44,11 @@ func (s rw{{.Name}}) Set(value {{.Type}}) {
 	s.writer.Put{{.Name}}(commit.Put, s.txn.cursor, value)
 }
 
+// Unset unsets the value at the current transaction cursor
+func (s rw{{.Name}}) Unset() {
+	s.writer.Put{{.Name}}(commit.Delete, s.txn.cursor, 0)
+}
+
 // Merge atomically merges a delta to the value at the current transaction cursor
 func (s rw{{.Name}}) Merge(delta {{.Type}}) {
 	s.writer.Put{{.Name}}(commit.Merge, s.txn.cursor, delta)

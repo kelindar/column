@@ -94,6 +94,11 @@ func (s rwRecord) Set(value encoding.BinaryMarshaler) error {
 	return s.write(commit.Put, value.MarshalBinary)
 }
 
+// Unset unsets the value at the current transaction index
+func (s rwRecord) Unset() error {
+	return s.write(commit.Delete, nil)
+}
+
 // Merge atomically merges a delta to the value at the current transaction cursor
 func (s rwRecord) Merge(delta encoding.BinaryMarshaler) error {
 	return s.write(commit.Merge, delta.MarshalBinary)

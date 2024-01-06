@@ -140,6 +140,11 @@ func (s rwEnum) Set(value string) {
 	s.writer.PutString(commit.Put, *s.cursor, value)
 }
 
+// Unset unsets the value at the current transaction cursor
+func (s rwEnum) Unset() {
+	s.writer.PutString(commit.Delete, *s.cursor, "")
+}
+
 // Enum returns a enumerable column accessor
 func (txn *Txn) Enum(columnName string) rwEnum {
 	return rwEnum{
