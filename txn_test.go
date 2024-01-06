@@ -314,9 +314,7 @@ func TestSortIndex(t *testing.T) {
 
 	// Range
 	assert.Error(t, c.Query(func(txn *Txn) error {
-		return txn.Ascend("nonexistent", func(i uint32) {
-			return
-		})
+		return txn.Ascend("nonexistent", func(i uint32) {})
 	}))
 
 	var res [3]string

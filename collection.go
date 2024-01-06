@@ -99,7 +99,6 @@ func (c *Collection) free(idx uint32) {
 	c.fill.Remove(idx)
 	atomic.StoreUint64(&c.count, uint64(c.fill.Count()))
 	c.lock.Unlock()
-	return
 }
 
 // findFreeIndex finds a free index for insertion

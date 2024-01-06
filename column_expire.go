@@ -75,7 +75,7 @@ func (s rwTTL) Extend(delta time.Duration) {
 
 // readTTL converts expiration to a TTL
 func readTTL(expireAt int64) time.Duration {
-	return time.Unix(0, expireAt).Sub(time.Now())
+	return time.Until(time.Unix(0, expireAt))
 }
 
 // writeTTL converts ttl to expireAt
