@@ -44,6 +44,11 @@ func (s rwInt) Set(value int) {
 	s.writer.PutInt(commit.Put, s.txn.cursor, value)
 }
 
+// Unset unsets the value at the current transaction cursor
+func (s rwInt) Unset() {
+	s.writer.PutInt(commit.Delete, s.txn.cursor, 0)
+}
+
 // Merge atomically merges a delta to the value at the current transaction cursor
 func (s rwInt) Merge(delta int) {
 	s.writer.PutInt(commit.Merge, s.txn.cursor, delta)
@@ -91,6 +96,11 @@ type rwInt16 struct {
 // Set sets the value at the current transaction cursor
 func (s rwInt16) Set(value int16) {
 	s.writer.PutInt16(commit.Put, s.txn.cursor, value)
+}
+
+// Unset unsets the value at the current transaction cursor
+func (s rwInt16) Unset() {
+	s.writer.PutInt16(commit.Delete, s.txn.cursor, 0)
 }
 
 // Merge atomically merges a delta to the value at the current transaction cursor
@@ -142,6 +152,11 @@ func (s rwInt32) Set(value int32) {
 	s.writer.PutInt32(commit.Put, s.txn.cursor, value)
 }
 
+// Unset unsets the value at the current transaction cursor
+func (s rwInt32) Unset() {
+	s.writer.PutInt32(commit.Delete, s.txn.cursor, 0)
+}
+
 // Merge atomically merges a delta to the value at the current transaction cursor
 func (s rwInt32) Merge(delta int32) {
 	s.writer.PutInt32(commit.Merge, s.txn.cursor, delta)
@@ -189,6 +204,11 @@ type rwInt64 struct {
 // Set sets the value at the current transaction cursor
 func (s rwInt64) Set(value int64) {
 	s.writer.PutInt64(commit.Put, s.txn.cursor, value)
+}
+
+// Unset unsets the value at the current transaction cursor
+func (s rwInt64) Unset() {
+	s.writer.PutInt64(commit.Delete, s.txn.cursor, 0)
 }
 
 // Merge atomically merges a delta to the value at the current transaction cursor
@@ -240,6 +260,11 @@ func (s rwUint) Set(value uint) {
 	s.writer.PutUint(commit.Put, s.txn.cursor, value)
 }
 
+// Unset unsets the value at the current transaction cursor
+func (s rwUint) Unset() {
+	s.writer.PutUint(commit.Delete, s.txn.cursor, 0)
+}
+
 // Merge atomically merges a delta to the value at the current transaction cursor
 func (s rwUint) Merge(delta uint) {
 	s.writer.PutUint(commit.Merge, s.txn.cursor, delta)
@@ -287,6 +312,11 @@ type rwUint16 struct {
 // Set sets the value at the current transaction cursor
 func (s rwUint16) Set(value uint16) {
 	s.writer.PutUint16(commit.Put, s.txn.cursor, value)
+}
+
+// Unset unsets the value at the current transaction cursor
+func (s rwUint16) Unset() {
+	s.writer.PutUint16(commit.Delete, s.txn.cursor, 0)
 }
 
 // Merge atomically merges a delta to the value at the current transaction cursor
@@ -338,6 +368,11 @@ func (s rwUint32) Set(value uint32) {
 	s.writer.PutUint32(commit.Put, s.txn.cursor, value)
 }
 
+// Unset unsets the value at the current transaction cursor
+func (s rwUint32) Unset() {
+	s.writer.PutUint32(commit.Delete, s.txn.cursor, 0)
+}
+
 // Merge atomically merges a delta to the value at the current transaction cursor
 func (s rwUint32) Merge(delta uint32) {
 	s.writer.PutUint32(commit.Merge, s.txn.cursor, delta)
@@ -385,6 +420,11 @@ type rwUint64 struct {
 // Set sets the value at the current transaction cursor
 func (s rwUint64) Set(value uint64) {
 	s.writer.PutUint64(commit.Put, s.txn.cursor, value)
+}
+
+// Unset unsets the value at the current transaction cursor
+func (s rwUint64) Unset() {
+	s.writer.PutUint64(commit.Delete, s.txn.cursor, 0)
 }
 
 // Merge atomically merges a delta to the value at the current transaction cursor
@@ -436,6 +476,11 @@ func (s rwFloat32) Set(value float32) {
 	s.writer.PutFloat32(commit.Put, s.txn.cursor, value)
 }
 
+// Unset unsets the value at the current transaction cursor
+func (s rwFloat32) Unset() {
+	s.writer.PutFloat32(commit.Delete, s.txn.cursor, 0)
+}
+
 // Merge atomically merges a delta to the value at the current transaction cursor
 func (s rwFloat32) Merge(delta float32) {
 	s.writer.PutFloat32(commit.Merge, s.txn.cursor, delta)
@@ -483,6 +528,11 @@ type rwFloat64 struct {
 // Set sets the value at the current transaction cursor
 func (s rwFloat64) Set(value float64) {
 	s.writer.PutFloat64(commit.Put, s.txn.cursor, value)
+}
+
+// Unset unsets the value at the current transaction cursor
+func (s rwFloat64) Unset() {
+	s.writer.PutFloat64(commit.Delete, s.txn.cursor, 0)
 }
 
 // Merge atomically merges a delta to the value at the current transaction cursor

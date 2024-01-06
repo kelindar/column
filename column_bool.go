@@ -72,6 +72,11 @@ func (s rwBool) Set(value bool) {
 	s.writer.PutBool(*s.cursor, value)
 }
 
+// Unset unsets the value at the current transaction cursor
+func (s rwBool) Unset() {
+	s.writer.PutBool(*s.cursor, false)
+}
+
 // Bool returns a bool column accessor
 func (txn *Txn) Bool(columnName string) rwBool {
 	return rwBool{
