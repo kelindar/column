@@ -192,7 +192,6 @@ func newSortIndex(indexName, columnName string) *column {
 
 // Grow grows the size of the column until we have enough to store
 func (c *columnSortIndex) Grow(idx uint32) {
-	return
 }
 
 // Column returns the target name of the column on which this index should apply.
@@ -222,7 +221,7 @@ func (c *columnSortIndex) Apply(chunk commit.Chunk, r *commit.Reader) {
 				Value: r.Index(),
 			})
 		case commit.Delete:
-			delKey, _ := c.backMap[r.Index()]
+			delKey := c.backMap[r.Index()]
 			c.btree.Delete(sortIndexItem{
 				Key:   delKey,
 				Value: r.Index(),

@@ -189,17 +189,6 @@ func newInterleaved(columnName string) *Buffer {
 	return buf
 }
 
-// updatesAt reads a set of int64 updates from a buffer at a given chunk
-func updatesAt(buffer *Buffer, chunk Chunk) (updates []int64) {
-	reader := NewReader()
-	reader.Range(buffer, chunk, func(r *Reader) {
-		for r.Next() {
-			updates = append(updates, r.Int64())
-		}
-	})
-	return
-}
-
 // --------------------------- Mocks ----------------------------
 
 type limitWriter struct {
