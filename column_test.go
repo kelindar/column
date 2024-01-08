@@ -255,7 +255,7 @@ func TestForKindInvalid(t *testing.T) {
 }
 
 func TestAtKey(t *testing.T) {
-	const testKey = "key=20"
+	const testKey = 20
 
 	// Update a name
 	players := loadPlayers(500)
@@ -263,7 +263,7 @@ func TestAtKey(t *testing.T) {
 	assert.NoError(t, players.Query(func(txn *Txn) error {
 		pk := txn.Key()
 		return txn.Range(func(idx uint32) {
-			pk.Set(fmt.Sprintf("key=%d", idx))
+			pk.Set(int64(idx))
 		})
 	}))
 
@@ -290,7 +290,7 @@ func TestAtKey(t *testing.T) {
 
 func TestUpdateAtKeyWithoutPK(t *testing.T) {
 	col := NewCollection()
-	assert.Error(t, col.QueryKey("test", func(r Row) error {
+	assert.Error(t, col.QueryKey(1234, func(r Row) error {
 		r.SetEnum("name", "Roman")
 		return nil
 	}))
@@ -298,23 +298,23 @@ func TestUpdateAtKeyWithoutPK(t *testing.T) {
 
 func TestSelectAtKeyWithoutPK(t *testing.T) {
 	col := NewCollection()
-	assert.Error(t, col.QueryKey("test", func(r Row) error { return nil }))
-	assert.Error(t, col.InsertKey("test", func(r Row) error { return nil }))
-	assert.Error(t, col.UpsertKey("test", func(r Row) error { return nil }))
-	assert.Error(t, col.DeleteKey("test"))
+	assert.Error(t, col.QueryKey(1234, func(r Row) error { return nil }))
+	assert.Error(t, col.InsertKey(1234, func(r Row) error { return nil }))
+	assert.Error(t, col.UpsertKey(1234, func(r Row) error { return nil }))
+	assert.Error(t, col.DeleteKey(1234))
 }
 
 func TestBulkUpdateDuplicatePK(t *testing.T) {
 	col := NewCollection()
 	col.CreateColumn("key", ForKey())
-	assert.NoError(t, col.InsertKey("1", func(r Row) error { return nil }))
-	assert.NoError(t, col.InsertKey("2", func(r Row) error { return nil }))
+	assert.NoError(t, col.InsertKey(1, func(r Row) error { return nil }))
+	assert.NoError(t, col.InsertKey(2, func(r Row) error { return nil }))
 
 	// If we attempt to change to an already persisted key, we should get an error
 	assert.NoError(t, col.Query(func(txn *Txn) error {
 		pk := txn.Key()
-		assert.Error(t, txn.QueryKey("1", func(Row) error {
-			return pk.Set("2")
+		assert.Error(t, txn.QueryKey(1, func(Row) error {
+			return pk.Set(2)
 		}))
 		return nil
 	}))
@@ -489,8 +489,9 @@ func TestPKAccessor(t *testing.T) {
 	col := NewCollection()
 	assert.NoError(t, col.CreateColumn("name", ForKey()))
 
+	const Roman = 1234
 	// Insert a primary key value
-	err := col.InsertKey("Roman", func(r Row) error {
+	err := col.InsertKey(Roman, func(r Row) error {
 		return nil
 	})
 	assert.NoError(t, err)
@@ -499,7 +500,7 @@ func TestPKAccessor(t *testing.T) {
 	col.QueryAt(0, func(r Row) error {
 		value, ok := r.txn.Key().Get()
 		assert.True(t, ok)
-		assert.Equal(t, "Roman", value)
+		assert.Equal(t, Roman, value)
 		return nil
 	})
 }
@@ -529,13 +530,14 @@ func TestDuplicatePK(t *testing.T) {
 	col := NewCollection()
 	assert.NoError(t, col.CreateColumn("name", ForKey()))
 
+	const Roman = 1234
 	// Insert a primary key value
-	assert.NoError(t, col.InsertKey("Roman", func(r Row) error {
+	assert.NoError(t, col.InsertKey(Roman, func(r Row) error {
 		return nil
 	}))
 
 	// Insert a duplicate
-	assert.Error(t, col.InsertKey("Roman", func(r Row) error {
+	assert.Error(t, col.InsertKey(Roman, func(r Row) error {
 		return nil
 	}))
 

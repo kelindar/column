@@ -2,7 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"log"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/kelindar/column"
 )
@@ -65,13 +68,17 @@ func main() {
 	})
 
 	// Run an indexed query
+	oldMages := []string{}
+	start := time.Now()
 	players.Query(func(txn *column.Txn) error {
 		name := txn.String("name")
 		return txn.With("human", "mage", "old").Range(func(idx uint32) {
 			value, _ := name.Get()
-			println("old mage, human:", value)
+			oldMages = append(oldMages, value)
 		})
 	})
+	log.Printf("query took %s", time.Since(start))
+	log.Printf("old mages, %s", strings.Join(oldMages, ", "))
 }
 
 // loadFixture loads a fixture by its name
@@ -92,7 +99,7 @@ func loadFixture(name string) []Player {
 // --------------------------- Player ----------------------------
 
 type Player struct {
-	Serial   string   `json:"serial"`
+	Serial   int64    `json:"serial"`
 	Name     string   `json:"name"`
 	Active   bool     `json:"active"`
 	Class    string   `json:"class"`

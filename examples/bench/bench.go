@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -23,7 +24,7 @@ var (
 )
 
 func main() {
-	amount := 1000000
+	amount := 1_000_000
 	players := column.NewCollection(column.Options{
 		Capacity: amount,
 	})
@@ -59,10 +60,10 @@ func main() {
 func runBenchmark(name string, fn func(bool) (int, int)) {
 	fmt.Printf("Benchmarking %v ...\n", name)
 	fmt.Printf("%7v\t%6v\t%17v\t%13v\n", "WORK", "PROCS", "READ RATE", "WRITE RATE")
-	for _, workload := range []int{0, 10, 50, 90, 100} {
+	for _, workload := range []int{0, 10, 25, 50, 75, 90, 100} {
 
 		// Iterate over various concurrency levels
-		for _, n := range []int{1, 2, 4, 8, 16, 32, 64, 128, 256, 512} {
+		for n := 1; n <= runtime.NumCPU()*2; n *= 2 {
 			work := make(chan async.Task, n)
 			pool := async.Consume(context.Background(), n, work)
 

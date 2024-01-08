@@ -24,7 +24,7 @@ func New() *Cache {
 }
 
 // Get attempts to retrieve a value for a key
-func (c *Cache) Get(key string) (value string, found bool) {
+func (c *Cache) Get(key int64) (value string, found bool) {
 	c.store.QueryKey(key, func(r column.Row) error {
 		value, found = r.String("val")
 		return nil
@@ -33,7 +33,7 @@ func (c *Cache) Get(key string) (value string, found bool) {
 }
 
 // Set updates or inserts a new value
-func (c *Cache) Set(key, value string) {
+func (c *Cache) Set(key int64, value string) {
 	if err := c.store.UpsertKey(key, func(r column.Row) error {
 		r.SetString("val", value)
 		return nil

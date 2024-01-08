@@ -379,28 +379,28 @@ func (c *Collection) Close() error {
 // --------------------------- Primary Key ----------------------------
 
 // InsertKey inserts a row given its corresponding primary key.
-func (c *Collection) InsertKey(key string, fn func(Row) error) error {
+func (c *Collection) InsertKey(key int64, fn func(Row) error) error {
 	return c.Query(func(txn *Txn) error {
 		return txn.InsertKey(key, fn)
 	})
 }
 
 // UpsertKey inserts or updates a row given its corresponding primary key.
-func (c *Collection) UpsertKey(key string, fn func(Row) error) error {
+func (c *Collection) UpsertKey(key int64, fn func(Row) error) error {
 	return c.Query(func(txn *Txn) error {
 		return txn.UpsertKey(key, fn)
 	})
 }
 
 // QueryKey queries/updates a row given its corresponding primary key.
-func (c *Collection) QueryKey(key string, fn func(Row) error) error {
+func (c *Collection) QueryKey(key int64, fn func(Row) error) error {
 	return c.Query(func(txn *Txn) error {
 		return txn.QueryKey(key, fn)
 	})
 }
 
 // DeleteKey deletes a row for a given primary key.
-func (c *Collection) DeleteKey(key string) error {
+func (c *Collection) DeleteKey(key int64) error {
 	return c.Query(func(txn *Txn) error {
 		return txn.DeleteKey(key)
 	})
