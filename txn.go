@@ -434,23 +434,23 @@ func (txn *Txn) DeleteAll() {
 // --------------------------- Primary Key ----------------------------
 
 // InsertKey inserts a row given its corresponding primary key.
-func (txn *Txn) InsertKey(key string, fn func(Row) error) error {
+func (txn *Txn) InsertKey(key int64, fn func(Row) error) error {
 	if txn.owner.pk == nil {
 		return errNoKey
 	}
 
 	if idx, ok := txn.owner.pk.OffsetOf(key); ok {
-		return fmt.Errorf("column: key '%s' already exists at offset %d", key, idx)
+		return fmt.Errorf("column: key '%d' already exists at offset %d", key, idx)
 	}
 
 	// If not found, insert at a new index
 	idx, err := txn.insert(fn, 0)
-	txn.bufferFor(txn.owner.pk.name).PutString(commit.Put, idx, key)
+	txn.bufferFor(txn.owner.pk.name).PutInt64(commit.Put, idx, key)
 	return err
 }
 
 // UpsertKey inserts or updates a row given its corresponding primary key.
-func (txn *Txn) UpsertKey(key string, fn func(Row) error) error {
+func (txn *Txn) UpsertKey(key int64, fn func(Row) error) error {
 	if txn.owner.pk == nil {
 		return errNoKey
 	}
@@ -461,12 +461,12 @@ func (txn *Txn) UpsertKey(key string, fn func(Row) error) error {
 
 	// If not found, insert at a new index
 	idx, err := txn.insert(fn, 0)
-	txn.bufferFor(txn.owner.pk.name).PutString(commit.Put, idx, key)
+	txn.bufferFor(txn.owner.pk.name).PutInt64(commit.Put, idx, key)
 	return err
 }
 
 // QueryKey queries/updates a row given its corresponding primary key.
-func (txn *Txn) QueryKey(key string, fn func(Row) error) error {
+func (txn *Txn) QueryKey(key int64, fn func(Row) error) error {
 	if txn.owner.pk == nil {
 		return errNoKey
 	}
@@ -475,11 +475,11 @@ func (txn *Txn) QueryKey(key string, fn func(Row) error) error {
 		return txn.QueryAt(idx, fn)
 	}
 
-	return fmt.Errorf("column: key '%s' was not found", key)
+	return fmt.Errorf("column: key '%d' was not found", key)
 }
 
 // DeleteKey deletes a row for a given primary key.
-func (txn *Txn) DeleteKey(key string) error {
+func (txn *Txn) DeleteKey(key int64) error {
 	if txn.owner.pk == nil {
 		return errNoKey
 	}
@@ -489,7 +489,7 @@ func (txn *Txn) DeleteKey(key string) error {
 		return nil
 	}
 
-	return fmt.Errorf("column: key '%s' was not found", key)
+	return fmt.Errorf("column: key '%d' was not found", key)
 }
 
 // --------------------------- Commit & Rollback ----------------------------

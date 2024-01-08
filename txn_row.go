@@ -175,15 +175,15 @@ func (r Row) MergeFloat64(columnName string, value float64) {
 // --------------------------- Strings ----------------------------
 
 // Key loads a primary key value at a particular column
-func (r Row) Key() (v string, ok bool) {
+func (r Row) Key() (v int64, ok bool) {
 	if pk := r.txn.owner.pk; pk != nil {
-		v, ok = pk.LoadString(r.txn.cursor)
+		v, ok = pk.LoadInt64(r.txn.cursor)
 	}
 	return
 }
 
 // SetKey stores a primary key value at a particular column
-func (r Row) SetKey(key string) {
+func (r Row) SetKey(key int64) {
 	r.txn.Key().Set(key)
 }
 

@@ -17,7 +17,7 @@ func main() {
 
 	measure("insert", fmt.Sprintf("%v rows", amount), func() {
 		for i := 0; i < amount; i++ {
-			key := fmt.Sprintf("user_%d", i)
+			key := int64(i)
 			val := fmt.Sprintf("Hi, User %d", i)
 			cache.Set(key, val)
 
@@ -27,8 +27,8 @@ func main() {
 		}
 	}, 1)
 
-	key := fmt.Sprintf("user_%d", xxrand.Intn(amount))
-	measure("query", key, func() {
+	key := int64(xxrand.Intn(amount))
+	measure("query", fmt.Sprint(key), func() {
 		xxrand.Intn(amount)
 		fmt.Println(cache.Get(key))
 	}, 100000)
