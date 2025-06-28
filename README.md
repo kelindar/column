@@ -1,5 +1,5 @@
 <p align="center">
-<img width="330" height="110" src=".github/logo.png" border="0" alt="kelindar/column">
+<img width="300" height="100" src=".github/logo.png" border="0" alt="kelindar/column">
 <br>
 <img src="https://img.shields.io/github/go-mod/go-version/kelindar/column" alt="Go Version">
 <a href="https://pkg.go.dev/github.com/kelindar/column"><img src="https://pkg.go.dev/badge/github.com/kelindar/column" alt="PkgGoDev"></a>
